@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { items } from '~/constants/items'
+
 const online = useOnline()
 </script>
 
@@ -19,5 +21,10 @@ const online = useOnline()
       </template>
     </Suspense>
     <InputEntry />
+    <div grid grid-cols-2 gap="2">
+      <div v-for="item in items" :key="item.key">
+        <ItemCard :item="item" />
+      </div>
+    </div>
   </div>
 </template>

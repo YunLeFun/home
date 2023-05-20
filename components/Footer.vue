@@ -1,7 +1,7 @@
 <template>
-  <div text="xl gray4" m-5 flex="~ gap3" justify-center>
-    <NuxtLink i-carbon-campsite to="/" />
-    <a i-carbon-logo-github href="https://github.com/YunLeFun/home" target="_blank" />
-    <DarkToggle />
+  <div>
+    <a href="https://yunle.fun" target="_blank" class="mx-auto mt-5 text-center text-sm opacity-25">
+      @YunLeFun
+    </a>
   </div>
 </template>
