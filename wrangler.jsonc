@@ -14,8 +14,8 @@
   "workers_dev": true,
   "routes": [
     {
-      "pattern": "home.yunle.fun",
-      "custom_domain": true
+      "pattern": "home.yunle.fun/*",
+      "zone_name": "yunle.fun"
     }
   ],
   "keep_vars": true,
