@@ -1,0 +1,30 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "yun-home",
+  "account_id": "1c4b352e9e5f7d5655da259e1404ca80",
+  "main": ".output/server/index.mjs",
+  "compatibility_date": "2026-07-16",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "assets": {
+    "directory": ".output/public",
+    "binding": "ASSETS"
+  },
+  "workers_dev": true,
+  "routes": [
+    {
+      "pattern": "home.yunle.fun",
+      "custom_domain": true
+    }
+  ],
+  "keep_vars": true,
+  "observability": {
+    "enabled": true,
+    "logs": {
+      "enabled": true,
+      "invocation_logs": true
+    }
+  },
+  "upload_source_maps": true
+}

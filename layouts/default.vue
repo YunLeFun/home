@@ -1,7 +1,17 @@
+<script setup lang="ts">
+import { onMounted } from 'vue'
+
+const { refresh } = useYunleSession()
+
+onMounted(() => {
+  refresh()
+})
+</script>
+
 <template>
   <main class="px-4 text-center">
-    <Menu />
+    <AppMenu />
     <slot />
-    <Footer mt="4" />
+    <AppFooter mt="4" />
   </main>
 </template>

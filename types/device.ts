@@ -1,0 +1,114 @@
+export type DeviceKind = 'air-conditioner' | 'fan' | 'robot-vacuum' | 'hand-warmer'
+
+export type DeviceStateSyncStatus = 'local' | 'syncing' | 'synced' | 'unauthorized' | 'error'
+export type DeviceStateSyncBackend = 'cloudbase' | 'memory'
+
+export type AirConditionerMode = 'cold' | 'hot'
+
+export interface AirConditionerState {
+  status: boolean
+  mode: AirConditionerMode
+  temperature: number
+}
+
+export type AirConditionerAction =
+  | { type: 'increment' }
+  | { type: 'decrement' }
+  | { type: 'toggleStatus' }
+  | { type: 'status'; status: boolean }
+  | { type: 'mode'; mode: AirConditionerMode }
+  | { type: 'update'; payload: Partial<AirConditionerState> }
+
+export interface FanState {
+  power: boolean
+  speed: 1 | 2 | 3
+  oscillating: boolean
+  autoOffAt: string | null
+  stateChangedAt: string
+}
+
+export type FanAction =
+  | { type: 'toggle' }
+  | { type: 'set-speed'; speed: FanState['speed'] }
+  | { type: 'toggle-oscillation' }
+  | { type: 'set-timer'; minutes: number | null }
+
+export type RobotVacuumStatus = 'docked' | 'cleaning' | 'paused' | 'returning' | 'charging'
+export type RobotVacuumMode = 'quiet' | 'standard' | 'turbo'
+
+export interface RobotVacuumState {
+  status: RobotVacuumStatus
+  mode: RobotVacuumMode
+  progress: number
+  battery: number
+  cleanedArea: number
+  stateChangedAt: string
+}
+
+export type RobotVacuumAction =
+  | { type: 'start' }
+  | { type: 'pause' }
+  | { type: 'resume' }
+  | { type: 'return' }
+  | { type: 'dock' }
+  | { type: 'set-mode'; mode: RobotVacuumMode }
+
+export type HandWarmerLevel = 'low' | 'medium' | 'high'
+
+export interface HandWarmerState {
+  power: boolean
+  level: HandWarmerLevel
+  temperature: number
+  autoOffAt: string | null
+  stateChangedAt: string
+}
+
+export type HandWarmerAction =
+  | { type: 'toggle' }
+  | { type: 'set-level'; level: HandWarmerLevel }
+  | { type: 'set-timer'; minutes: number | null }
+
+export interface DeviceStateMap {
+  'air-conditioner': AirConditionerState
+  'fan': FanState
+  'robot-vacuum': RobotVacuumState
+  'hand-warmer': HandWarmerState
+}
+
+export interface DeviceActionMap {
+  'air-conditioner': AirConditionerAction
+  'fan': FanAction
+  'robot-vacuum': RobotVacuumAction
+  'hand-warmer': HandWarmerAction
+}
+
+export type DeviceRuntimeState = DeviceStateMap[DeviceKind]
+export type DeviceRuntimeAction = DeviceActionMap[DeviceKind]
+export type DeviceStateByKind<K extends DeviceKind> = DeviceStateMap[K]
+export type DeviceActionByKind<K extends DeviceKind> = DeviceActionMap[K]
+
+export interface DeviceStateChange<K extends DeviceKind = DeviceKind> {
+  deviceId: string
+  kind: K
+  state: DeviceStateByKind<K>
+  action?: DeviceActionByKind<K>
+  changedAt: string
+}
+
+export interface DeviceStateSyncResponse {
+  synced: boolean
+  deviceId: string
+  changedAt: string
+  backend: DeviceStateSyncBackend
+}
+
+export interface DeviceStateLoadResponse<TState = DeviceRuntimeState> {
+  found: boolean
+  deviceId: string
+  kind?: DeviceKind
+  changedAt?: string
+  backend: DeviceStateSyncBackend
+  state?: TState
+}
+
+export type AirConditionerStateChange = DeviceStateChange<'air-conditioner'>

@@ -13,7 +13,9 @@ export const pwa: ModuleOptions = {
     name: appName,
     short_name: appName,
     description: appDescription,
-    theme_color: '#ffffff',
+    lang: 'zh-CN',
+    background_color: '#f4f7fd',
+    theme_color: '#f4f7fd',
     icons: [
       {
         src: 'pwa-192x192.png',
@@ -38,36 +40,6 @@ export const pwa: ModuleOptions = {
     navigateFallbackDenylist: [/^\/api\//],
     navigateFallback: '/',
     cleanupOutdatedCaches: true,
-    runtimeCaching: [
-      {
-        urlPattern: /^https:\/\/fonts.googleapis.com\/.*/i,
-        handler: 'CacheFirst',
-        options: {
-          cacheName: 'google-fonts-cache',
-          expiration: {
-            maxEntries: 10,
-            maxAgeSeconds: 60 * 60 * 24 * 365, // <== 365 days
-          },
-          cacheableResponse: {
-            statuses: [0, 200],
-          },
-        },
-      },
-      {
-        urlPattern: /^https:\/\/fonts.gstatic.com\/.*/i,
-        handler: 'CacheFirst',
-        options: {
-          cacheName: 'gstatic-fonts-cache',
-          expiration: {
-            maxEntries: 10,
-            maxAgeSeconds: 60 * 60 * 24 * 365, // <== 365 days
-          },
-          cacheableResponse: {
-            statuses: [0, 200],
-          },
-        },
-      },
-    ],
   },
   registerWebManifestInRouteRules: true,
   writePlugin: true,
