@@ -1,17 +1,8 @@
 import { computed, shallowRef } from 'vue'
+import { startSsoRedirect } from '@yunlefun/sso'
 import { useCloudBaseClient } from './cloudbase'
-import { useCloudBaseSessionBridge } from './cloudbase-bridge'
-import type { CloudBaseSharedSession, YunleSession, YunleSessionReason } from '~/types'
+import type { CloudBaseSharedSession, YunleSession } from '~/types'
 import { createYunleSessionFromCloudBase } from '~/utils/cloudbase-session'
-
-function withReason(session: YunleSession, reason: YunleSessionReason): YunleSession {
-  return {
-    ...session,
-    authenticated: false,
-    user: null,
-    reason,
-  }
-}
 
 export function useYunleSession() {
   const session = useState<YunleSession | null>('yunle-session', () => null)
@@ -19,7 +10,6 @@ export function useYunleSession() {
   const error = shallowRef<string | null>(null)
   const isAuthenticated = computed(() => session.value?.authenticated === true)
   const cloudbase = useCloudBaseClient()
-  const bridge = useCloudBaseSessionBridge()
 
   async function fetchServerSession() {
     const redirect = typeof window === 'undefined' ? undefined : window.location.href
@@ -34,10 +24,8 @@ export function useYunleSession() {
     return createYunleSessionFromCloudBase({
       session: cloudbaseSession,
       cloudbase: serverSession.cloudbase,
-      loginUrl: serverSession.loginUrl,
       logoutUrl: serverSession.logoutUrl,
       authOrigin: serverSession.authOrigin,
-      appsOrigin: serverSession.appsOrigin,
     })
   }
 
@@ -53,17 +41,6 @@ export function useYunleSession() {
         return
       }
 
-      const bridgeSession = await bridge.requestSession()
-      if (bridgeSession.session) {
-        session.value = createSession(serverSession, bridgeSession.session)
-        return
-      }
-
-      if (bridgeSession.error === 'cloudbase_bridge_unavailable' || bridgeSession.error === 'cloudbase_bridge_denied') {
-        session.value = withReason(serverSession, bridgeSession.error)
-        return
-      }
-
       session.value = serverSession
     }
     catch (err) {
@@ -75,11 +52,31 @@ export function useYunleSession() {
     }
   }
 
+  async function login() {
+    const config = useRuntimeConfig()
+    pending.value = true
+    error.value = null
+    try {
+      await startSsoRedirect({
+        clientId: String(config.public.ssoClientId),
+        scope: ['identity:bootstrap'],
+        redirectUri: String(config.public.ssoRedirectUri),
+        ssoOrigin: String(config.public.ssoOrigin),
+      })
+    }
+    catch (cause) {
+      pending.value = false
+      error.value = cause instanceof Error ? cause.message : 'Unable to start YunLe SSO'
+      throw cause
+    }
+  }
+
   return {
     session,
     pending,
     error,
     isAuthenticated,
+    login,
     refresh,
   }
 }

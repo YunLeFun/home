@@ -19,7 +19,7 @@ const emit = defineEmits<{
   redo: []
 }>()
 
-const { session, pending, refresh } = useYunleSession()
+const { session, pending, login, refresh } = useYunleSession()
 const templateOptions = Object.values(HOME_TEMPLATES)
 const syncLabel = computed(() => {
   if (!props.syncEnabled)
@@ -80,14 +80,16 @@ onMounted(refresh)
         <span v-else class="i-carbon-edit" />
         {{ editMode ? '完成摆放' : '编辑家园' }}
       </button>
-      <a
+      <button
         v-if="!session?.authenticated"
         class="home-avatar"
         :class="{ 'is-pending': pending }"
-        :href="session?.loginUrl || 'https://www.yunle.fun'"
+        type="button"
+        :disabled="pending"
         title="登录 YunLe"
         aria-label="登录 YunLe"
-      >{{ userInitial }}</a>
+        @click="login"
+      >{{ userInitial }}</button>
       <span v-else class="home-avatar" :title="session.user?.name || 'YunLe 用户'">{{ userInitial }}</span>
     </div>
   </header>
