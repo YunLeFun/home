@@ -42,25 +42,26 @@ The first release includes `cloud-apartment`, `studio`, and `comfort-suite`. A f
 
 ## YunLe / CloudBase Auth
 
-For `www.yunle.fun`, `apps.yunle.fun`, and `home.yunle.fun`, CloudBase Web SDK sessions are origin-scoped. Do not share them through `localStorage`. The app uses the YunLeFun SSO bridge instead:
+CloudBase Web SDK sessions are origin-scoped and are never shared through `localStorage` or a host app. Home uses Web SSO v3:
 
 - Login happens on `www.yunle.fun` with CloudBase Web Auth.
-- `home.yunle.fun` loads `www.yunle.fun/auth/sso` in a hidden iframe with `targetOrigin` and `nonce`.
-- `www.yunle.fun/auth/sso` only responds to origins listed in `NUXT_PUBLIC_SSO_ALLOWED_TARGET_ORIGINS`.
-- `home.yunle.fun` receives the session and calls CloudBase `auth.setSession()` to establish its own origin-local session.
+- `home-web` is registered to the exact `https://home.yunle.fun/` redirect and `identity:bootstrap` scope.
+- Login is a top-level Authorization Code + S256 PKCE redirect; the callback validates issuer and nonce.
+- Home atomically exchanges the one-time code and passes the transient custom ticket only inside `signInWithCustomTicket`.
+- No iframe, popup, session forwarding, native host bridge, access token forwarding, or refresh token forwarding is supported.
 - Auth guards must use CloudBase `auth.getSession()`, not deprecated `getLoginState()`.
 
 Useful environment variables:
 
 ```bash
 NUXT_PUBLIC_SITE_ORIGIN=https://home.yunle.fun
-NUXT_PUBLIC_YUNLE_AUTH_ORIGIN=https://www.yunle.fun
-NUXT_PUBLIC_YUNLE_APPS_ORIGIN=https://apps.yunle.fun
+NUXT_PUBLIC_SSO_CLIENT_ID=home-web
+NUXT_PUBLIC_SSO_ORIGIN=https://www.yunle.fun
+NUXT_PUBLIC_SSO_EXCHANGE_URL=https://api.yunle.fun/sso-ticket
+NUXT_PUBLIC_SSO_REDIRECT_URI=https://home.yunle.fun/
 NUXT_PUBLIC_CLOUDBASE_ENV_ID=your-full-env-id
 NUXT_PUBLIC_CLOUDBASE_REGION=ap-shanghai
 NUXT_PUBLIC_CLOUDBASE_ACCESS_KEY=your-publishable-key
-NUXT_PUBLIC_CLOUDBASE_SESSION_BRIDGE_ORIGIN=https://www.yunle.fun
-NUXT_PUBLIC_CLOUDBASE_SESSION_BRIDGE_PATH=/auth/sso
 NUXT_PUBLIC_DEVICE_SYNC_ENABLED=false
 NUXT_PUBLIC_HOME_SYNC_ENABLED=false
 

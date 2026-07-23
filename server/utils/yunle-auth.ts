@@ -11,16 +11,10 @@ function buildAuthUrl(origin: string, path: string, redirectTo: string) {
   return url.toString()
 }
 
-function getRedirectTo(event: H3Event) {
-  const redirect = getQuery(event).redirect
-  return typeof redirect === 'string' ? redirect : getRequestURL(event).toString()
-}
-
-export function getYunleSession(event: H3Event): YunleSession {
+export function getYunleSession(_event: H3Event): YunleSession {
   const config = useRuntimeConfig()
-  const authOrigin = trimTrailingSlash(String(config.public.yunleAuthOrigin))
-  const appsOrigin = trimTrailingSlash(String(config.public.yunleAppsOrigin))
-  const redirectTo = getRedirectTo(event)
+  const authOrigin = trimTrailingSlash(String(config.public.ssoOrigin))
+  const siteOrigin = trimTrailingSlash(String(config.public.siteOrigin))
   const cloudbase = getCloudBasePublicConfig()
 
   return {
@@ -28,10 +22,8 @@ export function getYunleSession(event: H3Event): YunleSession {
     provider: 'cloudbase',
     user: null,
     reason: cloudbase.configured ? 'missing_cloudbase_session' : 'cloudbase_not_configured',
-    loginUrl: buildAuthUrl(authOrigin, '/login', redirectTo),
-    logoutUrl: buildAuthUrl(authOrigin, '/logout', appsOrigin),
+    logoutUrl: buildAuthUrl(authOrigin, '/logout', siteOrigin),
     authOrigin,
-    appsOrigin,
     cloudbase,
   }
 }
@@ -47,7 +39,5 @@ export function getCloudBasePublicConfig(): CloudBasePublicConfig {
     envId,
     region: String(config.public.cloudbaseRegion),
     accessKey,
-    sessionBridgeOrigin: trimTrailingSlash(String(config.public.cloudbaseSessionBridgeOrigin)),
-    sessionBridgePath: String(config.public.cloudbaseSessionBridgePath),
   }
 }

@@ -37,8 +37,6 @@ export function useCloudBaseClient() {
       envId,
       region: getPublicString(config.public.cloudbaseRegion, 'ap-shanghai'),
       accessKey,
-      sessionBridgeOrigin: getPublicString(config.public.cloudbaseSessionBridgeOrigin, 'https://www.yunle.fun').replace(/\/+$/, ''),
-      sessionBridgePath: getPublicString(config.public.cloudbaseSessionBridgePath, '/auth/sso'),
     }
   })
 
@@ -59,7 +57,7 @@ export function useCloudBaseClient() {
       region: activeConfig.region,
       accessKey: activeConfig.accessKey,
       auth: {
-        detectSessionInUrl: true,
+        detectSessionInUrl: false,
       },
     })
     cachedAuth = cachedApp.auth({ persistence: 'local' })
@@ -84,29 +82,10 @@ export function useCloudBaseClient() {
     return { session, error: null }
   }
 
-  async function setSharedSession(session: CloudBaseSharedSession): Promise<CloudBaseSessionResult> {
-    const auth = await getAuth()
-    if (!auth)
-      return { session: null, error: isConfigured.value ? 'cloudbase_client_unavailable' : 'cloudbase_not_configured' }
-
-    const result = await auth.setSession({
-      access_token: session.access_token,
-      refresh_token: session.refresh_token,
-    })
-    if (result.error)
-      return { session: null, error: result.error.message }
-
-    return {
-      session: toCloudBaseSharedSession(result.data.session),
-      error: null,
-    }
-  }
-
   return {
     config: cloudbaseConfig,
     isConfigured,
     getAuth,
     getSharedSession,
-    setSharedSession,
   }
 }

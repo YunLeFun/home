@@ -3,7 +3,6 @@ import type {
   CloudBaseSharedSession,
   CloudBaseSharedUser,
   YunleSession,
-  YunleSsoResultMessage,
 } from '~/types'
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -36,19 +35,6 @@ export function parseOriginList(value: string | undefined, fallback: string[] = 
     .split(',')
     .map(origin => origin.trim())
     .filter(Boolean)
-}
-
-export function isYunleSsoResultMessage(value: unknown): value is YunleSsoResultMessage {
-  if (!isRecord(value))
-    return false
-
-  if (value.type !== 'ylf:sso-result' || typeof value.nonce !== 'string' || typeof value.ok !== 'boolean')
-    return false
-
-  if (value.reason !== undefined && value.reason !== 'invalid_request' && value.reason !== 'not_authenticated')
-    return false
-
-  return true
 }
 
 export function isCloudBaseSharedSession(value: unknown): value is CloudBaseSharedSession {
@@ -94,10 +80,8 @@ export function toCloudBaseSharedSession(value: unknown): CloudBaseSharedSession
 export function createYunleSessionFromCloudBase(options: {
   session: CloudBaseSharedSession
   cloudbase: CloudBasePublicConfig
-  loginUrl: string
   logoutUrl: string
   authOrigin: string
-  appsOrigin: string
 }): YunleSession {
   const metadata = options.session.user?.user_metadata
   const metadataName = metadata ? getString(metadata.name) ?? getString(metadata.nickName) ?? getString(metadata.username) : undefined
@@ -113,10 +97,8 @@ export function createYunleSessionFromCloudBase(options: {
       name: metadataName,
       avatarUrl: metadataAvatar,
     },
-    loginUrl: options.loginUrl,
     logoutUrl: options.logoutUrl,
     authOrigin: options.authOrigin,
-    appsOrigin: options.appsOrigin,
     cloudbase: options.cloudbase,
   }
 }
