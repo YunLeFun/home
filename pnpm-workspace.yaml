@@ -5,6 +5,7 @@ nodeVersion: 24.18.0
 engineStrict: true
 
 overrides:
+  fast-uri: 3.1.4
   vue: 3.5.40
   vue-router: 5.2.0
 
