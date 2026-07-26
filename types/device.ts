@@ -1,7 +1,6 @@
 export type DeviceKind = 'air-conditioner' | 'fan' | 'robot-vacuum' | 'hand-warmer' | 'television'
 
 export type DeviceStateSyncStatus = 'local' | 'syncing' | 'synced' | 'unauthorized' | 'error'
-export type DeviceStateSyncBackend = 'cloudbase' | 'memory'
 
 export type AirConditionerMode = 'cold' | 'hot'
 
@@ -105,29 +104,3 @@ export type DeviceRuntimeState = DeviceStateMap[DeviceKind]
 export type DeviceRuntimeAction = DeviceActionMap[DeviceKind]
 export type DeviceStateByKind<K extends DeviceKind> = DeviceStateMap[K]
 export type DeviceActionByKind<K extends DeviceKind> = DeviceActionMap[K]
-
-export interface DeviceStateChange<K extends DeviceKind = DeviceKind> {
-  deviceId: string
-  kind: K
-  state: DeviceStateByKind<K>
-  action?: DeviceActionByKind<K>
-  changedAt: string
-}
-
-export interface DeviceStateSyncResponse {
-  synced: boolean
-  deviceId: string
-  changedAt: string
-  backend: DeviceStateSyncBackend
-}
-
-export interface DeviceStateLoadResponse<TState = DeviceRuntimeState> {
-  found: boolean
-  deviceId: string
-  kind?: DeviceKind
-  changedAt?: string
-  backend: DeviceStateSyncBackend
-  state?: TState
-}
-
-export type AirConditionerStateChange = DeviceStateChange<'air-conditioner'>

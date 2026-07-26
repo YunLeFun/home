@@ -179,7 +179,7 @@ const defaultPlacements: Record<HomeTemplateId, VirtualHomeState['placements']> 
   ],
 }
 
-export function createDefaultHomeState(templateId: HomeTemplateId = 'cloud-apartment', changedAt = new Date().toISOString()): VirtualHomeState {
+export function createDefaultHomeState(templateId: HomeTemplateId = 'cloud-apartment', changedAt = '1970-01-01T00:00:00.000Z'): VirtualHomeState {
   return {
     version: 1,
     templateId,

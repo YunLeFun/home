@@ -16,19 +16,16 @@ export default defineNuxtConfig({
 
   css: [
     '@unocss/reset/tailwind.css',
+    '@yunlefun-home/air-conditioner/style.css',
     '~/styles/css-vars.css',
     '~/styles/index.scss',
   ],
 
   runtimeConfig: {
-    cloudbaseApiKey: '',
-    cloudbaseAllowMemoryFallback: process.env.NODE_ENV !== 'production',
-    cloudbaseDeviceStatesCollection: 'home_device_states',
-    cloudbaseHomeLayoutsCollection: 'home_layouts',
     public: {
       siteOrigin: 'https://home.yunle.fun',
-      deviceSyncEnabled: false,
-      homeSyncEnabled: false,
+      deviceSyncEnabled: true,
+      homeSyncEnabled: true,
       ssoClientId: 'home-web',
       ssoOrigin: 'https://www.yunle.fun',
       ssoExchangeUrl: 'https://api.yunle.fun/sso-ticket',
@@ -36,6 +33,8 @@ export default defineNuxtConfig({
       cloudbaseEnvId: '',
       cloudbaseRegion: 'ap-shanghai',
       cloudbaseAccessKey: '',
+      cloudbaseDeviceStatesCollection: 'home_device_states',
+      cloudbaseHomeLayoutsCollection: 'home_layouts',
     },
   },
 

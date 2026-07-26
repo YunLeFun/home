@@ -18,7 +18,7 @@ const definition = computed(() => HOME_DEVICES[props.deviceId])
     </header>
     <main class="device-detail__main">
       <section class="device-detail__intro">
-        <span class="device-detail__eyebrow">Yun Home Device</span>
+        <span class="device-detail__eyebrow">云之彼端设备</span>
         <h1>{{ definition.name }}</h1>
         <p>{{ definition.description }}。设备状态会在本地即时响应，并在登录后同步到你的云之彼端。</p>
         <div class="device-detail__vector">

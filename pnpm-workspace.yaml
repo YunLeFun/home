@@ -5,7 +5,9 @@ nodeVersion: 24.18.0
 engineStrict: true
 
 overrides:
+  brace-expansion@<=5.0.7: ^5.0.8
   fast-uri: 3.1.4
+  tar@<=7.5.20: ^7.5.21
   vue: 3.5.40
   vue-router: 5.2.0
 
@@ -18,6 +20,8 @@ allowBuilds:
   workerd: true
 
 minimumReleaseAgeExclude:
+  - '@yunlefun-home/air-conditioner-core@0.2.0'
+  - '@yunlefun-home/air-conditioner@0.2.0'
   - '@vue/compiler-core@3.5.40'
   - '@vue/compiler-dom@3.5.40'
   - '@vue/compiler-sfc@3.5.40'
@@ -31,3 +35,5 @@ minimumReleaseAgeExclude:
   - vue-router@5.2.0
   - vue@3.5.40
   - '@yunlefun/sso@0.5.0'
+  - tar@7.5.21
+  - brace-expansion@5.0.8

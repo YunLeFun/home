@@ -17,10 +17,6 @@ export function isHomeTemplateId(value: unknown): value is HomeTemplateId {
   return value === 'cloud-apartment' || value === 'studio' || value === 'comfort-suite'
 }
 
-export function hasHomeRevisionConflict(current: VirtualHomeState | null, requested: VirtualHomeState) {
-  return requested.revision !== (current?.revision ?? 0)
-}
-
 export function getPolygonBounds(points: HomePoint[]) {
   const xs = points.map(point => point.x)
   const ys = points.map(point => point.y)

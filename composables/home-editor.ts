@@ -1,6 +1,7 @@
 import { computed, onMounted, onUnmounted, readonly, shallowRef, watch } from 'vue'
 import { HOME_TEMPLATES, createDefaultHomeState } from '~/constants/home'
-import type { DeviceKind, DevicePlacement, HomePoint, HomeStateLoadResponse, HomeStateSyncResponse, HomeSyncStatus, HomeTemplateId, VirtualHomeState } from '~/types'
+import type { DeviceKind, DevicePlacement, HomePoint, HomeSyncStatus, HomeTemplateId, VirtualHomeState } from '~/types'
+import { selectCloudSyncDirection } from '~/utils/cloud-sync'
 import { clamp, createPlacementAtPoint, createPlacementInRoom, hasPlacementCollision, normalizeHomeState } from '~/utils/home'
 
 const STORAGE_KEY = 'yun-home:layout:v1'
@@ -13,17 +14,10 @@ function cloneState(state: VirtualHomeState): VirtualHomeState {
   }
 }
 
-function getStatusCode(error: unknown) {
-  if (error && typeof error === 'object' && 'statusCode' in error) {
-    const code = Number((error as { statusCode?: unknown }).statusCode)
-    return Number.isFinite(code) ? code : undefined
-  }
-  return undefined
-}
-
 export function useHomeEditor() {
   const config = useRuntimeConfig()
   const cloudbase = useCloudBaseClient()
+  const cloudSync = useCloudSync()
   const state = useState<VirtualHomeState>('virtual-home-state', () => createDefaultHomeState())
   const hydrated = useState('virtual-home-hydrated', () => false)
   const selectedDeviceId = useState<DeviceKind | null>('virtual-home-selected-device', () => null)
@@ -33,7 +27,6 @@ export function useHomeEditor() {
   const syncError = useState<string | null>('virtual-home-sync-error', () => null)
   const history = shallowRef<VirtualHomeState[]>([])
   const future = shallowRef<VirtualHomeState[]>([])
-  const applyingRemote = shallowRef(false)
   let syncTimer: ReturnType<typeof setTimeout> | undefined
 
   const template = computed(() => HOME_TEMPLATES[state.value.templateId])
@@ -41,7 +34,16 @@ export function useHomeEditor() {
   const selectedPlacement = computed(() => state.value.placements.find(item => item.deviceId === selectedDeviceId.value))
   const canUndo = computed(() => history.value.length > 0)
   const canRedo = computed(() => future.value.length > 0)
-  const syncEnabled = computed(() => config.public.homeSyncEnabled === true)
+  const collection = computed(() => String(config.public.cloudbaseHomeLayoutsCollection || 'home_layouts'))
+  const syncEnabled = computed(() => config.public.homeSyncEnabled === true && cloudbase.isConfigured.value)
+
+  function scheduleSync() {
+    if (!syncEnabled.value)
+      return
+    if (syncTimer)
+      clearTimeout(syncTimer)
+    syncTimer = setTimeout(reconcileCloudState, 500)
+  }
 
   function setState(next: VirtualHomeState, recordHistory = true) {
     if (recordHistory) {
@@ -50,8 +52,10 @@ export function useHomeEditor() {
     }
     state.value = {
       ...cloneState(next),
+      revision: state.value.revision + 1,
       changedAt: new Date().toISOString(),
     }
+    scheduleSync()
   }
 
   function updatePlacement(deviceId: DeviceKind, placement: DevicePlacement) {
@@ -143,79 +147,51 @@ export function useHomeEditor() {
     setState(next, false)
   }
 
-  async function getAuthHeaders() {
-    let session = await cloudbase.getSharedSession()
-    if (!session.session) {
-      await useYunleSession().refresh()
-      session = await cloudbase.getSharedSession()
-    }
-    const accessToken = session.session?.access_token
-    if (!accessToken)
-      throw Object.assign(new Error('登录 YunLe 后即可同步家园'), { statusCode: 401 })
-    return { Authorization: `Bearer ${accessToken}` }
-  }
-
-  async function loadRemoteState() {
-    if (!syncEnabled.value)
-      return
-    syncStatus.value = 'syncing'
-    syncError.value = null
-    try {
-      const result = await $fetch<HomeStateLoadResponse>('/api/home/state', { headers: await getAuthHeaders() })
-      if (result.found && result.state) {
-        applyingRemote.value = true
-        state.value = normalizeHomeState(result.state)
-        applyingRemote.value = false
-        syncStatus.value = 'synced'
-      }
-      else {
-        syncStatus.value = 'local'
-      }
-    }
-    catch (error) {
-      syncStatus.value = getStatusCode(error) === 401 ? 'unauthorized' : 'error'
-      syncError.value = error instanceof Error ? error.message : '家园同步失败'
+  function getRecordOptions() {
+    return {
+      collection: collection.value,
+      keyField: 'slot' as const,
+      keyValue: 'primary',
     }
   }
 
-  async function syncState() {
-    if (!syncEnabled.value || applyingRemote.value)
+  async function reconcileCloudState() {
+    if (!syncEnabled.value || !hydrated.value)
       return
+
     syncStatus.value = 'syncing'
     syncError.value = null
     try {
-      const result = await $fetch<HomeStateSyncResponse>('/api/home/state', {
-        method: 'PUT',
-        headers: await getAuthHeaders(),
-        body: state.value,
-      })
-      applyingRemote.value = true
-      state.value = normalizeHomeState(result.state)
-      applyingRemote.value = false
+      const remote = await cloudSync.readRecord<VirtualHomeState>(getRecordOptions())
+      const direction = selectCloudSyncDirection(state.value.changedAt, remote?.changedAt ?? null)
+
+      if (direction === 'pull' && remote) {
+        state.value = {
+          ...normalizeHomeState(remote.state),
+          changedAt: remote.changedAt,
+        }
+      }
+      else if (direction === 'push') {
+        const winningRemote = await cloudSync.writeRecord(getRecordOptions(), state.value, state.value.changedAt, remote)
+        if (winningRemote && selectCloudSyncDirection(state.value.changedAt, winningRemote.changedAt) === 'pull') {
+          state.value = {
+            ...normalizeHomeState(winningRemote.state),
+            changedAt: winningRemote.changedAt,
+          }
+        }
+      }
       syncStatus.value = 'synced'
     }
     catch (error) {
-      const code = getStatusCode(error)
-      if (code === 409) {
-        syncStatus.value = 'conflict'
-        syncError.value = '检测到其他窗口的更新，已重新载入云端布局'
-        await loadRemoteState()
-      }
-      else {
-        syncStatus.value = code === 401 ? 'unauthorized' : 'error'
-        syncError.value = error instanceof Error ? error.message : '家园同步失败'
-      }
+      syncStatus.value = isCloudSyncUnauthorizedError(error) ? 'unauthorized' : 'error'
+      syncError.value = isCloudSyncUnauthorizedError(error)
+        ? '登录 YunLe 后即可同步家园'
+        : error instanceof Error ? error.message : '家园同步失败'
     }
   }
 
-  function scheduleSync() {
-    if (syncTimer)
-      clearTimeout(syncTimer)
-    syncTimer = setTimeout(syncState, 500)
-  }
-
   function refreshFromCloud() {
-    void loadRemoteState()
+    void reconcileCloudState()
   }
 
   onMounted(() => {
@@ -247,7 +223,7 @@ export function useHomeEditor() {
       activeRoomId.value = template.value.rooms[0]?.id ?? null
     window.addEventListener('focus', refreshFromCloud)
     window.addEventListener('online', refreshFromCloud)
-    void loadRemoteState()
+    void reconcileCloudState()
   })
 
   onUnmounted(() => {
@@ -261,8 +237,6 @@ export function useHomeEditor() {
     if (typeof window === 'undefined' || !hydrated.value)
       return
     localStorage.setItem(STORAGE_KEY, JSON.stringify(value))
-    if (!applyingRemote.value)
-      scheduleSync()
   }, { deep: true })
 
   watch([activeRoomId, () => state.value.templateId], ([roomId, templateId]) => {

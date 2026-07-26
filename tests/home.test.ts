@@ -5,14 +5,13 @@ import {
   createPlacementInRoom,
   findSurfaceAtPoint,
   getPointAlongRoute,
-  hasHomeRevisionConflict,
   normalizeHomeState,
   placementToWorld,
   surfacePointToWorld,
   worldPointToSurface,
 } from '~/utils/home'
 
-describe('virtual home projection', () => {
+describe('cloud home projection', () => {
   const template = HOME_TEMPLATES['cloud-apartment']
 
   it('projects stable local surface coordinates into world coordinates', () => {
@@ -69,7 +68,7 @@ describe('virtual home projection', () => {
   })
 })
 
-describe('virtual home persistence', () => {
+describe('cloud home persistence', () => {
   it('normalizes corrupted local data and restores all device slots', () => {
     const state = normalizeHomeState({ templateId: 'studio', placements: [{ deviceId: 'fan', u: 7, v: -2 }] })
 
@@ -79,14 +78,8 @@ describe('virtual home persistence', () => {
     expect(state.placements.find(item => item.deviceId === 'television')?.surfaceId).toBe('studio-wall')
   })
 
-  it('detects optimistic revision conflicts', () => {
-    const remote = createDefaultHomeState()
-    remote.revision = 4
-    const local = createDefaultHomeState()
-    local.revision = 3
-
-    expect(hasHomeRevisionConflict(remote, local)).toBe(true)
-    local.revision = 4
-    expect(hasHomeRevisionConflict(remote, local)).toBe(false)
+  it('starts untouched homes at the migration epoch so cloud state wins', () => {
+    expect(createDefaultHomeState().changedAt).toBe('1970-01-01T00:00:00.000Z')
   })
+
 })
