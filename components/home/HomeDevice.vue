@@ -129,6 +129,7 @@ function onKeydown(event: KeyboardEvent) {
 }
 
 .home-device[data-device="air-conditioner"] { --device-anchor-y: -50%; }
+.home-device[data-device="television"] { --device-anchor-y: -54%; aspect-ratio: 16 / 10; }
 .home-device[data-device="robot-vacuum"] { --device-anchor-y: -54%; }
 .home-device[data-device="fan"] { --device-anchor-y: -88%; }
 .home-device[data-device="hand-warmer"] { --device-anchor-y: -88%; }

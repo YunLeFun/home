@@ -19,10 +19,11 @@
         <path d="M83 287c43-45 88-19 153-84v104H71Z" fill="#91a8c4" fill-opacity=".5" />
       </g>
 
-      <g data-furniture-id="living-wall-art">
-        <rect x="405" y="125" width="115" height="150" rx="7" fill="#fbfcff" stroke="#a5b1c5" stroke-width="5" />
-        <path d="M426 241c25-54 45-62 74-92v102h-74Z" fill="#aabce1" />
-        <circle cx="448" cy="171" r="18" fill="#e7c5bc" />
+      <g data-furniture-id="living-media-console" filter="url(#yun-home-soft-shadow)">
+        <rect x="336" y="350" width="218" height="57" rx="9" fill="url(#yun-home-wood)" stroke="#8b7567" stroke-width="3" />
+        <path d="M408 350v57M480 350v57" stroke="#9a8272" stroke-width="2" />
+        <circle cx="444" cy="378" r="3" fill="#6f5d55" />
+        <path d="M353 407v24M537 407v24" stroke="#78665d" stroke-width="8" />
       </g>
 
       <g data-furniture-id="living-sofa" filter="url(#yun-home-shadow)">

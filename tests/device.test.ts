@@ -40,11 +40,25 @@ describe('device state reducers', () => {
     expect(high).toMatchObject({ power: true, level: 'high', temperature: 48 })
   })
 
+  it('controls television power, playback and volume independently', () => {
+    let state = createDefaultDeviceState('television', changedAt)
+    state = reduceDeviceState('television', state, { type: 'play' }, changedAt)
+    state = reduceDeviceState('television', state, { type: 'set-volume', volume: 72 }, changedAt)
+    state = reduceDeviceState('television', state, { type: 'toggle-muted' }, changedAt)
+
+    expect(state).toMatchObject({ power: true, playing: true, volume: 72, muted: true })
+
+    state = reduceDeviceState('television', state, { type: 'toggle-power' }, changedAt)
+    expect(state).toMatchObject({ power: false, playing: false })
+  })
+
   it('normalizes remote values into supported ranges', () => {
     const state = normalizeDeviceState('robot-vacuum', { status: 'cleaning', mode: 'turbo', progress: 4, battery: -1, cleanedArea: 22, stateChangedAt: changedAt })
+    const television = normalizeDeviceState('television', { power: false, playing: true, volume: 999, sourceUrl: 'https://media.example.com/video.mp4', stateChangedAt: changedAt })
 
     expect(state.progress).toBe(1)
     expect(state.battery).toBe(0)
+    expect(television).toMatchObject({ power: false, playing: false, volume: 100 })
   })
 
   it('rejects unsafe timer values at the API boundary', () => {
@@ -52,5 +66,8 @@ describe('device state reducers', () => {
     expect(isDeviceAction('fan', { type: 'set-timer', minutes: -1 })).toBe(false)
     expect(isDeviceAction('hand-warmer', { type: 'set-timer', minutes: 1441 })).toBe(false)
     expect(isDeviceAction('hand-warmer', { type: 'set-timer', minutes: 120 })).toBe(true)
+    expect(isDeviceAction('television', { type: 'set-source', sourceUrl: 'javascript:alert(1)' })).toBe(false)
+    expect(isDeviceAction('television', { type: 'set-source', sourceUrl: 'https://user:secret@media.example.com/video.mp4' })).toBe(false)
+    expect(isDeviceAction('television', { type: 'set-source', sourceUrl: 'https://media.example.com/video.mp4' })).toBe(true)
   })
 })

@@ -165,11 +165,13 @@ export function createPlacementInRoom(
 ) {
   const preferredPoint = deviceId === 'air-conditioner'
     ? { u: 0.3, v: 0.24 }
-    : deviceId === 'fan'
-      ? { u: 0.82, v: 0.52 }
-      : deviceId === 'robot-vacuum'
-        ? { u: 0.16, v: 0.78 }
-        : { u: 0.52, v: 0.44 }
+    : deviceId === 'television'
+      ? { u: 0.72, v: 0.5 }
+      : deviceId === 'fan'
+        ? { u: 0.82, v: 0.52 }
+        : deviceId === 'robot-vacuum'
+          ? { u: 0.16, v: 0.78 }
+          : { u: 0.52, v: 0.44 }
   const candidates = [
     preferredPoint,
     { u: 0.5, v: 0.5 },

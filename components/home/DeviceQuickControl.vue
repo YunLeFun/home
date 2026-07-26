@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 import HomeDeviceGlyph from './HomeDeviceGlyph.vue'
 import { HOME_DEVICES } from '~/constants/home'
-import type { DeviceKind, FanState, HandWarmerState, RobotVacuumState } from '~/types'
+import type { DeviceKind, FanState, HandWarmerState, RobotVacuumState, TelevisionState } from '~/types'
 
 const props = withDefaults(defineProps<{
   deviceId: DeviceKind
@@ -14,11 +14,13 @@ const airConditioner = useDeviceState('air-conditioner')
 const fan = useDeviceState('fan')
 const robot = useDeviceState('robot-vacuum')
 const warmer = useDeviceState('hand-warmer')
+const television = useDeviceState('television')
 const definition = computed(() => HOME_DEVICES[props.deviceId])
 const acState = computed(() => airConditioner.state.value)
 const fanState = computed(() => fan.state.value as FanState)
 const robotState = computed(() => robot.state.value as RobotVacuumState)
 const warmerState = computed(() => warmer.state.value as HandWarmerState)
+const televisionState = computed(() => television.state.value as TelevisionState)
 const robotVisualProgress = computed(() => robot.visualProgress.value)
 const syncStatus = computed(() => {
   if (props.deviceId === 'air-conditioner')
@@ -27,7 +29,9 @@ const syncStatus = computed(() => {
     return fan.syncStatus.value
   if (props.deviceId === 'robot-vacuum')
     return robot.syncStatus.value
-  return warmer.syncStatus.value
+  if (props.deviceId === 'hand-warmer')
+    return warmer.syncStatus.value
+  return television.syncStatus.value
 })
 const syncLabel = computed(() => {
   if (syncStatus.value === 'syncing')
@@ -83,6 +87,22 @@ function toggleWarmer() {
 
 function setWarmerLevel(level: HandWarmerState['level']) {
   warmer.dispatch({ type: 'set-level', level })
+}
+
+function toggleTelevisionPower() {
+  television.dispatch({ type: 'toggle-power' })
+}
+
+function toggleTelevisionPlayback() {
+  television.dispatch({ type: televisionState.value.playing ? 'pause' : 'play' })
+}
+
+function setTelevisionVolume(event: Event) {
+  television.dispatch({ type: 'set-volume', volume: Number((event.target as HTMLInputElement).value) })
+}
+
+function toggleTelevisionMuted() {
+  television.dispatch({ type: 'toggle-muted' })
 }
 </script>
 
@@ -163,7 +183,7 @@ function setWarmerLevel(level: HandWarmerState['level']) {
       </button>
     </section>
 
-    <section v-else class="quick-control__body">
+    <section v-else-if="deviceId === 'hand-warmer'" class="quick-control__body">
       <div class="quick-control__hero">
         <button class="power-orb is-warm" :class="{ 'is-on': warmerState.power }" type="button" :aria-label="warmerState.power ? '关闭暖手宝' : '开启暖手宝'" :aria-pressed="warmerState.power" @click="toggleWarmer">
           <span class="i-carbon-power" />
@@ -180,6 +200,31 @@ function setWarmerLevel(level: HandWarmerState['level']) {
       </div>
     </section>
 
+    <section v-else class="quick-control__body">
+      <div class="quick-control__hero">
+        <button class="power-orb is-television" :class="{ 'is-on': televisionState.power }" type="button" :aria-label="televisionState.power ? '关闭电视' : '开启电视'" :aria-pressed="televisionState.power" @click="toggleTelevisionPower">
+          <span class="i-carbon-power" />
+        </button>
+        <div><strong>{{ televisionState.volume }}<sup>%</sup></strong><small>{{ televisionState.power ? (televisionState.playing ? '在线视频播放中' : '电视已开启') : '待机' }}</small></div>
+      </div>
+      <div class="television-remote">
+        <button type="button" :disabled="!televisionState.power" :aria-label="televisionState.playing ? '暂停视频' : '播放视频'" @click="toggleTelevisionPlayback">
+          <span :class="televisionState.playing ? 'i-carbon-pause-filled' : 'i-carbon-play-filled-alt'" />{{ televisionState.playing ? '暂停' : '播放' }}
+        </button>
+        <button type="button" :disabled="!televisionState.power" :aria-label="televisionState.muted ? '取消静音' : '静音'" :aria-pressed="televisionState.muted" @click="toggleTelevisionMuted">
+          <span :class="televisionState.muted ? 'i-carbon-volume-mute' : 'i-carbon-volume-up'" />{{ televisionState.muted ? '取消静音' : '静音' }}
+        </button>
+      </div>
+      <label class="volume-control">
+        <span class="i-carbon-volume-down" /><span class="sr-only">电视音量</span>
+        <input :value="televisionState.volume" type="range" min="0" max="100" step="1" :disabled="!televisionState.power" @input="setTelevisionVolume">
+        <span class="i-carbon-volume-up" />
+      </label>
+      <div class="quick-control__note">
+        <span class="i-carbon-play-outline" />支持 HTTPS MP4 / WebM 在线片源
+      </div>
+    </section>
+
     <NuxtLink v-if="!standalone" class="quick-control__full" :to="definition.route">
       完整控制 <span class="i-carbon-arrow-right" />
     </NuxtLink>
@@ -188,6 +233,7 @@ function setWarmerLevel(level: HandWarmerState['level']) {
 
 <style scoped>
 .quick-control { display: grid; gap: 15px; width: 310px; padding: 18px; border: 1px solid rgba(173, 186, 218, 0.64); border-radius: 24px; background: rgba(249, 251, 255, 0.92); box-shadow: 0 24px 70px rgba(47, 62, 103, 0.23); color: #35405a; backdrop-filter: blur(22px); }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); }
 .quick-control.is-standalone { width: min(100%, 420px); }
 .quick-control__header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .quick-control__header > button { display: grid; place-items: center; width: 30px; height: 30px; border: 0; border-radius: 10px; background: rgba(229, 234, 247, 0.8); color: #75809a; cursor: pointer; }
@@ -208,6 +254,8 @@ function setWarmerLevel(level: HandWarmerState['level']) {
 .power-orb { display: grid; place-items: center; width: 68px; height: 68px; border: 1px solid rgba(143, 161, 210, 0.42); border-radius: 50%; background: linear-gradient(145deg, #fdfdff, #dce5fa); box-shadow: 6px 7px 15px rgba(77, 98, 150, 0.14), inset 0 1px 2px white; color: #7d8daf; font-size: 21px; cursor: pointer; }
 .power-orb.is-on { border-color: rgba(115, 145, 232, 0.68); background: linear-gradient(145deg, #8ca5ed, #6c81ce); box-shadow: 0 0 0 7px rgba(111, 139, 223, 0.12), 0 10px 22px rgba(75, 98, 173, 0.3); color: white; }
 .power-orb.is-warm.is-on { border-color: rgba(232, 164, 135, 0.7); background: linear-gradient(145deg, #f4ae8e, #df8f77); box-shadow: 0 0 0 7px rgba(236, 164, 134, 0.12), 0 10px 22px rgba(183, 111, 88, 0.24); }
+.power-orb.is-television { border-color: rgba(81, 91, 111, 0.5); background: linear-gradient(145deg, #4d5668, #262d3a); color: #abb6cc; }
+.power-orb.is-television.is-on { border-color: rgba(126, 159, 235, 0.78); background: linear-gradient(145deg, #728ed0, #435a94); box-shadow: 0 0 0 7px rgba(92, 123, 197, 0.13), 0 10px 22px rgba(51, 68, 112, 0.34); color: white; }
 .control-stepper { display: grid; grid-template-columns: 44px 1fr 44px; align-items: center; overflow: hidden; height: 42px; border: 1px solid rgba(171, 185, 218, 0.5); border-radius: 14px; background: rgba(245, 248, 254, 0.88); text-align: center; }
 .control-stepper button { height: 100%; border: 0; background: transparent; color: #6679ac; font-size: 18px; cursor: pointer; }
 .control-stepper button:disabled { color: #b2bacb; cursor: not-allowed; }
@@ -223,6 +271,12 @@ function setWarmerLevel(level: HandWarmerState['level']) {
 .robot-stats small { color: #9099ac; font-size: 9px; }
 .robot-stats strong { font-size: 13px; }
 .quick-control__note { display: flex; align-items: center; gap: 7px; color: #929caf; font-size: 9px; }
+.television-remote { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.television-remote button { display: flex; align-items: center; justify-content: center; gap: 7px; min-height: 40px; border: 1px solid rgba(151, 169, 211, 0.5); border-radius: 13px; background: rgba(245, 248, 254, 0.94); color: #65769e; font: inherit; font-size: 10px; font-weight: 700; cursor: pointer; }
+.television-remote button:disabled { cursor: not-allowed; opacity: .45; }
+.volume-control { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 9px; color: #7a88a6; font-size: 14px; }
+.volume-control input { width: 100%; accent-color: #7188cf; cursor: pointer; }
+.volume-control input:disabled { cursor: not-allowed; opacity: .45; }
 .quick-control__full { display: flex; align-items: center; justify-content: center; gap: 7px; min-height: 40px; border-radius: 13px; background: #7589d5; box-shadow: 0 9px 20px rgba(77, 100, 178, 0.24); color: white; font-size: 11px; font-weight: 700; text-decoration: none; }
 @media (max-width: 720px) { .quick-control { width: 100%; padding: 15px; border-radius: 22px 22px 0 0; } .quick-control__hero { grid-template-columns: 64px 1fr; } .power-orb { width: 58px; height: 58px; } }
 </style>

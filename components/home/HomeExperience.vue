@@ -14,6 +14,7 @@ const robot = useDeviceState('robot-vacuum')
 const airConditioner = useDeviceState('air-conditioner')
 const fan = useDeviceState('fan')
 const warmer = useDeviceState('hand-warmer')
+const television = useDeviceState('television')
 const sceneRef = shallowRef<SceneApi | null>(null)
 const trayDrag = shallowRef<{ deviceId: DeviceKind; x: number; y: number } | null>(null)
 const notice = shallowRef<string | null>(null)
@@ -34,6 +35,8 @@ const activeDevices = computed<DeviceKind[]>(() => {
     active.push('robot-vacuum')
   if (warmer.state.value.power)
     active.push('hand-warmer')
+  if (television.state.value.power)
+    active.push('television')
   return active
 })
 

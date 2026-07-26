@@ -23,7 +23,7 @@ pnpm check
 
 ## Device Architecture
 
-The application owns device instances, runtime state, room placement, authentication, and cloud synchronization. Air-conditioner, fan, robot-vacuum, and hand-warmer reducers are framework-independent utilities under `utils/device.ts`; Vue components only render state and dispatch typed actions.
+The application owns device instances, runtime state, room placement, authentication, and cloud synchronization. Television, air-conditioner, fan, robot-vacuum, and hand-warmer reducers are framework-independent utilities under `utils/device.ts`; Vue components only render state and dispatch typed actions. The television is a movable wall device with independent power, playback, volume, mute, and HTTPS MP4/WebM source controls.
 
 The production build has no sibling-repository `link:` dependencies and no runtime font/image proxy. The browser uses the maintained `@cloudbase/js-sdk` v3 for authentication. The server uses CloudBase's official NoSQL HTTP API with native `fetch`, so the Worker does not load Node-only websocket, JWT, or form-data adapters. A future published device UI package can be integrated as an optional renderer without moving the home or cloud state model out of this application.
 

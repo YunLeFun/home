@@ -19,10 +19,9 @@
       </g>
 
       <g data-furniture-id="suite-media-unit">
-        <rect x="520" y="145" width="207" height="126" rx="10" fill="#66758d" stroke="#4e5d75" stroke-width="4" />
-        <rect x="533" y="158" width="181" height="100" rx="5" fill="#9db4ce" />
-        <path d="M614 271v38M570 309h89" stroke="#728099" stroke-width="9" stroke-linecap="round" />
         <rect x="508" y="320" width="233" height="65" rx="10" fill="url(#yun-home-wood)" stroke="#8b7567" stroke-width="3" />
+        <path d="M586 320v65M663 320v65" stroke="#9a8272" stroke-width="2" />
+        <circle cx="625" cy="352" r="3" fill="#6f5d55" />
         <path d="M530 385v28M718 385v28" stroke="#78665d" stroke-width="9" />
       </g>
 

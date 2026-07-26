@@ -36,9 +36,11 @@ describe('virtual home projection', () => {
 
   it('only snaps devices to compatible surfaces', () => {
     const wall = findSurfaceAtPoint(template, 'air-conditioner', { x: 200, y: 220 })
+    const televisionWall = findSurfaceAtPoint(template, 'television', { x: 440, y: 280 })
     const invalid = findSurfaceAtPoint(template, 'fan', { x: 200, y: 220 })
 
     expect(wall?.surface.kind).toBe('wall')
+    expect(televisionWall?.surface.id).toBe('living-wall')
     expect(invalid).toBeNull()
   })
 
@@ -72,8 +74,9 @@ describe('virtual home persistence', () => {
     const state = normalizeHomeState({ templateId: 'studio', placements: [{ deviceId: 'fan', u: 7, v: -2 }] })
 
     expect(state.templateId).toBe('studio')
-    expect(state.placements).toHaveLength(4)
+    expect(state.placements).toHaveLength(5)
     expect(state.placements.find(item => item.deviceId === 'fan')).toMatchObject({ u: 1, v: 0 })
+    expect(state.placements.find(item => item.deviceId === 'television')?.surfaceId).toBe('studio-wall')
   })
 
   it('detects optimistic revision conflicts', () => {

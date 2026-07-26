@@ -1,4 +1,4 @@
-export type DeviceKind = 'air-conditioner' | 'fan' | 'robot-vacuum' | 'hand-warmer'
+export type DeviceKind = 'air-conditioner' | 'fan' | 'robot-vacuum' | 'hand-warmer' | 'television'
 
 export type DeviceStateSyncStatus = 'local' | 'syncing' | 'synced' | 'unauthorized' | 'error'
 export type DeviceStateSyncBackend = 'cloudbase' | 'memory'
@@ -68,11 +68,29 @@ export type HandWarmerAction =
   | { type: 'set-level'; level: HandWarmerLevel }
   | { type: 'set-timer'; minutes: number | null }
 
+export interface TelevisionState {
+  power: boolean
+  playing: boolean
+  volume: number
+  muted: boolean
+  sourceUrl: string
+  stateChangedAt: string
+}
+
+export type TelevisionAction =
+  | { type: 'toggle-power' }
+  | { type: 'play' }
+  | { type: 'pause' }
+  | { type: 'set-volume'; volume: number }
+  | { type: 'toggle-muted' }
+  | { type: 'set-source'; sourceUrl: string }
+
 export interface DeviceStateMap {
   'air-conditioner': AirConditionerState
   'fan': FanState
   'robot-vacuum': RobotVacuumState
   'hand-warmer': HandWarmerState
+  'television': TelevisionState
 }
 
 export interface DeviceActionMap {
@@ -80,6 +98,7 @@ export interface DeviceActionMap {
   'fan': FanAction
   'robot-vacuum': RobotVacuumAction
   'hand-warmer': HandWarmerAction
+  'television': TelevisionAction
 }
 
 export type DeviceRuntimeState = DeviceStateMap[DeviceKind]
