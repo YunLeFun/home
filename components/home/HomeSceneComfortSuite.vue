@@ -47,8 +47,8 @@
         <path d="M716 504h79l-11 72h-57Z" fill="#b99d91" stroke="#8f756d" stroke-width="3" />
       </g>
 
-      <text x="54" y="64" fill="#596983" font-size="20" font-weight="700" letter-spacing="3">
-        LIVING SUITE
+      <text class="scene-room-label" x="54" y="64" fill="#596983">
+        套房客厅
       </text>
     </g>
 
@@ -86,8 +86,8 @@
         <path d="M872 725h630M846 750h682" stroke="#aaa6c4" stroke-opacity=".5" stroke-width="2" />
       </g>
 
-      <text x="838" y="64" fill="#61657f" font-size="20" font-weight="700" letter-spacing="3">
-        BEDROOM SUITE
+      <text class="scene-room-label" x="838" y="64" fill="#61657f">
+        套房卧室
       </text>
     </g>
   </g>

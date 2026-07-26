@@ -51,8 +51,8 @@
         <path d="M138 722h1325M95 750h1410" stroke="#aaa6c4" stroke-opacity=".45" stroke-width="2" />
       </g>
 
-      <text x="54" y="64" fill="#596983" font-size="20" font-weight="700" letter-spacing="3">
-        STUDIO
+      <text class="scene-room-label" x="54" y="64" fill="#596983">
+        云朵单间
       </text>
     </g>
   </g>

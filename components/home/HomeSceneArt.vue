@@ -60,4 +60,12 @@ defineProps<{ templateId: HomeTemplateId }>()
 .scene-art {
   pointer-events: none;
 }
+
+.scene-art :deep(.scene-room-label) {
+  font-family: inherit;
+  font-size: 18px !important;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  opacity: 0.58;
+}
 </style>

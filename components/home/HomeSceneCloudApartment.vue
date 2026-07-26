@@ -47,8 +47,8 @@
         <path d="M514 500h75l-10 69h-55Z" fill="#b99d91" stroke="#8f756d" stroke-width="3" />
       </g>
 
-      <text x="54" y="64" fill="#596983" font-size="20" font-weight="700" letter-spacing="3">
-        LIVING
+      <text class="scene-room-label" x="54" y="64" fill="#596983">
+        客厅
       </text>
     </g>
 
@@ -85,8 +85,8 @@
         <path d="M700 722h430M680 748h470" stroke="#aaa6c4" stroke-opacity=".55" stroke-width="2" />
       </g>
 
-      <text x="950" y="64" fill="#596983" font-size="20" font-weight="700" letter-spacing="3">
-        BEDROOM
+      <text class="scene-room-label" x="950" y="64" fill="#596983">
+        卧室
       </text>
     </g>
 
@@ -120,8 +120,8 @@
         <circle cx="1475" cy="673" r="19" fill="#b9d2e6" />
       </g>
 
-      <text x="1236" y="64" fill="#61657f" font-size="20" font-weight="700" letter-spacing="3">
-        UTILITY
+      <text class="scene-room-label" x="1236" y="64" fill="#61657f">
+        家政区
       </text>
     </g>
   </g>
