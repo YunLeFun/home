@@ -1,11 +1,43 @@
 :root {
-  --foreground-rgb: 0, 0, 0;
-  --background-start-rgb: 214, 219, 220;
-  --background-end-rgb: 255, 255, 255;
+  color-scheme: light;
+  --brand-primary: #28312f;
+  --brand-primary-strong: #18201e;
+  --brand-primary-soft: #e1e6de;
+  --brand-secondary: #687b67;
+  --brand-warm: #c59a55;
+  --brand-ink: #28312f;
+  --brand-muted: #69716d;
+  --brand-surface: #f4f5ef;
+  --brand-surface-raised: rgba(250, 251, 247, 0.86);
+  --brand-outline: rgba(104, 123, 103, 0.34);
+  --brand-focus-rgb: 40, 49, 47;
+  --brand-page-background:
+    radial-gradient(circle at 18% 0%, rgba(210, 219, 209, 0.74), transparent 31%),
+    radial-gradient(circle at 88% 8%, rgba(197, 154, 85, 0.08), transparent 22%),
+    linear-gradient(155deg, #fafbf7 0%, #f0f2ec 55%, #f6f4ee 100%);
+  --foreground-rgb: 40, 49, 47;
+  --background-start-rgb: 240, 242, 236;
+  --background-end-rgb: 250, 251, 247;
 }
 
 html.dark {
-  --foreground-rgb: 255, 255, 255;
-  --background-start-rgb: 0, 0, 0;
-  --background-end-rgb: 0, 0, 0;
+  color-scheme: dark;
+  --brand-primary: #52665b;
+  --brand-primary-strong: #94a696;
+  --brand-primary-soft: #26332d;
+  --brand-secondary: #839982;
+  --brand-warm: #d2a95f;
+  --brand-ink: #f1f3ed;
+  --brand-muted: #aab3ab;
+  --brand-surface: #151c19;
+  --brand-surface-raised: rgba(31, 40, 36, 0.88);
+  --brand-outline: rgba(131, 153, 130, 0.34);
+  --brand-focus-rgb: 131, 153, 130;
+  --brand-page-background:
+    radial-gradient(circle at 18% 0%, rgba(82, 102, 91, 0.34), transparent 32%),
+    radial-gradient(circle at 88% 8%, rgba(197, 154, 85, 0.07), transparent 24%),
+    linear-gradient(155deg, #1a211f 0%, #151b19 58%, #1d201c 100%);
+  --foreground-rgb: 241, 243, 237;
+  --background-start-rgb: 21, 28, 25;
+  --background-end-rgb: 26, 33, 31;
 }

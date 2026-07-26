@@ -21,7 +21,7 @@ input {
 }
 
 :where(a, button, select, input):focus-visible {
-  outline: 3px solid rgba(83, 112, 197, 0.38);
+  outline: 3px solid rgba(var(--brand-focus-rgb), 0.42);
   outline-offset: 3px;
 }
 

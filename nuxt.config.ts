@@ -71,14 +71,14 @@ export default defineNuxtConfig({
       },
       viewport: 'width=device-width,initial-scale=1',
       link: [
-        { rel: 'icon', href: '/favicon.ico', sizes: 'any' },
-        { rel: 'icon', type: 'image/svg+xml', href: '/home-4-line.svg' },
+        { rel: 'icon', type: 'image/svg+xml', href: '/brand-mark.svg' },
+        { rel: 'icon', type: 'image/png', href: '/favicon-32x32.png', sizes: '32x32' },
         { rel: 'apple-touch-icon', href: '/apple-touch-icon.png' },
       ],
       meta: [
         { name: 'viewport', content: 'width=device-width, initial-scale=1' },
         { name: 'description', content: appDescription },
-        { name: 'theme-color', content: '#f4f7fd' },
+        { name: 'theme-color', content: '#f4f5ef' },
         { name: 'apple-mobile-web-app-status-bar-style', content: 'black-translucent' },
       ],
     },

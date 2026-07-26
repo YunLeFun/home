@@ -228,7 +228,7 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
-.home-experience { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; min-height: 100%; overflow: hidden; background: radial-gradient(circle at 18% 0%, rgba(222, 232, 255, 0.95), transparent 30%), linear-gradient(155deg, #f8faff 0%, #edf2fc 55%, #f7f4fb 100%); color: #303b55; }
+.home-experience { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; min-height: 100%; overflow: hidden; background: var(--brand-page-background); color: var(--brand-ink); }
 .home-stage { position: relative; display: grid; align-items: center; min-height: 0; padding: 0 22px 14px; }
 .home-stage__control { position: absolute; z-index: 12; top: 50%; right: 42px; transform: translateY(-50%); }
 .home-notice { position: absolute; z-index: 16; bottom: 28px; left: 50%; padding: 9px 14px; border: 1px solid rgba(255, 255, 255, 0.72); border-radius: 999px; background: rgba(46, 57, 83, 0.82); box-shadow: 0 10px 30px rgba(38, 48, 75, 0.24); color: white; font-size: 11px; transform: translateX(-50%); backdrop-filter: blur(12px); }

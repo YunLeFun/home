@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title desc">
+  <title id="title">云之彼端</title>
+  <desc id="desc">适配系统蒙版的对称云庭应用图标</desc>
+  <defs>
+    <mask id="maskable-cloud-gate">
+      <rect width="64" height="64" fill="#000"/>
+      <g transform="translate(4 4) scale(.875)">
+        <circle cx="32" cy="30.6" r="15.2" fill="#fff"/>
+        <circle cx="18.8" cy="36.2" r="9.8" fill="#fff"/>
+        <circle cx="45.2" cy="36.2" r="9.8" fill="#fff"/>
+        <rect x="18.8" y="35.8" width="26.4" height="10.2" fill="#fff"/>
+        <path fill="#000" d="M27.9 46v-.95a9.05 9.05 0 1 1 8.2 0V46h-8.2Z"/>
+      </g>
+    </mask>
+  </defs>
+  <rect width="64" height="64" fill="#F4F5EF"/>
+  <rect width="64" height="64" fill="#28312F" mask="url(#maskable-cloud-gate)"/>
+</svg>
