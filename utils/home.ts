@@ -17,10 +17,6 @@ export function isHomeTemplateId(value: unknown): value is HomeTemplateId {
   return value === 'cloud-apartment' || value === 'studio' || value === 'comfort-suite'
 }
 
-export function hasHomeRevisionConflict(current: VirtualHomeState | null, requested: VirtualHomeState) {
-  return requested.revision !== (current?.revision ?? 0)
-}
-
 export function getPolygonBounds(points: HomePoint[]) {
   const xs = points.map(point => point.x)
   const ys = points.map(point => point.y)
@@ -165,11 +161,13 @@ export function createPlacementInRoom(
 ) {
   const preferredPoint = deviceId === 'air-conditioner'
     ? { u: 0.3, v: 0.24 }
-    : deviceId === 'fan'
-      ? { u: 0.82, v: 0.52 }
-      : deviceId === 'robot-vacuum'
-        ? { u: 0.16, v: 0.78 }
-        : { u: 0.52, v: 0.44 }
+    : deviceId === 'television'
+      ? { u: 0.72, v: 0.5 }
+      : deviceId === 'fan'
+        ? { u: 0.82, v: 0.52 }
+        : deviceId === 'robot-vacuum'
+          ? { u: 0.16, v: 0.78 }
+          : { u: 0.52, v: 0.44 }
   const candidates = [
     preferredPoint,
     { u: 0.5, v: 0.5 },

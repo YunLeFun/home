@@ -19,13 +19,14 @@
     "generate": "nuxt generate"
   },
   "dependencies": {
-    "@cloudbase/js-sdk": "^3.6.2",
+    "@cloudbase/js-sdk": "^3.6.4",
     "@nuxtjs/color-mode": "^4.0.1",
     "@pinia/nuxt": "^1.0.0",
     "@unocss/nuxt": "^66.7.5",
     "@vite-pwa/nuxt": "^1.1.1",
     "@vueuse/nuxt": "^14.3.0",
     "@yunlefun/sso": "^0.5.0",
+    "@yunlefun-home/air-conditioner": "^0.2.0",
     "nuxt": "^4.4.8",
     "pinia": "^4.0.2",
     "vue": "^3.5.40",

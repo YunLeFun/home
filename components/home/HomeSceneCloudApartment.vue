@@ -19,10 +19,11 @@
         <path d="M83 287c43-45 88-19 153-84v104H71Z" fill="#91a8c4" fill-opacity=".5" />
       </g>
 
-      <g data-furniture-id="living-wall-art">
-        <rect x="405" y="125" width="115" height="150" rx="7" fill="#fbfcff" stroke="#a5b1c5" stroke-width="5" />
-        <path d="M426 241c25-54 45-62 74-92v102h-74Z" fill="#aabce1" />
-        <circle cx="448" cy="171" r="18" fill="#e7c5bc" />
+      <g data-furniture-id="living-media-console" filter="url(#yun-home-soft-shadow)">
+        <rect x="336" y="350" width="218" height="57" rx="9" fill="url(#yun-home-wood)" stroke="#8b7567" stroke-width="3" />
+        <path d="M408 350v57M480 350v57" stroke="#9a8272" stroke-width="2" />
+        <circle cx="444" cy="378" r="3" fill="#6f5d55" />
+        <path d="M353 407v24M537 407v24" stroke="#78665d" stroke-width="8" />
       </g>
 
       <g data-furniture-id="living-sofa" filter="url(#yun-home-shadow)">
@@ -47,8 +48,8 @@
         <path d="M514 500h75l-10 69h-55Z" fill="#b99d91" stroke="#8f756d" stroke-width="3" />
       </g>
 
-      <text x="54" y="64" fill="#596983" font-size="20" font-weight="700" letter-spacing="3">
-        LIVING
+      <text class="scene-room-label" x="54" y="64" fill="#596983">
+        客厅
       </text>
     </g>
 
@@ -85,8 +86,8 @@
         <path d="M700 722h430M680 748h470" stroke="#aaa6c4" stroke-opacity=".55" stroke-width="2" />
       </g>
 
-      <text x="950" y="64" fill="#596983" font-size="20" font-weight="700" letter-spacing="3">
-        BEDROOM
+      <text class="scene-room-label" x="950" y="64" fill="#596983">
+        卧室
       </text>
     </g>
 
@@ -120,8 +121,8 @@
         <circle cx="1475" cy="673" r="19" fill="#b9d2e6" />
       </g>
 
-      <text x="1236" y="64" fill="#61657f" font-size="20" font-weight="700" letter-spacing="3">
-        UTILITY
+      <text class="scene-room-label" x="1236" y="64" fill="#61657f">
+        家政区
       </text>
     </g>
   </g>

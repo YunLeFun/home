@@ -14,9 +14,13 @@ import type {
   RobotVacuumMode,
   RobotVacuumState,
   RobotVacuumStatus,
+  TelevisionAction,
+  TelevisionState,
 } from '~/types'
 
-const deviceKinds: DeviceKind[] = ['air-conditioner', 'fan', 'robot-vacuum', 'hand-warmer']
+export const DEFAULT_TELEVISION_SOURCE_URL = 'https://media.w3.org/2010/05/sintel/trailer.mp4'
+
+const deviceKinds: DeviceKind[] = ['air-conditioner', 'fan', 'robot-vacuum', 'hand-warmer', 'television']
 const minAirConditionerTemperature = 16
 const maxAirConditionerTemperature = 31
 const defaultAirConditionerState: AirConditionerState = {
@@ -63,6 +67,18 @@ function isWarmerLevel(value: unknown): value is HandWarmerLevel {
   return value === 'low' || value === 'medium' || value === 'high'
 }
 
+export function isTelevisionSourceUrl(value: unknown): value is string {
+  if (typeof value !== 'string' || value.length > 2048)
+    return false
+  try {
+    const url = new URL(value)
+    return url.protocol === 'https:' && !url.username && !url.password
+  }
+  catch {
+    return false
+  }
+}
+
 function normalizeAirConditionerState(value: unknown): AirConditionerState {
   if (!isRecord(value))
     return { ...defaultAirConditionerState }
@@ -104,6 +120,14 @@ export function createDefaultDeviceState<K extends DeviceKind>(kind: K, changedA
       autoOffAt: null,
       stateChangedAt: changedAt,
     } satisfies HandWarmerState,
+    'television': {
+      power: false,
+      playing: false,
+      volume: 45,
+      muted: false,
+      sourceUrl: DEFAULT_TELEVISION_SOURCE_URL,
+      stateChangedAt: changedAt,
+    } satisfies TelevisionState,
   }
   return states[kind] as DeviceStateByKind<K>
 }
@@ -134,6 +158,18 @@ export function normalizeDeviceState<K extends DeviceKind>(kind: K, value: unkno
       progress: numberInRange(value.progress, 0, 0, 1),
       battery: numberInRange(value.battery, 86, 0, 100),
       cleanedArea: numberInRange(value.cleanedArea, 0, 0, 999),
+      stateChangedAt: normalizeDate(value.stateChangedAt),
+    } as DeviceStateByKind<K>
+  }
+
+  if (kind === 'television') {
+    const power = typeof value.power === 'boolean' ? value.power : false
+    return {
+      power,
+      playing: power && value.playing === true,
+      volume: Math.round(numberInRange(value.volume, 45, 0, 100)),
+      muted: typeof value.muted === 'boolean' ? value.muted : false,
+      sourceUrl: isTelevisionSourceUrl(value.sourceUrl) ? value.sourceUrl : DEFAULT_TELEVISION_SOURCE_URL,
       stateChangedAt: normalizeDate(value.stateChangedAt),
     } as DeviceStateByKind<K>
   }
@@ -203,6 +239,22 @@ function reduceWarmer(state: HandWarmerState, action: HandWarmerAction, now: str
   return { ...state, autoOffAt: timerDate(action.minutes, now), stateChangedAt: now }
 }
 
+function reduceTelevision(state: TelevisionState, action: TelevisionAction, now: string): TelevisionState {
+  if (action.type === 'toggle-power') {
+    const power = !state.power
+    return { ...state, power, playing: power ? state.playing : false, stateChangedAt: now }
+  }
+  if (action.type === 'play')
+    return { ...state, power: true, playing: true, stateChangedAt: now }
+  if (action.type === 'pause')
+    return { ...state, playing: false, stateChangedAt: now }
+  if (action.type === 'set-volume')
+    return { ...state, volume: Math.round(numberInRange(action.volume, state.volume, 0, 100)), stateChangedAt: now }
+  if (action.type === 'toggle-muted')
+    return { ...state, muted: !state.muted, stateChangedAt: now }
+  return { ...state, power: true, playing: false, sourceUrl: action.sourceUrl, stateChangedAt: now }
+}
+
 export function reduceDeviceState<K extends DeviceKind>(
   kind: K,
   state: DeviceStateByKind<K>,
@@ -218,7 +270,9 @@ export function reduceDeviceState<K extends DeviceKind>(
     return reduceFan(state as FanState, action as FanAction, changedAt) as DeviceStateByKind<K>
   if (kind === 'robot-vacuum')
     return reduceRobot(state as RobotVacuumState, action as RobotVacuumAction, changedAt) as DeviceStateByKind<K>
-  return reduceWarmer(state as HandWarmerState, action as HandWarmerAction, changedAt) as DeviceStateByKind<K>
+  if (kind === 'hand-warmer')
+    return reduceWarmer(state as HandWarmerState, action as HandWarmerAction, changedAt) as DeviceStateByKind<K>
+  return reduceTelevision(state as TelevisionState, action as TelevisionAction, changedAt) as DeviceStateByKind<K>
 }
 
 export function isDeviceAction(kind: DeviceKind, value: unknown): value is DeviceRuntimeAction {
@@ -243,9 +297,14 @@ export function isDeviceAction(kind: DeviceKind, value: unknown): value is Devic
     return value.type === 'start' || value.type === 'pause' || value.type === 'resume' || value.type === 'return' || value.type === 'dock'
       || (value.type === 'set-mode' && isRobotMode(value.mode))
   }
-  return value.type === 'toggle'
-    || (value.type === 'set-level' && isWarmerLevel(value.level))
-    || (value.type === 'set-timer' && isValidTimerMinutes(value.minutes))
+  if (kind === 'hand-warmer') {
+    return value.type === 'toggle'
+      || (value.type === 'set-level' && isWarmerLevel(value.level))
+      || (value.type === 'set-timer' && isValidTimerMinutes(value.minutes))
+  }
+  return value.type === 'toggle-power' || value.type === 'play' || value.type === 'pause' || value.type === 'toggle-muted'
+    || (value.type === 'set-volume' && typeof value.volume === 'number' && Number.isFinite(value.volume) && value.volume >= 0 && value.volume <= 100)
+    || (value.type === 'set-source' && isTelevisionSourceUrl(value.sourceUrl))
 }
 
 export function isDeviceState(kind: DeviceKind, value: unknown) {

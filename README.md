@@ -23,11 +23,13 @@ pnpm check
 
 ## Device Architecture
 
-The application owns device instances, runtime state, room placement, authentication, and cloud synchronization. Air-conditioner, fan, robot-vacuum, and hand-warmer reducers are framework-independent utilities under `utils/device.ts`; Vue components only render state and dispatch typed actions.
+The application owns device instances, runtime state, room placement, authentication, and cloud synchronization. Television, air-conditioner, fan, robot-vacuum, and hand-warmer reducers are framework-independent utilities under `utils/device.ts`; Vue components only render state and dispatch typed actions. The television is a movable wall device with independent power, playback, volume, mute, and HTTPS MP4/WebM source controls.
 
-The production build has no sibling-repository `link:` dependencies and no runtime font/image proxy. The browser uses the maintained `@cloudbase/js-sdk` v3 for authentication. The server uses CloudBase's official NoSQL HTTP API with native `fetch`, so the Worker does not load Node-only websocket, JWT, or form-data adapters. A future published device UI package can be integrated as an optional renderer without moving the home or cloud state model out of this application.
+The production build has no sibling-repository `link:` dependencies and no runtime font/image proxy. The air-conditioner detail uses the public `@yunlefun-home/air-conditioner` renderer while Home continues to own the device instance and state. Its canvas thumbnail stays consistent with the other home devices, and the detail page links to the standalone experience at `https://ac.yunyoujun.cn/`.
 
-## Virtual Home Architecture
+The browser uses `@cloudbase/js-sdk` v3 for authentication and document persistence. Device and layout records are written directly to user-private CloudBase collections; the Worker never receives a CloudBase administrator key or proxies business-data writes.
+
+## Cloud Home Architecture
 
 The home page uses a renderer-independent 2D/2.5D scene model:
 
@@ -36,7 +38,7 @@ The home page uses a renderer-independent 2D/2.5D scene model:
 - HTML/CSS owns pointer and keyboard interactions, room tabs, device-first quick controls, auth, and sync status.
 - Desktop starts with a full-home overview and can focus a room; mobile restores the most recently used room. The device tray follows the active room and shows connected-device counts.
 - Unplaced devices stay in a compact inbox. Edit mode expands the inbox and current-room groups, supports desktop drag or mobile select-then-place, and provides an explicit room selector for reassignment.
-- `GET /api/home/state` and `PUT /api/home/state` persist the versioned layout with optimistic `revision` conflict handling.
+- Layout and device snapshots carry an ISO `changedAt` timestamp. Login, reconnect, focus, and online events compare local and cloud timestamps; the newer snapshot wins and is synchronized back using last-write-wins semantics.
 
 The first release includes `cloud-apartment`, `studio`, and `comfort-suite`. A future WebGL renderer can consume the same home and device state without migrating stored placements.
 
@@ -62,28 +64,21 @@ NUXT_PUBLIC_SSO_REDIRECT_URI=https://home.yunle.fun/
 NUXT_PUBLIC_CLOUDBASE_ENV_ID=your-full-env-id
 NUXT_PUBLIC_CLOUDBASE_REGION=ap-shanghai
 NUXT_PUBLIC_CLOUDBASE_ACCESS_KEY=your-publishable-key
-NUXT_PUBLIC_DEVICE_SYNC_ENABLED=false
-NUXT_PUBLIC_HOME_SYNC_ENABLED=false
-
-# Required when cloud synchronization is enabled in production.
-NUXT_CLOUDBASE_API_KEY=your-server-only-api-key
-NUXT_CLOUDBASE_DEVICE_STATES_COLLECTION=home_device_states
-NUXT_CLOUDBASE_HOME_LAYOUTS_COLLECTION=home_layouts
+NUXT_PUBLIC_CLOUDBASE_DEVICE_STATES_COLLECTION=home_device_states
+NUXT_PUBLIC_CLOUDBASE_HOME_LAYOUTS_COLLECTION=home_layouts
+NUXT_PUBLIC_DEVICE_SYNC_ENABLED=true
+NUXT_PUBLIC_HOME_SYNC_ENABLED=true
 ```
 
-CloudBase provider setup still needs to be configured in the CloudBase console: enable the required login methods, use a Publishable Key for `NUXT_PUBLIC_CLOUDBASE_ACCESS_KEY`, and create a separate administrator API Key for the server-only `NUXT_CLOUDBASE_API_KEY`. Never expose the administrator API Key through a `NUXT_PUBLIC_*` variable.
+CloudBase provider setup must enable the required login methods and expose a Publishable Key through `NUXT_PUBLIC_CLOUDBASE_ACCESS_KEY`. A Publishable Key identifies the browser application; collection rules enforce data access. Do not add an administrator API Key to Home.
 
-Create a unique `ownerId` index for `home_layouts` and a unique compound `ownerId + deviceId` index for `home_device_states`. Cloud writes run in transactions. Production returns `503` when server-side persistence is missing; the in-memory fallback is development-only.
+Create `home_layouts` and `home_device_states` with `PRIVATE` permissions. Add unique compound indexes `_openid + slot` and `_openid + deviceId`, respectively. The Web SDK automatically associates client-created documents with the authenticated user via `_openid`; anonymous sessions are ignored.
 
 ## Cloudflare Workers Deployment
 
 The production target is Cloudflare Workers with Workers Assets. Nuxt uses the ESM `cloudflare-module` Nitro preset; `wrangler.jsonc` points to the generated module entry and static asset directory.
 
-Configure public variables in the Cloudflare dashboard and store server credentials as encrypted secrets:
-
-```bash
-pnpm wrangler secret put NUXT_CLOUDBASE_API_KEY
-```
+Configure the `NUXT_PUBLIC_*` values in the Cloudflare dashboard. Cloud synchronization does not require a Worker secret.
 
 Create a preview deployment and complete the authentication/cloud-sync smoke tests before running the production command:
 

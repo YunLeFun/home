@@ -154,7 +154,7 @@ defineExpose({ getWorldPoint })
 </script>
 
 <template>
-  <section class="home-scene-shell" :style="sceneShellStyle" aria-label="虚拟家园画布">
+  <section class="home-scene-shell" :style="sceneShellStyle" aria-label="云之彼端家园画布">
     <div ref="sceneRef" class="home-scene" :data-overview="overviewMode" :style="sceneStyle" @click="handleSceneClick">
       <svg :key="`${viewportRevision}:${activeRoomId}:${overviewMode}`" class="home-scene__geometry" :viewBox="viewBox" preserveAspectRatio="none" aria-hidden="true">
         <HomeSceneArt :template-id="template.id" />

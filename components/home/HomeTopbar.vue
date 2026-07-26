@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
+import { appName } from '~/constants'
 import { HOME_TEMPLATES } from '~/constants/home'
 import type { HomeSyncStatus, HomeTemplateId } from '~/types'
 
@@ -30,8 +31,6 @@ const syncLabel = computed(() => {
     return '云端已同步'
   if (props.syncStatus === 'unauthorized')
     return '游客模式'
-  if (props.syncStatus === 'conflict')
-    return '已合并更新'
   if (props.syncStatus === 'error')
     return '等待重连'
   return '本地已保存'
@@ -47,9 +46,9 @@ onMounted(refresh)
 
 <template>
   <header class="home-topbar">
-    <NuxtLink class="home-brand" to="/" aria-label="Yun Home 首页">
+    <NuxtLink class="home-brand" to="/" :aria-label="`${appName}首页`">
       <span class="home-brand__mark"><span class="i-carbon-home" /></span>
-      <span><strong>Yun Home</strong><small>云之彼端的家园</small></span>
+      <span><strong>{{ appName }}</strong><small>可编辑智能家园</small></span>
     </NuxtLink>
 
     <label class="home-template-select">

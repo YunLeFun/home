@@ -12,15 +12,15 @@ const definition = computed(() => HOME_DEVICES[props.deviceId])
   <div class="device-detail">
     <header class="device-detail__topbar">
       <NuxtLink to="/">
-        <span class="i-carbon-arrow-left" />返回虚拟家园
+        <span class="i-carbon-arrow-left" />返回云之彼端
       </NuxtLink>
       <span><span class="i-carbon-cloud" />云端设备</span>
     </header>
     <main class="device-detail__main">
       <section class="device-detail__intro">
-        <span class="device-detail__eyebrow">Yun Home Device</span>
+        <span class="device-detail__eyebrow">云之彼端设备</span>
         <h1>{{ definition.name }}</h1>
-        <p>{{ definition.description }}。设备状态会在本地即时响应，并在登录后同步到你的 YunLe 家园。</p>
+        <p>{{ definition.description }}。设备状态会在本地即时响应，并在登录后同步到你的云之彼端。</p>
         <div class="device-detail__vector">
           <HomeDeviceGlyph :device-id="deviceId" :title="definition.name" />
         </div>

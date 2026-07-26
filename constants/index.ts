@@ -1,2 +1,2 @@
-export const appName = 'Yun Home'
-export const appDescription = '可编辑的云端智能家居与虚拟家园'
+export const appName = '云之彼端'
+export const appDescription = '云之彼端的可编辑智能家园'

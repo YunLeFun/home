@@ -1,6 +1,10 @@
 <script setup lang="ts">
+import { AirConditioner } from '@yunlefun-home/air-conditioner'
+import yunLogoUrl from '@yunlefun-home/air-conditioner/yun-logo.svg'
 import { computed } from 'vue'
 import type { AirConditionerState } from '~/types'
+
+const ORIGINAL_AC_URL = 'https://ac.yunyoujun.cn/'
 
 const props = withDefaults(defineProps<{
   deviceId?: string
@@ -45,16 +49,24 @@ function setMode(mode: AirConditionerState['mode']) {
           空调控制
         </h1>
       </div>
-      <span class="ac-panel__sync" :data-status="device.syncStatus.value" aria-live="polite">
-        <i />{{ syncLabel }}
-      </span>
+      <div class="ac-panel__actions">
+        <span class="ac-panel__sync" :data-status="device.syncStatus.value" aria-live="polite">
+          <i />{{ syncLabel }}
+        </span>
+        <a :href="ORIGINAL_AC_URL" target="_blank" rel="noopener noreferrer">
+          打开原版空调<span class="i-carbon-launch" />
+        </a>
+      </div>
     </header>
 
-    <div class="ac-console" :class="{ 'is-running': state.status, 'is-heating': state.mode === 'hot' }">
-      <div class="ac-console__unit" aria-hidden="true">
-        <span class="ac-console__brand">YUN</span>
-        <span class="ac-console__vent" />
-        <span class="ac-console__indicator" />
+    <div class="ac-console" :class="{ 'is-heating': state.mode === 'hot' }">
+      <div class="ac-console__unit" data-ac-renderer="@yunlefun-home/air-conditioner">
+        <AirConditioner
+          :overrides="state"
+          :logo-url="yunLogoUrl"
+          :logo-href="ORIGINAL_AC_URL"
+          :show-energy-label="true"
+        />
       </div>
 
       <div class="ac-console__readout" aria-live="polite">
@@ -122,6 +134,28 @@ function setMode(mode: AirConditionerState['mode']) {
   align-items: center;
   justify-content: space-between;
   gap: 18px;
+}
+
+.ac-panel__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 9px;
+}
+
+.ac-panel__actions > a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid #d9e0ee;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.82);
+  color: #6678a6;
+  font-size: 11px;
+  font-weight: 700;
+  text-decoration: none;
 }
 
 .ac-panel__header p,
@@ -194,49 +228,21 @@ function setMode(mode: AirConditionerState['mode']) {
 }
 
 .ac-console__unit {
-  position: relative;
   grid-column: 1 / -1;
-  height: 116px;
+  display: grid;
+  place-items: center;
+  min-height: 238px;
+  padding: 30px 28px 10px;
   border: 1px solid rgba(174, 184, 208, 0.62);
-  border-radius: 22px 22px 30px 30px;
-  background: linear-gradient(180deg, #fff, #eef2f8);
-  box-shadow: 0 14px 30px rgba(62, 78, 113, 0.13), inset 0 -3px 7px rgba(100, 117, 151, 0.08);
+  border-radius: 26px;
+  background:
+    radial-gradient(circle at 50% 28%, rgba(255, 255, 255, 0.98), rgba(237, 242, 250, 0.74) 72%),
+    #eef2f8;
+  box-shadow: 0 14px 30px rgba(62, 78, 113, 0.13), inset 0 1px 2px #fff;
 }
 
-.ac-console__brand {
-  position: absolute;
-  top: 28px;
-  left: 32px;
-  color: #8d97aa;
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.24em;
-}
-
-.ac-console__vent {
-  position: absolute;
-  right: 28px;
-  bottom: 22px;
-  left: 28px;
-  height: 7px;
-  border-radius: 999px;
-  background: repeating-linear-gradient(90deg, #c9d1df 0 2px, transparent 2px 7px);
-  opacity: 0.74;
-}
-
-.ac-console__indicator {
-  position: absolute;
-  right: 34px;
-  top: 29px;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: #bdc5d4;
-}
-
-.is-running .ac-console__indicator {
-  background: #5dc5a1;
-  box-shadow: 0 0 0 5px rgba(93, 197, 161, 0.12);
+.ac-console__unit :deep(.acw-unit) {
+  width: min(100%, 430px);
 }
 
 .ac-console__readout {
@@ -416,13 +422,19 @@ button:focus-visible {
     flex-direction: column;
   }
 
+  .ac-panel__actions {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
   .ac-console {
     gap: 18px;
     border-radius: 26px;
   }
 
   .ac-console__unit {
-    height: 92px;
+    min-height: 200px;
+    padding: 24px 14px 4px;
   }
 
   .ac-console__power {

@@ -3,24 +3,20 @@ import type {
   DeviceActionByKind,
   DeviceKind,
   DeviceStateByKind,
-  DeviceStateLoadResponse,
-  DeviceStateSyncResponse,
   DeviceStateSyncStatus,
 } from '~/types'
+import {
+  CLOUD_SYNC_EPOCH,
+  createLocalSyncSnapshot,
+  parseLocalSyncSnapshot,
+  selectCloudSyncDirection,
+} from '~/utils/cloud-sync'
 import { createDefaultDeviceState, normalizeDeviceState, reduceDeviceState } from '~/utils/device'
 
 function getErrorMessage(error: unknown) {
   if (error && typeof error === 'object' && 'message' in error)
     return String((error as { message?: unknown }).message)
   return '设备状态同步失败'
-}
-
-function getStatusCode(error: unknown) {
-  if (error && typeof error === 'object' && 'statusCode' in error) {
-    const code = Number((error as { statusCode?: unknown }).statusCode)
-    return Number.isFinite(code) ? code : undefined
-  }
-  return undefined
 }
 
 function getDeviceStorageKey(kind: DeviceKind, deviceId: string) {
@@ -32,18 +28,22 @@ function getDeviceStorageKey(kind: DeviceKind, deviceId: string) {
 export function useDeviceState<K extends DeviceKind>(kind: K, deviceId: string = kind) {
   const config = useRuntimeConfig()
   const cloudbase = useCloudBaseClient()
+  const cloudSync = useCloudSync()
   const key = `${kind}:${deviceId}`
   const state = useState<DeviceStateByKind<K>>(`device-state:${key}`, () => createDefaultDeviceState(kind))
+  const changedAt = useState(`device-changed-at:${key}`, () => CLOUD_SYNC_EPOCH)
   const hydrated = useState(`device-hydrated:${key}`, () => false)
   const syncStatus = useState<DeviceStateSyncStatus>(`device-sync:${key}`, () => 'local')
   const syncError = useState<string | null>(`device-error:${key}`, () => null)
   const lastSyncedAt = useState<string | null>(`device-synced-at:${key}`, () => null)
   const widgetRevision = useState(`device-widget-revision:${key}`, () => 0)
   const storageKey = getDeviceStorageKey(kind, deviceId)
-  const syncEnabled = computed(() => config.public.deviceSyncEnabled === true)
+  const collection = computed(() => String(config.public.cloudbaseDeviceStatesCollection || 'home_device_states'))
+  const syncEnabled = computed(() => config.public.deviceSyncEnabled === true && cloudbase.isConfigured.value)
   const widgetKey = computed(() => `${storageKey}:${widgetRevision.value}`)
   const clock = shallowRef(Date.now())
   let clockTimer: ReturnType<typeof setInterval> | undefined
+  let syncTimer: ReturnType<typeof setTimeout> | undefined
 
   const visualProgress = computed(() => {
     if (kind !== 'robot-vacuum')
@@ -55,77 +55,77 @@ export function useDeviceState<K extends DeviceKind>(kind: K, deviceId: string =
     return (robot.progress + elapsed / 30_000) % 1
   })
 
-  async function getAuthHeaders() {
-    let session = await cloudbase.getSharedSession()
-    if (!session.session) {
-      await useYunleSession().refresh()
-      session = await cloudbase.getSharedSession()
+  function getRecordOptions() {
+    return {
+      collection: collection.value,
+      keyField: 'deviceId' as const,
+      keyValue: deviceId,
     }
-    const accessToken = session.session?.access_token
-    if (!accessToken)
-      throw Object.assign(new Error('登录 YunLe 后即可同步到云端'), { statusCode: 401 })
-    return { Authorization: `Bearer ${accessToken}` }
   }
 
-  async function loadRemoteState() {
-    if (!syncEnabled.value)
+  function setUnauthorized(error: unknown) {
+    syncStatus.value = isCloudSyncUnauthorizedError(error) ? 'unauthorized' : 'error'
+    syncError.value = isCloudSyncUnauthorizedError(error)
+      ? '登录 YunLe 后即可同步到云端'
+      : getErrorMessage(error)
+  }
+
+  async function reconcileCloudState() {
+    if (!syncEnabled.value || !hydrated.value)
       return
+
     syncStatus.value = 'syncing'
     syncError.value = null
     try {
-      const result = await $fetch<DeviceStateLoadResponse<DeviceStateByKind<K>>>(`/api/devices/${deviceId}/state`, {
-        headers: await getAuthHeaders(),
-      })
-      if (result.found && result.state) {
-        state.value = normalizeDeviceState(kind, result.state)
+      const remote = await cloudSync.readRecord<DeviceStateByKind<K>>(getRecordOptions())
+      const direction = selectCloudSyncDirection(changedAt.value, remote?.changedAt ?? null)
+
+      if (direction === 'pull' && remote) {
+        state.value = normalizeDeviceState(kind, remote.state)
+        changedAt.value = remote.changedAt
         widgetRevision.value += 1
-        lastSyncedAt.value = result.changedAt ?? new Date().toISOString()
-        syncStatus.value = 'synced'
       }
-      else {
-        syncStatus.value = 'local'
+      else if (direction === 'push') {
+        const winningRemote = await cloudSync.writeRecord(getRecordOptions(), state.value, changedAt.value, remote)
+        if (winningRemote && selectCloudSyncDirection(changedAt.value, winningRemote.changedAt) === 'pull') {
+          state.value = normalizeDeviceState(kind, winningRemote.state)
+          changedAt.value = winningRemote.changedAt
+          widgetRevision.value += 1
+        }
       }
+
+      lastSyncedAt.value = changedAt.value
+      syncStatus.value = 'synced'
     }
     catch (error) {
-      syncStatus.value = getStatusCode(error) === 401 ? 'unauthorized' : 'error'
-      syncError.value = getErrorMessage(error)
+      setUnauthorized(error)
     }
   }
 
-  async function syncChange(action?: DeviceActionByKind<K>, changedAt = new Date().toISOString()) {
+  function scheduleSync() {
     if (!syncEnabled.value)
       return
-    syncStatus.value = 'syncing'
-    syncError.value = null
-    try {
-      const result = await $fetch<DeviceStateSyncResponse>(`/api/devices/${deviceId}/state`, {
-        method: 'PUT',
-        headers: await getAuthHeaders(),
-        body: { deviceId, kind, state: state.value, action, changedAt },
-      })
-      syncStatus.value = result.synced ? 'synced' : 'local'
-      lastSyncedAt.value = result.changedAt
-    }
-    catch (error) {
-      syncStatus.value = getStatusCode(error) === 401 ? 'unauthorized' : 'error'
-      syncError.value = getErrorMessage(error)
-    }
+    if (syncTimer)
+      clearTimeout(syncTimer)
+    syncTimer = setTimeout(reconcileCloudState, 400)
   }
 
-  function replaceState(value: unknown, action?: DeviceActionByKind<K>) {
+  function replaceState(value: unknown, _action?: DeviceActionByKind<K>) {
     state.value = normalizeDeviceState(kind, value)
+    changedAt.value = new Date().toISOString()
     widgetRevision.value += 1
-    void syncChange(action)
+    scheduleSync()
   }
 
   function dispatch(action: DeviceActionByKind<K>) {
-    const changedAt = new Date().toISOString()
-    state.value = reduceDeviceState(kind, state.value, action, changedAt)
-    void syncChange(action, changedAt)
+    const nextChangedAt = new Date().toISOString()
+    state.value = reduceDeviceState(kind, state.value, action, nextChangedAt)
+    changedAt.value = nextChangedAt
+    scheduleSync()
   }
 
-  function handleFocus() {
-    void loadRemoteState()
+  function refreshFromCloud() {
+    void reconcileCloudState()
   }
 
   function updateClock() {
@@ -137,7 +137,9 @@ export function useDeviceState<K extends DeviceKind>(kind: K, deviceId: string =
       const stored = localStorage.getItem(storageKey)
       if (stored) {
         try {
-          state.value = normalizeDeviceState(kind, JSON.parse(stored))
+          const snapshot = parseLocalSyncSnapshot(JSON.parse(stored))
+          state.value = normalizeDeviceState(kind, snapshot.state)
+          changedAt.value = snapshot.changedAt
         }
         catch {
           localStorage.removeItem(storageKey)
@@ -146,21 +148,27 @@ export function useDeviceState<K extends DeviceKind>(kind: K, deviceId: string =
       hydrated.value = true
     }
     clockTimer = setInterval(updateClock, 1000)
-    window.addEventListener('focus', handleFocus)
-    window.addEventListener('online', handleFocus)
-    void loadRemoteState()
+    window.addEventListener('focus', refreshFromCloud)
+    window.addEventListener('online', refreshFromCloud)
+    void reconcileCloudState()
   })
 
   onUnmounted(() => {
     if (clockTimer)
       clearInterval(clockTimer)
-    window.removeEventListener('focus', handleFocus)
-    window.removeEventListener('online', handleFocus)
+    if (syncTimer)
+      clearTimeout(syncTimer)
+    window.removeEventListener('focus', refreshFromCloud)
+    window.removeEventListener('online', refreshFromCloud)
   })
 
-  watch(state, (value) => {
-    if (typeof window !== 'undefined' && hydrated.value)
-      localStorage.setItem(storageKey, JSON.stringify(value))
+  watch([state, changedAt], ([value, snapshotChangedAt]) => {
+    if (typeof window !== 'undefined' && hydrated.value) {
+      localStorage.setItem(
+        storageKey,
+        JSON.stringify(createLocalSyncSnapshot(value, snapshotChangedAt)),
+      )
+    }
   }, { deep: true })
 
   return {
@@ -174,7 +182,7 @@ export function useDeviceState<K extends DeviceKind>(kind: K, deviceId: string =
     visualProgress,
     dispatch,
     replaceState,
-    syncChange,
-    loadRemoteState,
+    syncChange: reconcileCloudState,
+    loadRemoteState: reconcileCloudState,
   }
 }

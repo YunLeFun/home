@@ -16,7 +16,7 @@
 - 1440 × 1024, `cloud-apartment`, living room, hand-warmer selected, quick control open.
 - 390 × 844, `cloud-apartment`, living room, no quick control obscuring the room.
 - 1280 × 720 low-height resilience check: `/Users/yunyou/.codex/visualizations/2026/07/15/019f6577-0340-7783-bcc5-2708ae6d7076/yun-home-vector-desktop-1280x720.png`.
-- 1440 × 1024 device-first state: full-home overview selected, room tabs show connected-device counts, and the tray presents all four devices without opening a quick control.
+- 1440 × 1024 device-first state: full-home overview selected, room tabs show connected-device counts, and the tray presents all five devices without opening a quick control.
 - 390 × 844 device-first state: the recent bedroom is restored, the full-home tab is hidden, and only the bedroom fan appears in the device tray.
 
 ## Comparison findings

@@ -19,10 +19,9 @@
       </g>
 
       <g data-furniture-id="suite-media-unit">
-        <rect x="520" y="145" width="207" height="126" rx="10" fill="#66758d" stroke="#4e5d75" stroke-width="4" />
-        <rect x="533" y="158" width="181" height="100" rx="5" fill="#9db4ce" />
-        <path d="M614 271v38M570 309h89" stroke="#728099" stroke-width="9" stroke-linecap="round" />
         <rect x="508" y="320" width="233" height="65" rx="10" fill="url(#yun-home-wood)" stroke="#8b7567" stroke-width="3" />
+        <path d="M586 320v65M663 320v65" stroke="#9a8272" stroke-width="2" />
+        <circle cx="625" cy="352" r="3" fill="#6f5d55" />
         <path d="M530 385v28M718 385v28" stroke="#78665d" stroke-width="9" />
       </g>
 
@@ -47,8 +46,8 @@
         <path d="M716 504h79l-11 72h-57Z" fill="#b99d91" stroke="#8f756d" stroke-width="3" />
       </g>
 
-      <text x="54" y="64" fill="#596983" font-size="20" font-weight="700" letter-spacing="3">
-        LIVING SUITE
+      <text class="scene-room-label" x="54" y="64" fill="#596983">
+        套房客厅
       </text>
     </g>
 
@@ -86,8 +85,8 @@
         <path d="M872 725h630M846 750h682" stroke="#aaa6c4" stroke-opacity=".5" stroke-width="2" />
       </g>
 
-      <text x="838" y="64" fill="#61657f" font-size="20" font-weight="700" letter-spacing="3">
-        BEDROOM SUITE
+      <text class="scene-room-label" x="838" y="64" fill="#61657f">
+        套房卧室
       </text>
     </g>
   </g>

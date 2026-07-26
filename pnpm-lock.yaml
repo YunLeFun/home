@@ -5,7 +5,9 @@ settings:
   excludeLinksFromLockfile: false
 
 overrides:
+  brace-expansion@<=5.0.7: ^5.0.8
   fast-uri: 3.1.4
+  tar@<=7.5.20: ^7.5.21
   vue: 3.5.40
   vue-router: 5.2.0
 
@@ -14,8 +16,8 @@ importers:
   .:
     dependencies:
       '@cloudbase/js-sdk':
-        specifier: ^3.6.2
-        version: 3.6.2
+        specifier: ^3.6.4
+        version: 3.6.4
       '@nuxtjs/color-mode':
         specifier: ^4.0.1
         version: 4.0.1(magicast@0.5.3)
@@ -31,6 +33,9 @@ importers:
       '@vueuse/nuxt':
         specifier: ^14.3.0
         version: 14.3.0(magicast@0.5.3)(nuxt@4.4.8(@babel/plugin-syntax-jsx@7.29.7(@babel/core@7.29.7))(@babel/plugin-syntax-typescript@7.29.7(@babel/core@7.29.7))(@parcel/watcher@2.5.6)(@rollup/plugin-babel@6.1.0(@babel/core@7.29.7)(rollup@4.62.2))(@types/node@24.13.3)(@vue/compiler-sfc@3.5.40)(cac@6.7.14)(db0@0.3.4)(esbuild@0.28.1)(eslint@10.7.0(jiti@2.7.0))(ioredis@5.11.1)(magicast@0.5.3)(optionator@0.9.4)(pinia@4.0.2(@vue/devtools-api@8.1.5)(typescript@6.0.3)(vue@3.5.40(typescript@6.0.3)))(rollup-plugin-visualizer@7.0.1(rollup@4.62.2))(rollup@4.62.2)(sass@1.101.0)(srvx@0.11.22)(terser@5.49.0)(typescript@6.0.3)(vite@7.3.6(@types/node@24.13.3)(jiti@2.7.0)(sass@1.101.0)(terser@5.49.0)(yaml@2.9.0))(vue-tsc@3.3.7(typescript@6.0.3))(webpack@5.108.4(esbuild@0.28.1)(postcss@8.5.19))(xml2js@0.6.2)(yaml@2.9.0))(vue@3.5.40(typescript@6.0.3))
+      '@yunlefun-home/air-conditioner':
+        specifier: ^0.2.0
+        version: 0.2.0(vue@3.5.40(typescript@6.0.3))
       '@yunlefun/sso':
         specifier: ^0.5.0
         version: 0.5.0
@@ -670,11 +675,11 @@ packages:
   '@cloudbase/adapter-wx_mp@1.3.1':
     resolution: {integrity: sha512-rS0N1aD1a0zc421ds17/HzM4RChQ6T2ixMz87bhPJ1yveqJt/KUqYxiXJDWhZ803wwTmJs8aqNkgugsNusNhbg==}
 
-  '@cloudbase/js-sdk@3.6.2':
-    resolution: {integrity: sha512-UfWFLpeNx5TI0ICMvPKUZEm0BDRUeQge8YM3xpnFEeX3GnPqQwGeeCgi9StQWL7sIxAabILkMEmyow6x7NE5XQ==}
+  '@cloudbase/js-sdk@3.6.4':
+    resolution: {integrity: sha512-1D0EfFvGC3EAUmliV6CIctkl3avq+6eJbtYJ4om3hxGX8lNO/NH4cnXIwX53SKYcXADbtNM3sD1Z83Sg63aNSA==}
 
-  '@cloudbase/wx-cloud-client-sdk@1.8.9':
-    resolution: {integrity: sha512-7zg+3Nx2tdm8p3XzVtDHxiARzEzSL/EZrWsQo6tZN8ucRWsoTXAjkwGw9cdgoL8V3W7d30mZ26yItKZpJHwTwA==}
+  '@cloudbase/wx-cloud-client-sdk@1.8.10':
+    resolution: {integrity: sha512-XtWR1zNwKUqnAK1psvhK93EUnZBWhVorUdA1lHNWyI661YsdpLcxPRiX+/yoIrTo24MJyd/KguSuHluq3hsHqA==}
 
   '@cloudflare/kv-asset-handler@0.4.2':
     resolution: {integrity: sha512-SIOD2DxrRRwQ+jgzlXCqoEFiKOFqaPjhnNTGKXSRLvp1HiOvapLaFG2kEr9dYQTYe8rKrd9uvDUzmAITeNyaHQ==}
@@ -2751,6 +2756,14 @@ packages:
   '@xtuc/long@4.2.2':
     resolution: {integrity: sha512-NuHqBY1PB/D8xU6s/thBgOAiAP7HOYDQ32+BFZILJ8ivkUkAHQnWfn6WhL79Owj1qmUnoN/YPhktdIoucipkAQ==}
 
+  '@yunlefun-home/air-conditioner-core@0.2.0':
+    resolution: {integrity: sha512-uqcIK5jDH5LrLI7HV14BzGBq/JDtIRaTLxw1Oy5yoOHlKUmXkWyWZLTVtLUYHjQBtaEEn+R58GCtonxlvRVokw==}
+
+  '@yunlefun-home/air-conditioner@0.2.0':
+    resolution: {integrity: sha512-LrRCWyliRL2h6N5dcvIYUWCqGaYPMuR9HAS7vPXHDYTVD5NckKxYHAM0XsdVJK+90QQMU+V9Cq8gdA3rGtryeQ==}
+    peerDependencies:
+      vue: 3.5.40
+
   '@yunlefun/sso@0.5.0':
     resolution: {integrity: sha512-UwT0hKJX3kcl63dXmAgQLfTQRXPO9h+zMDbIGV3wPU6kO5eiuqTU+XAtPxxTMb/xyxJ/SG2cIVXfhjOxHYpY8A==}
 
@@ -2916,9 +2929,6 @@ packages:
     peerDependencies:
       '@babel/core': ^7.4.0 || ^8.0.0-0 <8.0.0
 
-  balanced-match@1.0.2:
-    resolution: {integrity: sha512-3oSeUO0TMV67hN1AmbXsK4yaqU7tjiHlbxRDZOpH0KW9+CeX4bRAaX0Anxt0tx2MrpRpWwQaPwIlISEJhYU5Pw==}
-
   balanced-match@4.0.4:
     resolution: {integrity: sha512-BLrgEcRTwX2o6gGxGOCNyMvGSp35YofuYzw9h1IMTRmKqttAZZVU67bdb9Pr2vUHA8+j3i2tJfjO6C6+4myGTA==}
     engines: {node: 18 || 20 || >=22}
@@ -2983,12 +2993,9 @@ packages:
   boolbase@1.0.0:
     resolution: {integrity: sha512-JZOSA7Mo9sNGB8+UjSgzdLtokWAky1zbztM3WRLCbZ70/3cTANmQmOdR7y2g+J0e2WXywy1yS468tY+IruqEww==}
 
-  brace-expansion@2.1.2:
-    resolution: {integrity: sha512-w5JZcKgdhDOgOwm8H+KgbosopHMuGcl6qbulwjtz3SM7I7P3yW1eAjzMPLrIE+NQ9vjgANKHWeMHnrT0OXW1oA==}
-
-  brace-expansion@5.0.7:
-    resolution: {integrity: sha512-7oFy703dxfY3/NLxC1fh2SUCQ0H9rmAY+5EpDVfXjUTTs+HEwR2nYaqLv+GWcTsumwxPfiz6CzCNkwXwBUwqCA==}
-    engines: {node: 18 || 20 || >=22}
+  brace-expansion@5.0.8:
+    resolution: {integrity: sha512-JZyDyq3D4AUifKTPOB7DELf6XsB3WdPuNxCtob1vFXPsSXhdAiHBWJ/tJ8HAc9aH84BK+5JFZLNkJKx3G9kzQg==}
+    engines: {node: 20 || >=22}
 
   braces@3.0.3:
     resolution: {integrity: sha512-yQbXgO/OSZVD2IsiLlro+7Hf6Q18EJrKSEsdoMzKePKXct3gvD8oLcOQdIzGupr5Fj+EDe8gO/lxc1BzfMpxvA==}
@@ -5369,8 +5376,8 @@ packages:
   tar-stream@3.2.0:
     resolution: {integrity: sha512-ojzvCvVaNp6aOTFmG7jaRD0meowIAuPc3cMMhSgKiVWws1GyHbGd/xvnyuRKcKlMpt3qvxx6r0hreCNITP9hIg==}
 
-  tar@7.5.20:
-    resolution: {integrity: sha512-9FcyK4PA6+WbzlTM9WhQm6vB5W7cP7dUiPsv1g7YDwEQnQ1CGpK3MGlKk/ITVWMk05kHZuBhmVhiv8LZoy/PFQ==}
+  tar@7.5.22:
+    resolution: {integrity: sha512-MFO/QzvtAOmJbkhOaCTvbGcFN9L9b+JunIsDwaKljSOdcLMea3NJ1k9Usz/rjdfSXTq4dfzfeS7W4p4YOAAHeA==}
     engines: {node: '>=18'}
 
   teex@1.0.1:
@@ -6907,11 +6914,11 @@ snapshots:
       '@cloudbase/adapter-interface': 0.7.1
       web-streams-polyfill: 4.3.0
 
-  '@cloudbase/js-sdk@3.6.2':
+  '@cloudbase/js-sdk@3.6.4':
     dependencies:
       '@cloudbase/adapter-interface': 0.7.1
       '@cloudbase/adapter-wx_mp': 1.3.1
-      '@cloudbase/wx-cloud-client-sdk': 1.8.9
+      '@cloudbase/wx-cloud-client-sdk': 1.8.10
       '@mattiasbuelens/web-streams-adapter': 0.1.0
       bson: 6.10.4
       jwt-decode: 3.1.2
@@ -6920,7 +6927,7 @@ snapshots:
       text-encoding-shim: 1.0.5
       web-streams-polyfill: 4.3.0
 
-  '@cloudbase/wx-cloud-client-sdk@1.8.9':
+  '@cloudbase/wx-cloud-client-sdk@1.8.10':
     dependencies:
       '@cloudbase/adapter-wx_mp': 1.3.1
       core-js-pure: 3.49.0
@@ -7331,7 +7338,7 @@ snapshots:
       node-fetch: 2.7.0
       nopt: 8.1.0
       semver: 7.8.5
-      tar: 7.5.20
+      tar: 7.5.22
     transitivePeerDependencies:
       - encoding
       - supports-color
@@ -9007,6 +9014,13 @@ snapshots:
 
   '@xtuc/long@4.2.2': {}
 
+  '@yunlefun-home/air-conditioner-core@0.2.0': {}
+
+  '@yunlefun-home/air-conditioner@0.2.0(vue@3.5.40(typescript@6.0.3))':
+    dependencies:
+      '@yunlefun-home/air-conditioner-core': 0.2.0
+      vue: 3.5.40(typescript@6.0.3)
+
   '@yunlefun/sso@0.5.0': {}
 
   abbrev@3.0.1: {}
@@ -9176,8 +9190,6 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  balanced-match@1.0.2: {}
-
   balanced-match@4.0.4: {}
 
   bare-events@2.9.1: {}
@@ -9225,11 +9237,7 @@ snapshots:
 
   boolbase@1.0.0: {}
 
-  brace-expansion@2.1.2:
-    dependencies:
-      balanced-match: 1.0.2
-
-  brace-expansion@5.0.7:
+  brace-expansion@5.0.8:
     dependencies:
       balanced-match: 4.0.4
 
@@ -10720,15 +10728,15 @@ snapshots:
 
   minimatch@10.2.5:
     dependencies:
-      brace-expansion: 5.0.7
+      brace-expansion: 5.0.8
 
   minimatch@5.1.9:
     dependencies:
-      brace-expansion: 2.1.2
+      brace-expansion: 5.0.8
 
   minimatch@9.0.9:
     dependencies:
-      brace-expansion: 2.1.2
+      brace-expansion: 5.0.8
 
   minimizer-webpack-plugin@5.6.1(esbuild@0.28.1)(postcss@8.5.19)(webpack@5.108.4(esbuild@0.28.1)(postcss@8.5.19)):
     dependencies:
@@ -12063,7 +12071,7 @@ snapshots:
       - bare-buffer
       - react-native-b4a
 
-  tar@7.5.20:
+  tar@7.5.22:
     dependencies:
       '@isaacs/fs-minipass': 4.0.1
       chownr: 3.0.0

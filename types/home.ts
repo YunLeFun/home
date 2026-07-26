@@ -68,17 +68,4 @@ export interface VirtualHomeState {
   changedAt: string
 }
 
-export type HomeSyncStatus = 'local' | 'syncing' | 'synced' | 'unauthorized' | 'conflict' | 'error'
-export type HomeSyncBackend = 'cloudbase' | 'memory'
-
-export interface HomeStateLoadResponse {
-  found: boolean
-  backend: HomeSyncBackend
-  state?: VirtualHomeState
-}
-
-export interface HomeStateSyncResponse {
-  synced: boolean
-  backend: HomeSyncBackend
-  state: VirtualHomeState
-}
+export type HomeSyncStatus = 'local' | 'syncing' | 'synced' | 'unauthorized' | 'error'

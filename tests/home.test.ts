@@ -5,14 +5,13 @@ import {
   createPlacementInRoom,
   findSurfaceAtPoint,
   getPointAlongRoute,
-  hasHomeRevisionConflict,
   normalizeHomeState,
   placementToWorld,
   surfacePointToWorld,
   worldPointToSurface,
 } from '~/utils/home'
 
-describe('virtual home projection', () => {
+describe('cloud home projection', () => {
   const template = HOME_TEMPLATES['cloud-apartment']
 
   it('projects stable local surface coordinates into world coordinates', () => {
@@ -36,9 +35,11 @@ describe('virtual home projection', () => {
 
   it('only snaps devices to compatible surfaces', () => {
     const wall = findSurfaceAtPoint(template, 'air-conditioner', { x: 200, y: 220 })
+    const televisionWall = findSurfaceAtPoint(template, 'television', { x: 440, y: 280 })
     const invalid = findSurfaceAtPoint(template, 'fan', { x: 200, y: 220 })
 
     expect(wall?.surface.kind).toBe('wall')
+    expect(televisionWall?.surface.id).toBe('living-wall')
     expect(invalid).toBeNull()
   })
 
@@ -67,23 +68,18 @@ describe('virtual home projection', () => {
   })
 })
 
-describe('virtual home persistence', () => {
+describe('cloud home persistence', () => {
   it('normalizes corrupted local data and restores all device slots', () => {
     const state = normalizeHomeState({ templateId: 'studio', placements: [{ deviceId: 'fan', u: 7, v: -2 }] })
 
     expect(state.templateId).toBe('studio')
-    expect(state.placements).toHaveLength(4)
+    expect(state.placements).toHaveLength(5)
     expect(state.placements.find(item => item.deviceId === 'fan')).toMatchObject({ u: 1, v: 0 })
+    expect(state.placements.find(item => item.deviceId === 'television')?.surfaceId).toBe('studio-wall')
   })
 
-  it('detects optimistic revision conflicts', () => {
-    const remote = createDefaultHomeState()
-    remote.revision = 4
-    const local = createDefaultHomeState()
-    local.revision = 3
-
-    expect(hasHomeRevisionConflict(remote, local)).toBe(true)
-    local.revision = 4
-    expect(hasHomeRevisionConflict(remote, local)).toBe(false)
+  it('starts untouched homes at the migration epoch so cloud state wins', () => {
+    expect(createDefaultHomeState().changedAt).toBe('1970-01-01T00:00:00.000Z')
   })
+
 })

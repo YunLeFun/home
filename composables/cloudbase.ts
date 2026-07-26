@@ -6,27 +6,24 @@ import { toCloudBaseSharedSession } from '~/utils/cloudbase-session'
 type CloudBaseSdk = typeof cloudbaseSdk
 type CloudBaseApp = ReturnType<CloudBaseSdk['init']>
 type CloudBaseAuth = ReturnType<CloudBaseApp['auth']>
+type CloudBaseDatabase = ReturnType<CloudBaseApp['database']>
 
 interface CloudBaseSessionResult {
   session: CloudBaseSharedSession | null
   error: string | null
 }
 
-let cachedApp: CloudBaseApp | null = null
 let cachedAuth: CloudBaseAuth | null = null
+let cachedDatabase: CloudBaseDatabase | null = null
 let cachedConfigKey = ''
 
 function getPublicString(value: unknown, fallback = '') {
   return typeof value === 'string' ? value : fallback
 }
 
-async function loadCloudBaseSdk(): Promise<CloudBaseSdk> {
-  const module = await import('@cloudbase/js-sdk')
-  return module.default
-}
-
 export function useCloudBaseClient() {
   const config = useRuntimeConfig()
+  const nuxtApp = useNuxtApp()
   const cloudbaseConfig = computed<CloudBasePublicConfig>(() => {
     const envId = getPublicString(config.public.cloudbaseEnvId)
     const accessKey = getPublicString(config.public.cloudbaseAccessKey)
@@ -51,8 +48,11 @@ export function useCloudBaseClient() {
     if (cachedAuth && cachedConfigKey === configKey)
       return cachedAuth
 
-    const sdk = await loadCloudBaseSdk()
-    cachedApp = sdk.init({
+    const sdk = nuxtApp.$cloudbaseSdk as CloudBaseSdk | undefined
+    if (!sdk)
+      return null
+
+    const app = sdk.init({
       env: activeConfig.envId,
       region: activeConfig.region,
       accessKey: activeConfig.accessKey,
@@ -60,10 +60,19 @@ export function useCloudBaseClient() {
         detectSessionInUrl: false,
       },
     })
-    cachedAuth = cachedApp.auth({ persistence: 'local' })
+    cachedAuth = app.auth({ persistence: 'local' })
+    cachedDatabase = app.database()
     cachedConfigKey = configKey
 
     return cachedAuth
+  }
+
+  async function getDatabase() {
+    const auth = await getAuth()
+    if (!auth || !cachedDatabase)
+      return null
+
+    return cachedDatabase
   }
 
   async function getSharedSession(): Promise<CloudBaseSessionResult> {
@@ -86,6 +95,7 @@ export function useCloudBaseClient() {
     config: cloudbaseConfig,
     isConfigured,
     getAuth,
+    getDatabase,
     getSharedSession,
   }
 }
