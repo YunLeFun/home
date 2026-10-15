@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { AirConditioner } from '@yunlefun-home/air-conditioner'
+import '@yunlefun-home/air-conditioner/style.css'
 import yunLogoUrl from '@yunlefun-home/air-conditioner/yun-logo.svg'
 import { computed } from 'vue'
 import type { AirConditionerState } from '~/types'

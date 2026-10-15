@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url'
 import { pwa } from './config/pwa'
 import { appDescription } from './constants/index'
 
@@ -16,10 +17,19 @@ export default defineNuxtConfig({
 
   css: [
     '@unocss/reset/tailwind.css',
-    '@yunlefun-home/air-conditioner/style.css',
     '~/styles/css-vars.css',
     '~/styles/index.scss',
   ],
+
+  vite: {
+    resolve: {
+      alias: [{
+        // Keep the renderer's relative font URL out of Nuxt's root assets alias.
+        find: /^\.?\/?assets\/fonts\/digital-7-mono\.ttf$/,
+        replacement: fileURLToPath(new URL('./assets/fonts/digital-7-mono.ttf', import.meta.resolve('@yunlefun-home/air-conditioner/style.css'))),
+      }],
+    },
+  },
 
   runtimeConfig: {
     public: {

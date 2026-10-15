@@ -93,6 +93,8 @@ Version 1 supports Celsius climate entities with an `off` mode and `cool` or `he
 
 Run `pnpm check` before shipping. Automated tests exercise the official client's authentication, shared connections, subscription recovery, command planning, pending-state reconciliation, token isolation, and cloud tombstones through simulated HA sockets. Real-device acceptance still requires testing with the household HA instance and air conditioner.
 
+Local validation evidence and the two remaining upstream dependency-audit blockers are recorded in [Home Assistant v1 validation](docs/home-assistant-validation.md).
+
 ## Cloudflare Workers Deployment
 
 The production target is Cloudflare Workers with Workers Assets. Nuxt uses the ESM `cloudflare-module` Nitro preset; `wrangler.jsonc` points to the generated module entry and static asset directory.
