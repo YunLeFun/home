@@ -4,6 +4,47 @@ export type DeviceStateSyncStatus = 'local' | 'syncing' | 'synced' | 'unauthoriz
 
 export type AirConditionerMode = 'cold' | 'hot'
 
+export interface HomeAssistantBinding {
+  provider: 'home-assistant'
+  baseUrl: string
+  entityId: string
+}
+
+export type DeviceBinding = HomeAssistantBinding
+export type DeviceLinkStatus = 'unbound' | 'needs-token' | 'connecting' | 'online' | 'offline' | 'error'
+
+export interface AcCapabilities {
+  minTemperature: number
+  maxTemperature: number
+  temperatureStep: number
+  hvacModes: string[]
+  supportsTemperature: boolean
+  unsupportedReason: string | null
+}
+
+export interface AcDeviceSnapshot {
+  state: AirConditionerState
+  reportedAt: string
+  rawMode: string
+  name: string
+  available: boolean
+  targetTemperature: number | null
+  capabilities: AcCapabilities
+}
+
+export interface AcDeviceLink {
+  binding: DeviceBinding | null
+  status: DeviceLinkStatus
+  error: string | null
+  bindingError: string | null
+  bindingLoaded: boolean
+  state: AirConditionerState | null
+  snapshot: AcDeviceSnapshot | null
+  mode: string | null
+  pending: boolean
+  ready: boolean
+}
+
 export interface AirConditionerState {
   status: boolean
   mode: AirConditionerMode

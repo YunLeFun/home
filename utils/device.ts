@@ -1,6 +1,7 @@
 import type {
   AirConditionerAction,
   AirConditionerState,
+  AcCapabilities,
   DeviceActionByKind,
   DeviceKind,
   DeviceRuntimeAction,
@@ -17,6 +18,7 @@ import type {
   TelevisionAction,
   TelevisionState,
 } from '~/types'
+import { clampAcTemperature } from './home-assistant'
 
 export const DEFAULT_TELEVISION_SOURCE_URL = 'https://media.w3.org/2010/05/sintel/trailer.mp4'
 
@@ -191,17 +193,25 @@ function isValidTimerMinutes(value: unknown) {
   return value === null || (typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1440)
 }
 
-function reduceAirConditioner(state: AirConditionerState, action: AirConditionerAction): AirConditionerState {
+function reduceAirConditioner(state: AirConditionerState, action: AirConditionerAction, capabilities?: AcCapabilities): AirConditionerState {
+  const min = capabilities?.minTemperature ?? minAirConditionerTemperature
+  const max = capabilities?.maxTemperature ?? maxAirConditionerTemperature
+  const step = capabilities?.temperatureStep ?? 1
+  const temperature = (value: number) => capabilities ? clampAcTemperature(value, capabilities) : Math.min(max, Math.max(min, value))
   if (action.type === 'increment')
-    return { ...state, temperature: Math.min(maxAirConditionerTemperature, state.temperature + 1) }
+    return { ...state, temperature: Number(temperature(state.temperature + step).toFixed(4)) }
   if (action.type === 'decrement')
-    return { ...state, temperature: Math.max(minAirConditionerTemperature, state.temperature - 1) }
+    return { ...state, temperature: Number(temperature(state.temperature - step).toFixed(4)) }
   if (action.type === 'toggleStatus')
     return { ...state, status: !state.status }
   if (action.type === 'status')
     return { ...state, status: action.status }
   if (action.type === 'mode')
     return { ...state, mode: action.mode }
+  if (capabilities) {
+    const next = { ...state, ...action.payload }
+    return { status: next.status, mode: next.mode, temperature: temperature(next.temperature) }
+  }
   return normalizeAirConditionerState({ ...state, ...action.payload })
 }
 
@@ -260,11 +270,13 @@ export function reduceDeviceState<K extends DeviceKind>(
   state: DeviceStateByKind<K>,
   action: DeviceActionByKind<K>,
   changedAt = new Date().toISOString(),
+  capabilities?: AcCapabilities,
 ): DeviceStateByKind<K> {
   if (kind === 'air-conditioner')
     return reduceAirConditioner(
-      normalizeAirConditionerState(state),
+      capabilities ? state as AirConditionerState : normalizeAirConditionerState(state),
       action as AirConditionerAction,
+      capabilities,
     ) as DeviceStateByKind<K>
   if (kind === 'fan')
     return reduceFan(state as FanState, action as FanAction, changedAt) as DeviceStateByKind<K>

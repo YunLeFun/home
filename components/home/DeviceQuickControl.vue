@@ -34,6 +34,8 @@ const syncStatus = computed(() => {
   return television.syncStatus.value
 })
 const syncLabel = computed(() => {
+  if (props.deviceId === 'air-conditioner' && airConditioner.binding.value)
+    return airConditioner.linkLabel.value
   if (syncStatus.value === 'syncing')
     return '同步中'
   if (syncStatus.value === 'synced')
@@ -124,26 +126,27 @@ function toggleTelevisionMuted() {
 
     <section v-if="deviceId === 'air-conditioner'" class="quick-control__body">
       <div class="quick-control__hero">
-        <button class="power-orb" :class="{ 'is-on': acState.status }" type="button" :aria-label="acState.status ? '关闭空调' : '开启空调'" :aria-pressed="acState.status" @click="toggleAc">
+        <button class="power-orb" :class="{ 'is-on': acState.status }" type="button" :disabled="!airConditioner.linkReady.value" :aria-label="acState.status ? '关闭空调' : '开启空调'" :aria-pressed="acState.status" @click="toggleAc">
           <span class="i-carbon-power" />
         </button>
-        <div><strong>{{ acState.temperature }}<sup>°C</sup></strong><small>{{ acState.status ? (acState.mode === 'cold' ? '制冷运行中' : '制热运行中') : '待机' }}</small></div>
+        <div><strong>{{ airConditioner.targetTemperature.value ?? '—' }}<sup>°C</sup></strong><small>{{ airConditioner.binding.value && !airConditioner.linkReady.value ? '显示上次状态 · 当前不可控制' : acState.status ? `${airConditioner.acModeLabel.value}运行中` : '待机' }}</small></div>
       </div>
       <div class="control-stepper">
-        <button type="button" aria-label="降低温度" :disabled="acState.temperature <= 16" @click="changeAcTemperature(-1)">
+        <button type="button" aria-label="降低温度" :disabled="!airConditioner.linkReady.value || !airConditioner.temperatureAvailable.value || acState.temperature <= airConditioner.capabilities.value.minTemperature" @click="changeAcTemperature(-1)">
           −
-        </button><span>目标温度</span><button type="button" aria-label="升高温度" :disabled="acState.temperature >= 31" @click="changeAcTemperature(1)">
+        </button><span>目标温度</span><button type="button" aria-label="升高温度" :disabled="!airConditioner.linkReady.value || !airConditioner.temperatureAvailable.value || acState.temperature >= airConditioner.capabilities.value.maxTemperature" @click="changeAcTemperature(1)">
           ＋
         </button>
       </div>
       <div class="control-segments">
-        <button :class="{ active: acState.mode === 'cold' }" type="button" :aria-pressed="acState.mode === 'cold'" @click="setAcMode('cold')">
+        <button :class="{ active: airConditioner.acMode.value === 'cool' }" type="button" :disabled="!airConditioner.linkReady.value || !airConditioner.capabilities.value.hvacModes.includes('cool')" :aria-pressed="airConditioner.acMode.value === 'cool'" @click="setAcMode('cold')">
           <span class="i-carbon-snowflake" />制冷
         </button>
-        <button :class="{ active: acState.mode === 'hot' }" type="button" :aria-pressed="acState.mode === 'hot'" @click="setAcMode('hot')">
+        <button :class="{ active: airConditioner.acMode.value === 'heat' }" type="button" :disabled="!airConditioner.linkReady.value || !airConditioner.capabilities.value.hvacModes.includes('heat')" :aria-pressed="airConditioner.acMode.value === 'heat'" @click="setAcMode('hot')">
           <span class="i-carbon-heat" />制热
         </button>
       </div>
+      <p v-if="airConditioner.linkError.value" class="quick-control__note" role="alert">{{ airConditioner.linkError.value }}</p>
     </section>
 
     <section v-else-if="deviceId === 'fan'" class="quick-control__body">

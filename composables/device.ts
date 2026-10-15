@@ -4,7 +4,10 @@ import type {
   DeviceKind,
   DeviceStateByKind,
   DeviceStateSyncStatus,
+  AirConditionerAction,
+  AirConditionerState,
 } from '~/types'
+import { acModeLabel, DEFAULT_AC_CAPABILITIES } from '~/utils/home-assistant'
 import {
   CLOUD_SYNC_EPOCH,
   createLocalSyncSnapshot,
@@ -26,11 +29,23 @@ function getDeviceStorageKey(kind: DeviceKind, deviceId: string) {
 }
 
 export function useDeviceState<K extends DeviceKind>(kind: K, deviceId: string = kind) {
+  const runtime = import.meta.client ? useNuxtApp().$deviceBindings : undefined
+  const link = kind === 'air-conditioner' ? runtime?.get(deviceId) : undefined
+  const bound = computed(() => Boolean(link?.binding))
+  const capabilities = computed(() => link?.snapshot?.capabilities ?? DEFAULT_AC_CAPABILITIES)
   const config = useRuntimeConfig()
   const cloudbase = useCloudBaseClient()
   const cloudSync = useCloudSync()
   const key = `${kind}:${deviceId}`
   const state = useState<DeviceStateByKind<K>>(`device-state:${key}`, () => createDefaultDeviceState(kind))
+  const displayState = computed(() => (bound.value && link?.state ? link.state : state.value) as DeviceStateByKind<K>)
+  const acMode = computed(() => {
+    const current = displayState.value as AirConditionerState
+    if (bound.value && link?.mode && current.status)
+      return link.mode
+    return current.mode === 'hot' ? 'heat' : 'cool'
+  })
+  const acLabel = computed(() => acModeLabel(acMode.value))
   const changedAt = useState(`device-changed-at:${key}`, () => CLOUD_SYNC_EPOCH)
   const hydrated = useState(`device-hydrated:${key}`, () => false)
   const syncStatus = useState<DeviceStateSyncStatus>(`device-sync:${key}`, () => 'local')
@@ -71,13 +86,25 @@ export function useDeviceState<K extends DeviceKind>(kind: K, deviceId: string =
   }
 
   async function reconcileCloudState() {
-    if (!syncEnabled.value || !hydrated.value)
+    if (!syncEnabled.value || !hydrated.value || link?.bindingLoaded === false)
       return
 
     syncStatus.value = 'syncing'
     syncError.value = null
     try {
       const remote = await cloudSync.readRecord<DeviceStateByKind<K>>(getRecordOptions())
+      if (link && !link.bindingLoaded)
+        return
+      // Bound devices publish confirmed snapshots through the singleton runtime only.
+      if (bound.value) {
+        if (remote && !link?.state) {
+          state.value = normalizeDeviceState(kind, remote.state)
+          changedAt.value = remote.changedAt
+        }
+        syncStatus.value = link?.bindingError ? 'error' : 'synced'
+        syncError.value = link?.bindingError ?? null
+        return
+      }
       const direction = selectCloudSyncDirection(changedAt.value, remote?.changedAt ?? null)
 
       if (direction === 'pull' && remote) {
@@ -103,7 +130,7 @@ export function useDeviceState<K extends DeviceKind>(kind: K, deviceId: string =
   }
 
   function scheduleSync() {
-    if (!syncEnabled.value)
+    if (!syncEnabled.value || bound.value)
       return
     if (syncTimer)
       clearTimeout(syncTimer)
@@ -111,6 +138,8 @@ export function useDeviceState<K extends DeviceKind>(kind: K, deviceId: string =
   }
 
   function replaceState(value: unknown, _action?: DeviceActionByKind<K>) {
+    if (bound.value)
+      return
     state.value = normalizeDeviceState(kind, value)
     changedAt.value = new Date().toISOString()
     widgetRevision.value += 1
@@ -118,7 +147,25 @@ export function useDeviceState<K extends DeviceKind>(kind: K, deviceId: string =
   }
 
   function dispatch(action: DeviceActionByKind<K>) {
+    if (link?.bindingLoaded === false)
+      return
     const nextChangedAt = new Date().toISOString()
+    if (bound.value && kind === 'air-conditioner') {
+      const current = displayState.value as AirConditionerState
+      const next = reduceDeviceState(kind, displayState.value, action, nextChangedAt, capabilities.value) as AirConditionerState
+      const acAction = action as AirConditionerAction
+      const fields: Partial<AirConditionerState> = acAction.type === 'increment' || acAction.type === 'decrement'
+        ? { temperature: next.temperature }
+        : acAction.type === 'mode'
+          ? { mode: next.mode }
+          : acAction.type === 'update'
+            ? acAction.payload
+            : { status: next.status }
+      if ((acAction.type === 'increment' || acAction.type === 'decrement') && next.temperature === current.temperature)
+        return
+      runtime?.request(deviceId, next, fields, acAction.type === 'increment' || acAction.type === 'decrement')
+      return
+    }
     state.value = reduceDeviceState(kind, state.value, action, nextChangedAt)
     changedAt.value = nextChangedAt
     scheduleSync()
@@ -172,7 +219,34 @@ export function useDeviceState<K extends DeviceKind>(kind: K, deviceId: string =
   }, { deep: true })
 
   return {
-    state,
+    state: displayState,
+    binding: computed(() => link?.binding ?? null),
+    linkStatus: computed(() => link?.status ?? 'unbound'),
+    linkError: computed(() => link?.error ?? link?.bindingError ?? null),
+    linkReady: computed(() => link?.bindingLoaded !== false && (!bound.value || link?.ready === true)),
+    linkPending: computed(() => link?.pending ?? false),
+    linkName: computed(() => link?.snapshot?.name ?? link?.binding?.entityId ?? ''),
+    linkLabel: computed(() => {
+      if (link?.status === 'needs-token')
+        return '需要令牌'
+      if (link?.status === 'connecting')
+        return '正在连接真实设备'
+      if (link?.status === 'offline')
+        return '真实设备离线'
+      if (link?.status === 'error')
+        return '真实设备连接异常'
+      if (link?.status === 'online')
+        return `${link.pending ? '等待设备确认' : '已连接'} · ${link.snapshot?.name ?? link.binding?.entityId}`
+      return ''
+    }),
+    targetTemperature: computed(() => {
+      const temperature = (displayState.value as AirConditionerState).temperature
+      return bound.value && link?.snapshot?.targetTemperature === null && temperature === link.snapshot.state.temperature && !link.pending ? null : temperature
+    }),
+    capabilities,
+    temperatureAvailable: computed(() => capabilities.value.supportsTemperature && (!bound.value || link?.snapshot?.targetTemperature !== null)),
+    acMode,
+    acModeLabel: acLabel,
     storageKey,
     widgetKey,
     syncStatus,

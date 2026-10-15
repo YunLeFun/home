@@ -11,6 +11,7 @@ interface CloudRecordOptions {
   collection: string
   keyField: 'deviceId' | 'slot'
   keyValue: string
+  ownerId?: string
 }
 
 interface CloudRecordDocument {
@@ -68,7 +69,7 @@ export function isCloudSyncUnauthorizedError(error: unknown) {
 export function useCloudSync() {
   const cloudbase = useCloudBaseClient()
 
-  async function getContext() {
+  async function getContext(expectedOwnerId?: string) {
     let sessionResult = await cloudbase.getSharedSession()
     if (!sessionResult.session) {
       await useYunleSession().refresh()
@@ -76,6 +77,8 @@ export function useCloudSync() {
     }
 
     const ownerId = getSessionOwnerId(sessionResult.session)
+    if (expectedOwnerId && ownerId !== expectedOwnerId)
+      throw new CloudSyncUnauthorizedError('登录账号已变化，请重试')
     const database = await cloudbase.getDatabase()
     if (!database)
       throw new Error('CloudBase 客户端尚未配置')
@@ -84,7 +87,7 @@ export function useCloudSync() {
   }
 
   async function readRecord<T>(options: CloudRecordOptions): Promise<CloudSyncRecord<T> | null> {
-    const { database, ownerId } = await getContext()
+    const { database, ownerId } = await getContext(options.ownerId)
     const result = await database
       .collection(options.collection)
       .where({
@@ -105,7 +108,7 @@ export function useCloudSync() {
     state: T,
     changedAt: string,
   ): Promise<CloudSyncRecord<T> | null> {
-    const { database, ownerId } = await getContext()
+    const { database, ownerId } = await getContext(options.ownerId)
     const result = await database
       .collection(options.collection)
       .where({
@@ -133,7 +136,7 @@ export function useCloudSync() {
   }
 
   async function addRecord<T>(options: CloudRecordOptions, state: T, changedAt: string) {
-    const { database } = await getContext()
+    const { database } = await getContext(options.ownerId)
     const result = await database.collection(options.collection).add({
       version: 1,
       [options.keyField]: options.keyValue,

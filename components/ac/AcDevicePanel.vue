@@ -16,6 +16,8 @@ const device = useDeviceState('air-conditioner', props.deviceId)
 const state = computed(() => device.state.value)
 
 const syncLabel = computed(() => {
+  if (device.binding.value)
+    return device.linkLabel.value
   if (!device.syncEnabled.value)
     return '保存在此设备'
   if (device.syncStatus.value === 'syncing')
@@ -29,7 +31,8 @@ const syncLabel = computed(() => {
   return '本地设备'
 })
 
-const modeLabel = computed(() => state.value.mode === 'cold' ? '制冷' : '制热')
+const modeLabel = device.acModeLabel
+const limits = device.capabilities
 
 function changeTemperature(delta: -1 | 1) {
   device.dispatch({ type: delta > 0 ? 'increment' : 'decrement' })
@@ -50,7 +53,7 @@ function setMode(mode: AirConditionerState['mode']) {
         </h1>
       </div>
       <div class="ac-panel__actions">
-        <span class="ac-panel__sync" :data-status="device.syncStatus.value" aria-live="polite">
+        <span class="ac-panel__sync" :data-status="device.binding.value ? device.linkStatus.value : device.syncStatus.value" aria-live="polite">
           <i />{{ syncLabel }}
         </span>
         <a :href="ORIGINAL_AC_URL" target="_blank" rel="noopener noreferrer">
@@ -71,14 +74,15 @@ function setMode(mode: AirConditionerState['mode']) {
 
       <div class="ac-console__readout" aria-live="polite">
         <span>{{ state.status ? modeLabel : '待机' }}</span>
-        <strong>{{ state.temperature }}<small>°C</small></strong>
-        <p>{{ state.status ? `${modeLabel}运行中` : '设备已关闭' }}</p>
+        <strong>{{ device.targetTemperature.value ?? '—' }}<small>°C</small></strong>
+        <p>{{ device.binding.value && !device.linkReady.value ? '显示上次状态 · 当前不可控制' : state.status ? `${modeLabel}运行中` : '设备已关闭' }}</p>
       </div>
 
       <button
         class="ac-console__power"
         :class="{ 'is-on': state.status }"
         type="button"
+        :disabled="!device.linkReady.value"
         :aria-pressed="state.status"
         :aria-label="state.status ? '关闭空调' : '开启空调'"
         @click="device.dispatch({ type: 'toggleStatus' })"
@@ -88,21 +92,21 @@ function setMode(mode: AirConditionerState['mode']) {
       </button>
 
       <div class="ac-console__temperature" aria-label="设置目标温度">
-        <button type="button" :disabled="state.temperature <= 16" aria-label="降低一度" @click="changeTemperature(-1)">
+        <button type="button" :disabled="!device.linkReady.value || !device.temperatureAvailable.value || state.temperature <= limits.minTemperature" aria-label="降低温度" @click="changeTemperature(-1)">
           <span class="i-carbon-subtract" />
         </button>
-        <span><small>目标温度</small><strong>{{ state.temperature }}°</strong></span>
-        <button type="button" :disabled="state.temperature >= 31" aria-label="升高一度" @click="changeTemperature(1)">
+        <span><small>目标温度</small><strong>{{ device.targetTemperature.value ?? '—' }}°</strong></span>
+        <button type="button" :disabled="!device.linkReady.value || !device.temperatureAvailable.value || state.temperature >= limits.maxTemperature" aria-label="升高温度" @click="changeTemperature(1)">
           <span class="i-carbon-add" />
         </button>
       </div>
 
       <div class="ac-console__modes" aria-label="运行模式">
-        <button type="button" :aria-pressed="state.mode === 'cold'" @click="setMode('cold')">
+        <button type="button" :disabled="!device.linkReady.value || !limits.hvacModes.includes('cool')" :aria-pressed="device.acMode.value === 'cool'" @click="setMode('cold')">
           <span class="i-carbon-snowflake" />
           <span><strong>制冷</strong><small>清凉送风</small></span>
         </button>
-        <button type="button" :aria-pressed="state.mode === 'hot'" @click="setMode('hot')">
+        <button type="button" :disabled="!device.linkReady.value || !limits.hvacModes.includes('heat')" :aria-pressed="device.acMode.value === 'heat'" @click="setMode('hot')">
           <span class="i-carbon-heat" />
           <span><strong>制热</strong><small>温暖送风</small></span>
         </button>
@@ -110,11 +114,12 @@ function setMode(mode: AirConditionerState['mode']) {
     </div>
 
     <footer class="ac-panel__footer">
-      <span><i class="i-carbon-information" />温度范围 16–31°C</span>
-      <span v-if="device.syncError.value" class="ac-panel__error">{{ device.syncError.value }}</span>
+      <span><i class="i-carbon-information" />温度范围 {{ limits.minTemperature }}–{{ limits.maxTemperature }}°C · 步长 {{ limits.temperatureStep }}°</span>
+      <span v-if="device.linkError.value || device.syncError.value" class="ac-panel__error" role="alert">{{ device.linkError.value || device.syncError.value }}</span>
       <span v-else-if="device.lastSyncedAt.value">状态已安全保存</span>
       <span v-else>更改会自动保存在当前设备</span>
     </footer>
+    <AcDeviceBinding :device-id="props.deviceId" />
   </section>
 </template>
 
@@ -199,11 +204,14 @@ function setMode(mode: AirConditionerState['mode']) {
   box-shadow: 0 0 0 4px rgba(101, 197, 165, 0.12);
 }
 
-.ac-panel__sync[data-status="syncing"] i {
+.ac-panel__sync[data-status="syncing"] i,
+.ac-panel__sync[data-status="connecting"] i {
   background: #6f91dc;
 }
 
 .ac-panel__sync[data-status="error"] i,
+.ac-panel__sync[data-status="offline"] i,
+.ac-panel__sync[data-status="needs-token"] i,
 .ac-panel__sync[data-status="unauthorized"] i {
   background: #d99882;
 }
@@ -410,6 +418,8 @@ button:focus-visible {
   outline: 3px solid rgba(83, 112, 197, 0.38);
   outline-offset: 3px;
 }
+
+button:disabled { opacity: .5; cursor: not-allowed; }
 
 @media (max-width: 560px) {
   .ac-panel {

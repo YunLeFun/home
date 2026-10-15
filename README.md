@@ -65,6 +65,7 @@ NUXT_PUBLIC_CLOUDBASE_ENV_ID=your-full-env-id
 NUXT_PUBLIC_CLOUDBASE_REGION=ap-shanghai
 NUXT_PUBLIC_CLOUDBASE_ACCESS_KEY=your-publishable-key
 NUXT_PUBLIC_CLOUDBASE_DEVICE_STATES_COLLECTION=home_device_states
+NUXT_PUBLIC_CLOUDBASE_DEVICE_BINDINGS_COLLECTION=home_device_bindings
 NUXT_PUBLIC_CLOUDBASE_HOME_LAYOUTS_COLLECTION=home_layouts
 NUXT_PUBLIC_DEVICE_SYNC_ENABLED=true
 NUXT_PUBLIC_HOME_SYNC_ENABLED=true
@@ -73,6 +74,24 @@ NUXT_PUBLIC_HOME_SYNC_ENABLED=true
 CloudBase provider setup must enable the required login methods and expose a Publishable Key through `NUXT_PUBLIC_CLOUDBASE_ACCESS_KEY`. A Publishable Key identifies the browser application; collection rules enforce data access. Do not add an administrator API Key to Home.
 
 Create `home_layouts` and `home_device_states` with `PRIVATE` permissions. Add unique compound indexes `_openid + slot` and `_openid + deviceId`, respectively. The Web SDK automatically associates client-created documents with the authenticated user via `_openid`; anonymous sessions are ignored.
+
+## Home Assistant Air Conditioners
+
+The air-conditioner panel can bind a virtual device to a Home Assistant `climate.*` entity. Home Assistant must already expose and control the actual air conditioner; verify its integration and model support in HA first. Home uses the official `home-assistant-js-websocket` client, with one shared connection per HA address in each page. The Worker does not proxy device commands, states, or HA credentials.
+
+Create `home_device_bindings` with `PRIVATE` permissions and a unique compound index on `_openid + deviceId`. The configured collection name is `NUXT_PUBLIC_CLOUDBASE_DEVICE_BINDINGS_COLLECTION`. This collection and index have been provisioned in the existing `yunlefun-8g7ybcxc7345c490` environment. Binding records contain `state: { binding: { provider, baseUrl, entityId } }`; unbinding writes a timestamped `state: { binding: null }` tombstone. Cached bindings are only pulled from the cloud, so an old browser cannot upload its cache to resurrect a removed binding.
+
+To connect, sign in to YunLe, open **空调控制 → 绑定真实设备**, enter the HA base address and a long-lived access token, test the connection, select an entity, and save. Use a dedicated non-administrator HA account. HTTPS Home pages require an HTTPS HA base URL with a valid certificate and reachable WSS endpoint. HTTP local development can use `http://localhost:8123`. A publicly reachable HA endpoint also enables control outside the home while this page is running. Proxy or tunnel authentication must allow the WebSocket handshake.
+
+HA tokens are stored only in this browser's localStorage, isolated by YunLe user ID and normalized HA origin. They are never included in CloudBase records, Nuxt state/payloads, Worker requests, or logs. A different browser loads the binding and prompts for its own token. LocalStorage remains accessible to scripts on the same origin. Unbinding retains the host token for other devices; **删除此 HA 的本机令牌** removes it and disconnects all devices using that host on this browser. Revoking a token in HA requires entering a new token.
+
+Only explicit user actions issue device commands. Temperature changes are debounced for 600 ms; commands are serialized per device. Off-state mode and temperature preferences stay local until the next user power-on, which applies both settings. The interface shows optimistic values until HA reports the requested fields. After a five-second confirmation deadline, or a service failure, Home rereads HA; it reports uncertainty if the desired state is still unconfirmed. A HA report confirms HA's state and does not independently verify physical hardware execution.
+
+Bound devices publish only confirmed, available HA snapshots to `home_device_states`, with `homeAssistant.bindingKey` and `homeAssistant.reportedAt` metadata. Cloud snapshot versions advance independently of HA's timestamp; cloud LWW data never overrides an online device or triggers commands. Disconnecting, switching accounts, or unbinding cancels pending work. Reconnection restores subscriptions and reads HA's current state without replaying offline commands.
+
+Version 1 supports Celsius climate entities with an `off` mode and `cool` or `heat`, using each entity's temperature range and step. Other active modes, such as dry and fan-only, retain their actual labels and are not implicitly changed to cooling. Unavailable/unknown entities disable controls. Background control, native widgets, shared household permissions, and a persistent bridge are outside this version.
+
+Run `pnpm check` before shipping. Automated tests exercise the official client's authentication, shared connections, subscription recovery, command planning, pending-state reconciliation, token isolation, and cloud tombstones through simulated HA sockets. Real-device acceptance still requires testing with the household HA instance and air conditioner.
 
 ## Cloudflare Workers Deployment
 

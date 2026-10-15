@@ -34,6 +34,7 @@ export default defineNuxtConfig({
       cloudbaseRegion: 'ap-shanghai',
       cloudbaseAccessKey: '',
       cloudbaseDeviceStatesCollection: 'home_device_states',
+      cloudbaseDeviceBindingsCollection: 'home_device_bindings',
       cloudbaseHomeLayoutsCollection: 'home_layouts',
     },
   },
