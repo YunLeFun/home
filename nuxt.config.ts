@@ -5,6 +5,8 @@ import { appDescription } from './constants/index'
 export default defineNuxtConfig({
   compatibilityDate: '2026-07-16',
   srcDir: '.',
+  // Session worktrees under .claude/ contain full checkouts with node_modules.
+  ignore: ['.claude/**'],
 
   modules: [
     '@vueuse/nuxt',
@@ -20,9 +22,15 @@ export default defineNuxtConfig({
     '~/styles/css-vars.css',
     '~/styles/index.scss',
     '~/styles/controls.scss',
+    '@yunlefun-home/air-conditioner/controls.css',
   ],
 
   vite: {
+    server: {
+      watch: {
+        ignored: ['**/.claude/**'],
+      },
+    },
     resolve: {
       alias: [{
         // Keep the renderer's relative font URL out of Nuxt's root assets alias.

@@ -1,5 +1,22 @@
 // Control primitives shared by the home shell and device plugins.
 
+// Theme @yunlefun-home/air-conditioner/controls with the brand tokens.
+:root {
+  --acw-tone-cool: var(--tone-cool);
+  --acw-tone-heat: var(--tone-heat);
+  --acw-tone-mid: var(--brand-secondary);
+  --acw-ink: var(--brand-ink);
+  --acw-muted: var(--brand-muted);
+  --acw-faint: var(--brand-faint);
+  --acw-surface: var(--brand-glass-strong);
+  --acw-sunken: var(--brand-glass-sunken);
+  --acw-line: var(--brand-line);
+  --acw-line-strong: var(--brand-line-strong);
+  --acw-highlight: var(--brand-highlight);
+  --acw-ease-spring: var(--ease-spring);
+  --acw-ease-out: var(--ease-out);
+}
+
 .ui-card {
   border: 1px solid var(--brand-line);
   border-radius: 24px;

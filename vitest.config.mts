@@ -1,5 +1,5 @@
 import { fileURLToPath } from 'node:url'
-import { defineConfig } from 'vitest/config'
+import { configDefaults, defineConfig } from 'vitest/config'
 
 const root = fileURLToPath(new URL('.', import.meta.url))
 
@@ -11,6 +11,8 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
+    // Session worktrees live under .claude/ and carry their own copies of the tests.
+    exclude: [...configDefaults.exclude, '.claude/**'],
     setupFiles: ['./tests/setup.ts'],
   },
 })

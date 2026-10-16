@@ -34,8 +34,11 @@ importers:
         specifier: ^15.0.0
         version: 15.0.0(905cd7bb3bf49defe602588344048c6f)
       '@yunlefun-home/air-conditioner':
-        specifier: ^0.2.0
-        version: 0.2.0(vue@3.5.44(typescript@6.0.3))
+        specifier: ^0.3.0
+        version: 0.3.0(vue@3.5.44(typescript@6.0.3))
+      '@yunlefun-home/air-conditioner-core':
+        specifier: ^0.3.0
+        version: 0.3.0
       '@yunlefun/sso':
         specifier: ^0.6.2
         version: 0.6.2
@@ -2711,11 +2714,11 @@ packages:
   '@xtuc/long@4.2.2':
     resolution: {integrity: sha512-NuHqBY1PB/D8xU6s/thBgOAiAP7HOYDQ32+BFZILJ8ivkUkAHQnWfn6WhL79Owj1qmUnoN/YPhktdIoucipkAQ==}
 
-  '@yunlefun-home/air-conditioner-core@0.2.0':
-    resolution: {integrity: sha512-uqcIK5jDH5LrLI7HV14BzGBq/JDtIRaTLxw1Oy5yoOHlKUmXkWyWZLTVtLUYHjQBtaEEn+R58GCtonxlvRVokw==}
+  '@yunlefun-home/air-conditioner-core@0.3.0':
+    resolution: {integrity: sha512-pRkZkUc3AbwwJz09UJhuXCiE2Ld6NC4g9p1vox+7fKragvH7Kanvpgo8vvA3GtuhI5IbExKj2ICnnBCjwK8jtA==}
 
-  '@yunlefun-home/air-conditioner@0.2.0':
-    resolution: {integrity: sha512-LrRCWyliRL2h6N5dcvIYUWCqGaYPMuR9HAS7vPXHDYTVD5NckKxYHAM0XsdVJK+90QQMU+V9Cq8gdA3rGtryeQ==}
+  '@yunlefun-home/air-conditioner@0.3.0':
+    resolution: {integrity: sha512-HHxPUlyYpBrlypvxwR8T9FJQqsUSgYdnlJsPXTRyiU5kOVtzChY3vm1FRvhd72O0TtuFeziHRwwfYHaQ8WxXWw==}
     peerDependencies:
       vue: 3.5.44
 
@@ -9476,11 +9479,11 @@ snapshots:
 
   '@xtuc/long@4.2.2': {}
 
-  '@yunlefun-home/air-conditioner-core@0.2.0': {}
+  '@yunlefun-home/air-conditioner-core@0.3.0': {}
 
-  '@yunlefun-home/air-conditioner@0.2.0(vue@3.5.44(typescript@6.0.3))':
+  '@yunlefun-home/air-conditioner@0.3.0(vue@3.5.44(typescript@6.0.3))':
     dependencies:
-      '@yunlefun-home/air-conditioner-core': 0.2.0
+      '@yunlefun-home/air-conditioner-core': 0.3.0
       vue: 3.5.44(typescript@6.0.3)
 
   '@yunlefun/sso@0.6.2':

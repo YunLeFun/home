@@ -1,76 +1,71 @@
-import type { DevicePluginState, DeviceTone } from '../types'
+import type { DevicePluginState } from '../types'
 import type { AcCapabilities, AirConditionerAction, AirConditionerState } from '~/types'
-import { clampAcTemperature } from '~/utils/home-assistant'
-
-export const MIN_AC_TEMPERATURE = 16
-export const MAX_AC_TEMPERATURE = 31
-
-const DEFAULT_AC_STATE: AirConditionerState = {
-  status: false,
-  mode: 'cold',
-  temperature: 26,
-}
+import type { AcLimits, AcState } from '@yunlefun-home/air-conditioner-core'
+import { acReducer, acTone, defaultAcState, normalizeAcState } from '@yunlefun-home/air-conditioner-core'
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object'
 }
 
 /**
- * Coerce an untrusted value into a valid air-conditioner state.
+ * Translate Home Assistant entity capabilities into core device limits.
+ *
+ * @param capabilities - Capabilities reported by the bound climate entity
+ */
+export function capabilitiesToLimits(capabilities: AcCapabilities): AcLimits {
+  return {
+    min: capabilities.minTemperature,
+    max: capabilities.maxTemperature,
+    step: capabilities.temperatureStep,
+  }
+}
+
+// Home has no sound mode; core requires one, so add it on the way in and drop it on the way out.
+function toCoreState(state: AirConditionerState): AcState {
+  return { ...state, sound: defaultAcState.sound }
+}
+
+function fromCoreState(state: AcState): AirConditionerState {
+  return { status: state.status, mode: state.mode, temperature: state.temperature }
+}
+
+/**
+ * Coerce untrusted stored or cloud data into a valid state. Field types are
+ * checked here because core trusts its input; clamping is delegated to core.
  *
  * @param value - Stored or remote state
- * @returns A state with a boolean power flag, known mode and clamped temperature
  */
 export function normalizeAirConditionerState(value: unknown): AirConditionerState {
-  if (!isRecord(value))
-    return { ...DEFAULT_AC_STATE }
-  const temperature = typeof value.temperature === 'number' && Number.isFinite(value.temperature)
-    ? Math.min(MAX_AC_TEMPERATURE, Math.max(MIN_AC_TEMPERATURE, value.temperature))
-    : DEFAULT_AC_STATE.temperature
+  const record = isRecord(value) ? value : {}
+  const { temperature } = normalizeAcState({
+    temperature: typeof record.temperature === 'number' && Number.isFinite(record.temperature) ? record.temperature : undefined,
+  })
+  // Keep Home's stored key order stable for existing local and cloud records.
   return {
-    status: typeof value.status === 'boolean' ? value.status : false,
-    mode: value.mode === 'hot' ? 'hot' : 'cold',
+    status: typeof record.status === 'boolean' ? record.status : false,
+    mode: record.mode === 'hot' ? 'hot' : 'cold',
     temperature,
   }
 }
 
 /**
- * Apply an action to an air-conditioner state.
+ * Apply an action. Bound devices use the entity's limits and keep reported
+ * values verbatim; local devices are re-validated first.
  *
  * @param state - Current state
  * @param action - Action to apply
- * @param capabilities - Bound entity limits; local devices use the default range
- * @returns The next state
+ * @param capabilities - Bound entity capabilities
  */
 export function reduceAirConditionerState(state: AirConditionerState, action: AirConditionerAction, capabilities?: AcCapabilities): AirConditionerState {
-  // Bound devices keep HA-reported values verbatim; local ones are re-validated.
-  const current = capabilities ? state : normalizeAirConditionerState(state)
-  const min = capabilities?.minTemperature ?? MIN_AC_TEMPERATURE
-  const max = capabilities?.maxTemperature ?? MAX_AC_TEMPERATURE
-  const step = capabilities?.temperatureStep ?? 1
-  const temperature = (value: number) => capabilities ? clampAcTemperature(value, capabilities) : Math.min(max, Math.max(min, value))
-  if (action.type === 'increment')
-    return { ...current, temperature: Number(temperature(current.temperature + step).toFixed(4)) }
-  if (action.type === 'decrement')
-    return { ...current, temperature: Number(temperature(current.temperature - step).toFixed(4)) }
-  if (action.type === 'toggleStatus')
-    return { ...current, status: !current.status }
-  if (action.type === 'status')
-    return { ...current, status: action.status }
-  if (action.type === 'mode')
-    return { ...current, mode: action.mode }
-  if (capabilities) {
-    const next = { ...current, ...action.payload }
-    return { status: next.status, mode: next.mode, temperature: temperature(next.temperature) }
-  }
-  return normalizeAirConditionerState({ ...current, ...action.payload })
+  if (capabilities)
+    return fromCoreState(acReducer(toCoreState(state), action, capabilitiesToLimits(capabilities)))
+  return normalizeAirConditionerState(acReducer(toCoreState(normalizeAirConditionerState(state)), action))
 }
 
 /**
- * Validate an untrusted air-conditioner action.
+ * Validate an untrusted action before it reaches the reducer.
  *
  * @param value - Candidate action
- * @returns Whether the value is a well-formed action
  */
 export function isAirConditionerAction(value: unknown): value is AirConditionerAction {
   if (!isRecord(value) || typeof value.type !== 'string')
@@ -84,23 +79,11 @@ export function isAirConditionerAction(value: unknown): value is AirConditionerA
   return value.type === 'update' && isRecord(value.payload)
 }
 
-/**
- * Map a state to the shell's visual tone.
- *
- * @param state - Current state
- * @returns `cool` or `heat` while running, otherwise `idle`
- */
-export function airConditionerTone(state: AirConditionerState): DeviceTone {
-  if (!state.status)
-    return 'idle'
-  return state.mode === 'hot' ? 'heat' : 'cool'
-}
-
 export const airConditionerState: DevicePluginState<'air-conditioner'> = {
-  create: () => ({ ...DEFAULT_AC_STATE }),
+  create: () => normalizeAirConditionerState(defaultAcState),
   normalize: normalizeAirConditionerState,
   reduce: (state, action, _changedAt, capabilities) => reduceAirConditionerState(state, action, capabilities),
   isAction: isAirConditionerAction,
   isActive: state => state.status,
-  tone: airConditionerTone,
+  tone: acTone,
 }

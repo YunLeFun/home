@@ -20,6 +20,6 @@ allowBuilds:
   workerd: true
 
 minimumReleaseAgeExclude:
-  - '@yunlefun-home/air-conditioner-core@0.2.0'
-  - '@yunlefun-home/air-conditioner@0.2.0'
+  - '@yunlefun-home/air-conditioner-core@0.3.0'
+  - '@yunlefun-home/air-conditioner@0.3.0'
   - tar@7.5.21

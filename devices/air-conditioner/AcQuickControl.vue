@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import type { AirConditionerState } from '~/types'
+import { acTone } from '@yunlefun-home/air-conditioner-core'
+import { AcTemperatureDial } from '@yunlefun-home/air-conditioner/controls'
 import { computed } from 'vue'
-import AcTemperatureDial from './AcTemperatureDial.vue'
-import { airConditionerTone } from './state'
+import { capabilitiesToLimits } from './state'
 
 const props = withDefaults(defineProps<{
   deviceId?: string
@@ -13,7 +14,8 @@ const props = withDefaults(defineProps<{
 const device = useDeviceState('air-conditioner', props.deviceId)
 const state = computed(() => device.state.value)
 const limits = device.capabilities
-const tone = computed(() => airConditionerTone(state.value))
+const tone = computed(() => acTone(state.value))
+const dialLimits = computed(() => capabilitiesToLimits(limits.value))
 const controllable = computed(() => device.linkReady.value)
 const modeIndex = computed(() => device.acMode.value === 'cool' ? 0 : device.acMode.value === 'heat' ? 1 : -1)
 const caption = computed(() => {
@@ -35,14 +37,10 @@ function setMode(mode: AirConditionerState['mode']) {
   <div class="ac-quick" :data-tone="tone">
     <AcTemperatureDial
       :value="device.targetTemperature.value"
-      :min="limits.minTemperature"
-      :max="limits.maxTemperature"
-      :step="limits.temperatureStep"
+      :limits="dialLimits"
       :tone="tone"
       :caption="caption"
       :disabled="!controllable || !device.temperatureAvailable.value"
-      :can-decrease="state.temperature > limits.minTemperature"
-      :can-increase="state.temperature < limits.maxTemperature"
       @change="changeTemperature"
     />
 

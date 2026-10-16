@@ -2,11 +2,12 @@
 import type { AirConditionerState } from '~/types'
 import { AirConditioner } from '@yunlefun-home/air-conditioner'
 import yunLogoUrl from '@yunlefun-home/air-conditioner/yun-logo.svg'
+import { acTone } from '@yunlefun-home/air-conditioner-core'
+import { AcTemperatureDial } from '@yunlefun-home/air-conditioner/controls'
 import { computed } from 'vue'
 import AcDeviceBinding from './AcDeviceBinding.vue'
-import AcTemperatureDial from './AcTemperatureDial.vue'
 import { airConditionerManifest } from './manifest'
-import { airConditionerTone } from './state'
+import { capabilitiesToLimits } from './state'
 import '@yunlefun-home/air-conditioner/style.css'
 
 const props = withDefaults(defineProps<{
@@ -19,8 +20,9 @@ const ORIGINAL_AC_URL = 'https://ac.yunyoujun.cn/'
 
 const device = useDeviceState('air-conditioner', props.deviceId)
 const state = computed(() => device.state.value)
-const tone = computed(() => airConditionerTone(state.value))
+const tone = computed(() => acTone(state.value))
 const limits = device.capabilities
+const dialLimits = computed(() => capabilitiesToLimits(limits.value))
 const controllable = computed(() => device.linkReady.value)
 const modeIndex = computed(() => device.acMode.value === 'cool' ? 0 : device.acMode.value === 'heat' ? 1 : -1)
 
@@ -86,14 +88,10 @@ function setMode(mode: AirConditionerState['mode']) {
       <AcTemperatureDial
         size="large"
         :value="device.targetTemperature.value"
-        :min="limits.minTemperature"
-        :max="limits.maxTemperature"
-        :step="limits.temperatureStep"
+        :limits="dialLimits"
         :tone="tone"
         :caption="caption"
         :disabled="!controllable || !device.temperatureAvailable.value"
-        :can-decrease="state.temperature > limits.minTemperature"
-        :can-increase="state.temperature < limits.maxTemperature"
         @change="changeTemperature"
       />
 

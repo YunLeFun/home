@@ -1,9 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { HOME_DEVICES } from '~/constants/home'
-import {
-  airConditionerPlugin,
-  airConditionerTone,
-} from '~/devices/air-conditioner'
+import { airConditionerPlugin } from '~/devices/air-conditioner'
 import { fanPlugin } from '~/devices/fan'
 import { HAND_WARMER_TEMPERATURES, handWarmerPlugin } from '~/devices/hand-warmer'
 import { robotVacuumPlugin } from '~/devices/robot-vacuum'
@@ -17,7 +14,7 @@ import {
   resolveDevicePluginComponent,
   unregisterDevicePlugin,
 } from '~/devices'
-import { createDefaultDeviceState, getDeviceTone, isDeviceAction, isDeviceRunning, reduceDeviceState } from '~/utils/device'
+import { createDefaultDeviceState, getDeviceTone, isDeviceAction, isDeviceRunning, normalizeDeviceState, reduceDeviceState } from '~/utils/device'
 
 afterEach(() => {
   installBuiltinDevicePlugins()
@@ -66,6 +63,11 @@ describe('device plugin registry', () => {
     expect(isDeviceAction('air-conditioner', { type: 'mode', mode: 'dry' })).toBe(false)
   })
 
+  it('keeps stored air conditioner records in a stable shape', () => {
+    expect(Object.keys(normalizeDeviceState('air-conditioner', { temperature: 40, mode: 'hot', status: true, extra: 1 }))).toEqual(['status', 'mode', 'temperature'])
+    expect(normalizeDeviceState('air-conditioner', { temperature: 40, mode: 'dry' })).toEqual({ status: false, mode: 'cold', temperature: 31 })
+  })
+
   it('fails loudly when a plugin-owned kind is not installed', () => {
     unregisterDevicePlugin('air-conditioner')
     expect(() => createDefaultDeviceState('air-conditioner')).toThrow(/not installed/)
@@ -94,7 +96,7 @@ describe('device plugin registry', () => {
 
 describe('device running state and tone', () => {
   it('maps air conditioner modes to cool and heat tones', () => {
-    expect(airConditionerTone({ status: false, mode: 'cold', temperature: 26 })).toBe('idle')
+    expect(getDeviceTone('air-conditioner', { status: false, mode: 'cold', temperature: 26 })).toBe('idle')
     expect(getDeviceTone('air-conditioner', { status: true, mode: 'cold', temperature: 22 })).toBe('cool')
     expect(getDeviceTone('air-conditioner', { status: true, mode: 'hot', temperature: 28 })).toBe('heat')
   })
