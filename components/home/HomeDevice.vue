@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { computed, shallowRef } from 'vue'
 import HomeDeviceGlyph from './HomeDeviceGlyph.vue'
-import { HOME_DEVICES } from '~/constants/home'
+import type { DeviceTone } from '~/devices/types'
 import type { DeviceKind, HomePoint } from '~/types'
+import { HOME_DEVICES } from '~/constants/home'
 
 const props = defineProps<{
   deviceId: DeviceKind
@@ -13,6 +14,7 @@ const props = defineProps<{
   editMode: boolean
   active?: boolean
   invalid?: boolean
+  tone?: DeviceTone
 }>()
 
 const emit = defineEmits<{
@@ -92,6 +94,7 @@ function onKeydown(event: KeyboardEvent) {
     class="home-device"
     :class="{ 'is-selected': selected, 'is-dragging': dragging, 'is-active': active, 'is-invalid': invalid }"
     :data-device="deviceId"
+    :data-tone="tone ?? 'idle'"
     :style="style"
     type="button"
     :aria-label="`${definition.name}${editMode ? '，可拖动摆放' : '，打开快捷控制'}`"
@@ -103,14 +106,19 @@ function onKeydown(event: KeyboardEvent) {
     @pointercancel="onPointerUp"
   >
     <span class="home-device__halo" />
-    <HomeDeviceGlyph :device-id="deviceId" :active="active" :title="definition.name" />
-    <span v-if="active" class="home-device__status" aria-label="设备运行中" />
+    <span v-if="active" class="home-device__pulse" aria-hidden="true" />
+    <HomeDeviceGlyph :device-id="deviceId" :active="active" :tone="tone" :title="definition.name" />
+    <Transition name="status-pop">
+      <span v-if="active" class="home-device__status" aria-label="设备运行中" />
+    </Transition>
   </button>
 </template>
 
 <style scoped>
 .home-device {
   --device-anchor-y: -62%;
+  --device-tone: var(--tone-active);
+  --device-lift: 0px;
   position: absolute;
   z-index: 4;
   display: grid;
@@ -121,12 +129,16 @@ function onKeydown(event: KeyboardEvent) {
   border: 0;
   background: transparent;
   cursor: pointer;
-  filter: drop-shadow(0 9px 10px rgba(40, 56, 91, 0.24));
-  transform: translate(-50%, var(--device-anchor-y)) rotate(var(--device-rotation));
+  filter: drop-shadow(0 9px 10px rgba(40, 49, 47, 0.2));
+  transform: translate(-50%, calc(var(--device-anchor-y) + var(--device-lift))) rotate(var(--device-rotation));
   transform-origin: 50% 70%;
-  transition: filter 160ms ease, transform 160ms ease;
+  transition: filter var(--dur-2) ease, transform var(--dur-3) var(--ease-spring);
   touch-action: none;
 }
+
+.home-device[data-tone="cool"] { --device-tone: var(--tone-cool); }
+.home-device[data-tone="heat"] { --device-tone: var(--tone-heat); }
+.home-device[data-tone="warm"] { --device-tone: var(--tone-warm); }
 
 .home-device[data-device="air-conditioner"] { --device-anchor-y: -50%; }
 .home-device[data-device="television"] { --device-anchor-y: -54%; aspect-ratio: 16 / 10; }
@@ -137,18 +149,19 @@ function onKeydown(event: KeyboardEvent) {
 .home-device:hover,
 .home-device:focus-visible,
 .home-device.is-selected {
+  --device-lift: -4px;
   z-index: 6;
-  filter: drop-shadow(0 10px 16px rgba(75, 103, 196, 0.38));
+  filter: drop-shadow(0 14px 18px color-mix(in oklab, var(--device-tone) 45%, transparent));
   outline: none;
 }
 
 .home-device.is-dragging {
   z-index: 8;
-  transform: translate(-50%, var(--device-anchor-y)) rotate(var(--device-rotation)) scale(1.07);
+  transform: translate(-50%, var(--device-anchor-y)) rotate(var(--device-rotation)) scale(1.08);
   transition: none;
 }
 
-.home-device.is-invalid { filter: drop-shadow(0 0 8px rgba(225, 78, 94, 0.9)); }
+.home-device.is-invalid { filter: drop-shadow(0 0 8px color-mix(in oklab, var(--tone-danger) 90%, transparent)); }
 
 .home-device :deep(.device-glyph) {
   position: relative;
@@ -163,17 +176,27 @@ function onKeydown(event: KeyboardEvent) {
   inset: -17%;
   border: 2px solid transparent;
   border-radius: 50%;
-  background: rgba(132, 159, 255, 0.12);
+  background: color-mix(in oklab, var(--device-tone) 14%, transparent);
   opacity: 0;
-  transform: scale(0.82);
-  transition: opacity 160ms ease, transform 160ms ease;
+  transform: scale(0.7);
+  transition: opacity var(--dur-2) ease, transform var(--dur-3) var(--ease-spring);
 }
 
 .home-device.is-selected .home-device__halo,
 .home-device:focus-visible .home-device__halo {
-  border-color: rgba(125, 151, 246, 0.78);
+  border-color: color-mix(in oklab, var(--device-tone) 70%, transparent);
   opacity: 1;
   transform: scale(1);
+}
+
+/* Soft sonar ring while running */
+.home-device__pulse {
+  position: absolute;
+  inset: -8%;
+  border: 2px solid color-mix(in oklab, var(--device-tone) 55%, transparent);
+  border-radius: 50%;
+  animation: ripple-out 2.8s var(--ease-out) infinite;
+  pointer-events: none;
 }
 
 .home-device__status {
@@ -185,7 +208,11 @@ function onKeydown(event: KeyboardEvent) {
   height: 10px;
   border: 2px solid white;
   border-radius: 50%;
-  background: #61cda8;
-  box-shadow: 0 2px 6px rgba(38, 128, 103, 0.35);
+  background: var(--device-tone);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--device-tone) 24%, transparent);
 }
+
+.status-pop-enter-active { transition: transform var(--dur-3) var(--ease-spring), opacity var(--dur-2) ease; }
+.status-pop-leave-active { transition: transform var(--dur-2) ease, opacity var(--dur-1) ease; }
+.status-pop-enter-from, .status-pop-leave-to { opacity: 0; transform: scale(0); }
 </style>

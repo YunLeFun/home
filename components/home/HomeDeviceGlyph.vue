@@ -1,23 +1,31 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import type { DeviceTone } from '~/devices/types'
 import type { DeviceKind } from '~/types'
+import { computed } from 'vue'
+import { resolveDevicePluginComponent } from '~/devices/registry'
 
 const props = withDefaults(defineProps<{
   deviceId: DeviceKind
   active?: boolean
+  tone?: DeviceTone
   title?: string
 }>(), {
   active: false,
+  tone: 'idle',
   title: '',
 })
 
+const pluginGlyph = computed(() => resolveDevicePluginComponent(props.deviceId, 'glyph'))
 const viewBox = computed(() => props.deviceId === 'television' ? '0 0 160 110' : '0 0 120 120')
 </script>
 
 <template>
+  <component :is="pluginGlyph" v-if="pluginGlyph" :active="active" :tone="tone" :title="title" />
   <svg
+    v-else
     class="device-glyph"
     :class="{ 'is-active': active }"
+    :data-tone="tone"
     :viewBox="viewBox"
     role="img"
     focusable="false"
@@ -25,16 +33,7 @@ const viewBox = computed(() => props.deviceId === 'television' ? '0 0 160 110' :
   >
     <title v-if="title">{{ title }}</title>
 
-    <g v-if="deviceId === 'air-conditioner'" class="device-glyph__ac" data-vector-device="air-conditioner">
-      <rect class="device-glyph__shadow" x="9" y="35" width="102" height="52" rx="15" />
-      <rect class="device-glyph__body" x="9" y="29" width="102" height="52" rx="15" />
-      <path class="device-glyph__panel" d="M16 59h88c-2 12-8 16-17 16H33c-9 0-15-4-17-16Z" />
-      <path class="device-glyph__detail" d="M25 64h70" />
-      <path class="device-glyph__detail" d="M35 69h50" />
-      <circle class="device-glyph__led" cx="95" cy="43" r="3" />
-    </g>
-
-    <g v-else-if="deviceId === 'fan'" class="device-glyph__fan" data-vector-device="fan">
+    <g v-if="deviceId === 'fan'" class="device-glyph__fan" data-vector-device="fan">
       <ellipse class="device-glyph__shadow" cx="60" cy="107" rx="26" ry="7" />
       <path class="device-glyph__stand" d="M56 68h8l5 32H51l5-32Z" />
       <rect class="device-glyph__base" x="38" y="98" width="44" height="12" rx="6" />
@@ -92,22 +91,22 @@ const viewBox = computed(() => props.deviceId === 'television' ? '0 0 160 110' :
   pointer-events: none;
 }
 
-.device-glyph__shadow { fill: rgba(54, 67, 96, 0.18); }
-.device-glyph__body { fill: #f9fbff; stroke: #a4b2cc; stroke-width: 2; }
-.device-glyph__panel { fill: #dce4f2; stroke: #a3b1c9; stroke-width: 1.5; }
-.device-glyph__detail { fill: none; stroke: #8191ad; stroke-linecap: round; stroke-width: 2; }
-.device-glyph__detail-fill { fill: none; stroke: #8292ad; stroke-opacity: .6; stroke-width: 1.5; }
-.device-glyph__led { fill: #7aa6ea; }
-.device-glyph__stand { fill: #cad4e4; stroke: #8f9db7; stroke-width: 1.5; }
-.device-glyph__base { fill: #b7c3d7; stroke: #8291ad; stroke-width: 1.5; }
-.device-glyph__grille { fill: #dfe7f3; }
-.device-glyph__blade { fill: #9fb2ce; }
-.device-glyph__hub { fill: #7083a7; }
-.device-glyph__lidar { fill: #a3b2c9; }
-.device-glyph__lidar-top { fill: #dce6f5; }
-.device-glyph__handle { fill: none; stroke: #a994b9; stroke-linecap: round; stroke-width: 8; }
-.device-glyph__warmer .device-glyph__body { fill: #f0c6bb; stroke: #bd8f8a; }
-.device-glyph__warmer .device-glyph__panel { fill: #e9aaa0; stroke: #b77f7b; }
+.device-glyph__shadow { fill: rgba(40, 49, 47, 0.14); }
+.device-glyph__body { fill: #fbfbf8; stroke: #a9b3a6; stroke-width: 2; }
+.device-glyph__panel { fill: #e1e6de; stroke: #a5aea2; stroke-width: 1.5; }
+.device-glyph__detail { fill: none; stroke: #858f86; stroke-linecap: round; stroke-width: 2; }
+.device-glyph__detail-fill { fill: none; stroke: #8a948b; stroke-opacity: .6; stroke-width: 1.5; }
+.device-glyph__led { fill: #b2bab0; transition: fill var(--dur-3) ease; }
+.device-glyph__stand { fill: #d4d9d0; stroke: #939d92; stroke-width: 1.5; }
+.device-glyph__base { fill: #c4cbc0; stroke: #8a948b; stroke-width: 1.5; }
+.device-glyph__grille { fill: #e6eae2; }
+.device-glyph__blade { fill: #a3b4a5; }
+.device-glyph__hub { fill: #687b67; }
+.device-glyph__lidar { fill: #aab3a8; }
+.device-glyph__lidar-top { fill: #e4e9e1; }
+.device-glyph__handle { fill: none; stroke: #b9a07e; stroke-linecap: round; stroke-width: 8; }
+.device-glyph__warmer .device-glyph__body { fill: #f2d6c0; stroke: #c39d84; }
+.device-glyph__warmer .device-glyph__panel { fill: #e6b391; stroke: #b98a6c; }
 .device-glyph__warm-line { fill: none; stroke: #fff5ef; stroke-linecap: round; stroke-width: 2.5; }
 .device-glyph__warmer .device-glyph__led { fill: #fff2b0; }
 .device-glyph__tv-body { fill: #2e3542; stroke: #171c25; stroke-width: 2; }
@@ -119,13 +118,15 @@ const viewBox = computed(() => props.deviceId === 'television' ? '0 0 160 110' :
 .device-glyph__tv-foot { fill: none; stroke: #343c49; stroke-linecap: round; stroke-width: 5; }
 .device-glyph__tv-led { fill: #758099; }
 
-.device-glyph.is-active .device-glyph__led { fill: #62caa8; filter: drop-shadow(0 0 4px rgba(98, 202, 168, .75)); }
-.device-glyph.is-active .device-glyph__tv-screen { fill: #718cc5; }
-.device-glyph.is-active .device-glyph__tv-sky { fill: #a7c7f2; opacity: .76; }
+.device-glyph.is-active .device-glyph__led { fill: #7fa07e; filter: drop-shadow(0 0 4px rgba(127, 160, 126, .8)); }
+.device-glyph.is-active .device-glyph__tv-screen { fill: #6f949c; }
+.device-glyph.is-active .device-glyph__tv-sky { fill: #b6d3d4; opacity: .76; }
 .device-glyph.is-active .device-glyph__tv-cloud { fill: #f5f8ff; opacity: .9; animation: device-tv-cloud 5s ease-in-out infinite; transform-box: fill-box; }
-.device-glyph.is-active .device-glyph__tv-led { fill: #62caa8; filter: drop-shadow(0 0 3px rgba(98, 202, 168, .9)); }
+.device-glyph.is-active .device-glyph__tv-led { fill: #7fa07e; filter: drop-shadow(0 0 3px rgba(127, 160, 126, .9)); }
 .device-glyph.is-active .device-glyph__blades { animation: device-fan-spin 1.15s linear infinite; transform-box: fill-box; transform-origin: center; }
 .device-glyph.is-active .device-glyph__warm-line { animation: device-warm-rise 1.8s ease-in-out infinite; }
+.device-glyph.is-active .device-glyph__warmer .device-glyph__led { fill: #ffe7a8; filter: drop-shadow(0 0 5px rgba(197, 154, 85, .9)); }
+.device-glyph.is-active .device-glyph__lidar-top { animation: device-lidar 1.6s linear infinite; transform-box: fill-box; transform-origin: center; }
 
 @keyframes device-fan-spin {
   to { transform: rotate(360deg); }
@@ -133,6 +134,10 @@ const viewBox = computed(() => props.deviceId === 'television' ? '0 0 160 110' :
 
 @keyframes device-warm-rise {
   50% { opacity: .45; transform: translateY(-2px); }
+}
+
+@keyframes device-lidar {
+  50% { fill: #cfe0d0; }
 }
 
 @keyframes device-tv-cloud {

@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed } from 'vue'
 import type { DevicePlacement, HomeRoom } from '~/types'
+import { computed, nextTick, onMounted, shallowRef, watch } from 'vue'
 
 const props = defineProps<{
   rooms: HomeRoom[]
@@ -20,22 +20,45 @@ const deviceCountByRoom = computed(() => props.placements.reduce<Record<string, 
   return counts
 }, {}))
 const placedCount = computed(() => props.placements.filter(placement => placement.roomId).length)
+const activeKey = computed(() => props.overview ? 'overview' : props.activeRoomId)
+
+const navRef = shallowRef<HTMLElement | null>(null)
+const indicator = shallowRef<{ left: number, width: number } | null>(null)
+
+// Measure the pressed tab so the pill can spring to it.
+function measure() {
+  const target = navRef.value?.querySelector<HTMLElement>('button[aria-pressed="true"]')
+  if (!target || target.offsetWidth === 0) {
+    indicator.value = null
+    return
+  }
+  indicator.value = { left: target.offsetLeft, width: target.offsetWidth }
+}
+
+watch([activeKey, () => props.rooms], () => nextTick(measure))
+onMounted(measure)
+useResizeObserver(navRef, measure)
 </script>
 
 <template>
-  <nav class="room-tabs" aria-label="选择房间">
-    <button class="room-tabs__overview" :class="{ active: overview }" type="button" :aria-pressed="overview" @click="emit('selectOverview')">
-      <span class="i-carbon-grid" /><span>全屋</span><small>{{ placedCount }}</small>
+  <nav ref="navRef" class="room-tabs" aria-label="选择房间">
+    <span
+      v-if="indicator"
+      class="room-tabs__indicator"
+      :style="{ transform: `translateX(${indicator.left}px)`, width: `${indicator.width}px` }"
+      aria-hidden="true"
+    />
+    <button class="room-tabs__overview" type="button" :aria-pressed="overview" @click="emit('selectOverview')">
+      <span class="i-carbon-grid" /><span>全屋</span><small class="numeric">{{ placedCount }}</small>
     </button>
     <button
       v-for="room in rooms"
       :key="room.id"
-      :class="{ active: !overview && activeRoomId === room.id }"
       :aria-pressed="!overview && activeRoomId === room.id"
       type="button"
       @click="emit('selectRoom', room.id)"
     >
-      <span>{{ room.shortName }}</span><small>{{ deviceCountByRoom[room.id] ?? 0 }}</small>
+      <span>{{ room.shortName }}</span><small class="numeric">{{ deviceCountByRoom[room.id] ?? 0 }}</small>
     </button>
   </nav>
 </template>
@@ -49,12 +72,25 @@ const placedCount = computed(() => props.placements.filter(placement => placemen
   display: flex;
   gap: 4px;
   padding: 4px;
-  border: 1px solid rgba(255, 255, 255, 0.82);
-  border-radius: 14px;
-  background: rgba(244, 247, 253, 0.86);
-  box-shadow: 0 8px 24px rgba(63, 79, 120, 0.14);
+  border: 1px solid var(--brand-line);
+  border-radius: 16px;
+  background: var(--brand-glass);
+  box-shadow: var(--shadow-md), inset 0 1px 0 var(--brand-highlight);
   transform: translateX(-50%);
-  backdrop-filter: blur(15px);
+  backdrop-filter: blur(16px) saturate(1.2);
+  isolation: isolate;
+}
+
+.room-tabs__indicator {
+  position: absolute;
+  z-index: -1;
+  top: 4px;
+  bottom: 4px;
+  left: 0;
+  border-radius: 12px;
+  background: var(--brand-primary);
+  box-shadow: 0 6px 16px rgba(var(--brand-focus-rgb), 0.25);
+  transition: transform var(--dur-3) var(--ease-spring), width var(--dur-3) var(--ease-spring);
 }
 
 .room-tabs button {
@@ -64,37 +100,36 @@ const placedCount = computed(() => props.placements.filter(placement => placemen
   gap: 6px;
   min-width: 60px;
   min-height: 32px;
-  padding: 0 10px;
+  padding: 0 11px;
   border: 0;
-  border-radius: 10px;
+  border-radius: 12px;
   background: transparent;
-  color: #78849c;
-  font: inherit;
-  font-size: 10px;
+  color: var(--brand-muted);
+  font-size: 11px;
   font-weight: 650;
   cursor: pointer;
+  transition: color var(--dur-2) ease;
 }
 
-.room-tabs button.active {
-  background: white;
-  box-shadow: 0 4px 12px rgba(72, 89, 132, 0.12);
-  color: #5d72b4;
-}
+.room-tabs button:hover { color: var(--brand-ink); }
+.room-tabs button[aria-pressed="true"] { color: white; }
 
 .room-tabs small {
   display: grid;
   place-items: center;
   min-width: 17px;
   height: 17px;
+  padding: 0 4px;
   border-radius: 999px;
-  background: rgba(127, 145, 190, 0.12);
-  color: #8793ad;
-  font-size: 8px;
+  background: var(--brand-glass-sunken);
+  color: var(--brand-muted);
+  font-size: 9px;
+  transition: background var(--dur-2) ease, color var(--dur-2) ease;
 }
 
-.room-tabs button.active small {
-  background: rgba(102, 127, 205, 0.13);
-  color: #6377b6;
+.room-tabs button[aria-pressed="true"] small {
+  background: rgba(255, 255, 255, 0.18);
+  color: white;
 }
 
 @media (max-width: 720px) {

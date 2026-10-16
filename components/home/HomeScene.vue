@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, shallowRef, watch } from 'vue'
 import HomeSceneArt from './HomeSceneArt.vue'
+import type { DeviceTone } from '~/devices/types'
 import type { DeviceKind, DevicePlacement, HomePoint, HomeTemplate } from '~/types'
 import { createPlacementAtPoint, getPointAlongRoute, getRobotRoute, placementToWorld } from '~/utils/home'
 
@@ -14,6 +15,7 @@ const props = defineProps<{
   robotProgress: number
   robotCleaning: boolean
   activeDevices: DeviceKind[]
+  deviceTones?: Partial<Record<DeviceKind, DeviceTone>>
 }>()
 
 const emit = defineEmits<{
@@ -45,10 +47,13 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  cancelAnimationFrame(cameraFrame)
   window.removeEventListener('resize', updateMobileViewport)
 })
 
-const viewport = computed(() => {
+interface SceneViewport { x: number, y: number, width: number, height: number }
+
+const targetViewport = computed<SceneViewport>(() => {
   if (!mobile.value && props.overviewMode)
     return { x: 0, y: 0, width: props.template.width, height: props.template.height }
   const room = props.template.rooms.find(item => item.id === props.activeRoomId) ?? props.template.rooms[0]
@@ -62,6 +67,40 @@ const viewport = computed(() => {
     width,
     height: props.template.height,
   }
+})
+
+// The camera glides between rooms; every overlay is positioned from this tweened viewport.
+const CAMERA_DURATION = 620
+const viewport = shallowRef<SceneViewport>(targetViewport.value)
+let cameraFrame = 0
+
+function sameViewport(a: SceneViewport, b: SceneViewport) {
+  return a.x === b.x && a.y === b.y && a.width === b.width && a.height === b.height
+}
+
+watch(targetViewport, (to) => {
+  if (sameViewport(viewport.value, to))
+    return
+  cancelAnimationFrame(cameraFrame)
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    viewport.value = to
+    return
+  }
+  const from = viewport.value
+  const startedAt = performance.now()
+  const step = (now: number) => {
+    const progress = Math.min(1, (now - startedAt) / CAMERA_DURATION)
+    const eased = 1 - (1 - progress) ** 4
+    viewport.value = {
+      x: from.x + (to.x - from.x) * eased,
+      y: from.y + (to.y - from.y) * eased,
+      width: from.width + (to.width - from.width) * eased,
+      height: from.height + (to.height - from.height) * eased,
+    }
+    if (progress < 1)
+      cameraFrame = requestAnimationFrame(step)
+  }
+  cameraFrame = requestAnimationFrame(step)
 })
 
 const viewBox = computed(() => `${viewport.value.x} ${viewport.value.y} ${viewport.value.width} ${viewport.value.height}`)
@@ -156,7 +195,7 @@ defineExpose({ getWorldPoint })
 <template>
   <section class="home-scene-shell" :style="sceneShellStyle" aria-label="云之彼端家园画布">
     <div ref="sceneRef" class="home-scene" :data-overview="overviewMode" :style="sceneStyle" @click="handleSceneClick">
-      <svg :key="`${viewportRevision}:${activeRoomId}:${overviewMode}`" class="home-scene__geometry" :viewBox="viewBox" preserveAspectRatio="none" aria-hidden="true">
+      <svg :key="viewportRevision" class="home-scene__geometry" :viewBox="viewBox" preserveAspectRatio="none" aria-hidden="true">
         <HomeSceneArt :template-id="template.id" />
 
         <g v-if="editMode" class="home-scene__surfaces">
@@ -188,6 +227,7 @@ defineExpose({ getWorldPoint })
         :selected="selectedDeviceId === item.placement.deviceId"
         :edit-mode="editMode"
         :active="activeDevices.includes(item.placement.deviceId)"
+        :tone="deviceTones?.[item.placement.deviceId]"
         :invalid="draggingDeviceId === item.placement.deviceId && !previewValid"
         @select="emit('select', $event)"
         @drag="handleDrag"
@@ -209,10 +249,10 @@ defineExpose({ getWorldPoint })
   position: relative;
   overflow: hidden;
   min-width: 0;
-  border: 1px solid rgba(174, 188, 222, 0.58);
+  border: 1px solid var(--brand-line);
   border-radius: 30px;
-  background: #eaf0fb;
-  box-shadow: 0 24px 68px rgba(50, 67, 111, 0.16), inset 0 1px rgba(255, 255, 255, 0.72);
+  background: #eef0ea;
+  box-shadow: var(--shadow-lg), inset 0 1px var(--brand-highlight);
 }
 
 .home-scene {
@@ -228,7 +268,9 @@ defineExpose({ getWorldPoint })
   position: absolute;
   z-index: 2;
   inset: 0;
-  background: linear-gradient(180deg, rgba(234, 244, 255, 0.14), transparent 28%, rgba(70, 91, 136, 0.05));
+  background:
+    radial-gradient(120% 60% at 50% -10%, rgba(255, 252, 240, 0.32), transparent 60%),
+    linear-gradient(180deg, transparent 60%, rgba(40, 49, 47, 0.06));
   content: '';
   pointer-events: none;
 }
@@ -242,22 +284,22 @@ defineExpose({ getWorldPoint })
 }
 
 .home-scene__surfaces polygon {
-  fill: rgba(132, 155, 223, 0.05);
-  stroke: rgba(104, 127, 194, 0.22);
+  fill: rgba(104, 123, 103, 0.05);
+  stroke: rgba(104, 123, 103, 0.28);
   stroke-dasharray: 10 9;
   stroke-width: 2;
   vector-effect: non-scaling-stroke;
 }
 
 .home-scene__surfaces polygon[data-active="true"] {
-  fill: rgba(112, 148, 255, 0.18);
-  stroke: rgba(101, 129, 232, 0.8);
+  fill: rgba(104, 123, 103, 0.16);
+  stroke: rgba(104, 123, 103, 0.85);
   animation: surface-pulse 1.8s ease-in-out infinite;
 }
 
 .home-scene__route polyline {
   fill: none;
-  stroke: rgba(104, 143, 226, 0.86);
+  stroke: rgba(95, 147, 158, 0.9);
   stroke-dasharray: 12 10;
   stroke-linecap: round;
   stroke-width: 4;
@@ -274,11 +316,12 @@ defineExpose({ getWorldPoint })
   align-items: center;
   gap: 7px;
   padding: 8px 12px;
-  border: 1px solid rgba(255, 255, 255, 0.84);
+  border: 1px solid var(--brand-line);
   border-radius: 999px;
-  background: rgba(246, 249, 255, 0.88);
-  box-shadow: 0 8px 24px rgba(69, 89, 132, 0.14);
-  color: #53627e;
+  background: var(--brand-glass-strong);
+  box-shadow: var(--shadow-md);
+  color: var(--brand-ink);
+  animation: rise-in var(--dur-3) var(--ease-out);
   font-size: 12px;
   font-weight: 650;
   transform: translateX(-50%);
@@ -292,18 +335,18 @@ defineExpose({ getWorldPoint })
   place-items: center;
   width: 32px;
   height: 32px;
-  border: 1px solid rgba(97, 117, 165, 0.38);
+  border: 1px solid var(--brand-line-strong);
   border-radius: 9px;
-  background: rgba(239, 243, 252, 0.92);
-  box-shadow: 0 6px 16px rgba(54, 72, 115, 0.18);
-  color: #64759c;
+  background: var(--brand-glass-strong);
+  box-shadow: var(--shadow-sm);
+  color: var(--brand-secondary);
   font-size: 17px;
   transform: translate(-50%, -50%);
   pointer-events: none;
 }
 
 @keyframes surface-pulse {
-  50% { fill: rgba(112, 148, 255, 0.28); }
+  50% { fill: rgba(104, 123, 103, 0.26); }
 }
 
 @keyframes route-move {

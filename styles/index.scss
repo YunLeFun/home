@@ -25,6 +25,76 @@ input {
   outline-offset: 3px;
 }
 
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
+// Tabular digits keep animated readouts from jittering horizontally.
+.numeric {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+// Shared motion vocabulary.
+@keyframes rise-in {
+  from { opacity: 0; transform: translateY(14px) scale(0.985); filter: blur(4px); }
+  to { opacity: 1; transform: none; filter: none; }
+}
+
+@keyframes float-y {
+  50% { transform: translateY(-8px); }
+}
+
+@keyframes breathe {
+  50% { opacity: 0.55; transform: scale(1.08); }
+}
+
+@keyframes ripple-out {
+  from { opacity: 0.55; transform: scale(0.9); }
+  to { opacity: 0; transform: scale(1.7); }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes ambient-drift {
+  0% { transform: translate3d(0, 0, 0) scale(1); }
+  33% { transform: translate3d(6vw, 4vh, 0) scale(1.08); }
+  66% { transform: translate3d(-4vw, 7vh, 0) scale(0.94); }
+  100% { transform: translate3d(0, 0, 0) scale(1); }
+}
+
+// Number roll used by readouts: <Transition name="roll-up|roll-down">.
+.roll-up-enter-active,
+.roll-up-leave-active,
+.roll-down-enter-active,
+.roll-down-leave-active {
+  transition: opacity var(--dur-2) var(--ease-out), transform var(--dur-2) var(--ease-out), filter var(--dur-2) var(--ease-out);
+}
+
+.roll-up-leave-active,
+.roll-down-leave-active {
+  position: absolute;
+}
+
+.roll-up-enter-from,
+.roll-down-leave-to { opacity: 0; transform: translateY(55%); filter: blur(3px); }
+
+.roll-up-leave-to,
+.roll-down-enter-from { opacity: 0; transform: translateY(-55%); filter: blur(3px); }
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: var(--dur-3);
+  animation-timing-function: var(--ease-out);
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

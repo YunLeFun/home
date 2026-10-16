@@ -19,6 +19,7 @@ export default defineNuxtConfig({
     '@unocss/reset/tailwind.css',
     '~/styles/css-vars.css',
     '~/styles/index.scss',
+    '~/styles/controls.scss',
   ],
 
   vite: {
@@ -93,6 +94,11 @@ export default defineNuxtConfig({
         { name: 'apple-mobile-web-app-status-bar-style', content: 'black-translucent' },
       ],
     },
+  },
+
+  experimental: {
+    // Morph the device glyph between the quick control and the detail page.
+    viewTransition: true,
   },
 
   pwa,

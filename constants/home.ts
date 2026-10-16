@@ -1,4 +1,6 @@
+import type { DevicePluginManifest } from '~/devices/types'
 import type { DeviceKind, HomeTemplate, HomeTemplateId, VirtualHomeState } from '~/types'
+import { airConditionerManifest } from '~/devices/air-conditioner/manifest'
 
 export interface HomeDeviceDefinition {
   id: DeviceKind
@@ -8,6 +10,17 @@ export interface HomeDeviceDefinition {
   route: string
   width: number
   height: number
+}
+
+function fromManifest<K extends DeviceKind>(manifest: DevicePluginManifest<K>): HomeDeviceDefinition {
+  return {
+    id: manifest.kind,
+    name: manifest.name,
+    description: manifest.description,
+    icon: manifest.icon,
+    route: manifest.route,
+    ...manifest.size,
+  }
 }
 
 export const HOME_VIEWBOX = {
@@ -33,15 +46,7 @@ export const HOME_DEVICES: Record<DeviceKind, HomeDeviceDefinition> = {
     width: 230,
     height: 126,
   },
-  'air-conditioner': {
-    id: 'air-conditioner',
-    name: '云端空调',
-    description: '冷暖静音控制',
-    icon: 'i-carbon-snowflake',
-    route: '/items/air-conditioner',
-    width: 190,
-    height: 88,
-  },
+  'air-conditioner': fromManifest(airConditionerManifest),
   'fan': {
     id: 'fan',
     name: '云端风扇',

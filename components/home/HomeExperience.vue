@@ -2,8 +2,10 @@
 import { computed, onMounted, onUnmounted, shallowRef } from 'vue'
 import HomeDeviceGlyph from './HomeDeviceGlyph.vue'
 import HomeRoomTabs from './HomeRoomTabs.vue'
-import { HOME_DEVICES } from '~/constants/home'
+import type { DeviceTone } from '~/devices/types'
 import type { DeviceKind, HomePoint, HomeTemplateId } from '~/types'
+import { HOME_DEVICES, HOME_DEVICE_ORDER } from '~/constants/home'
+import { getDeviceTone, isDeviceRunning } from '~/utils/device'
 
 interface SceneApi {
   getWorldPoint: (clientX: number, clientY: number) => HomePoint | null
@@ -11,10 +13,13 @@ interface SceneApi {
 
 const editor = useHomeEditor()
 const robot = useDeviceState('robot-vacuum')
-const airConditioner = useDeviceState('air-conditioner')
-const fan = useDeviceState('fan')
-const warmer = useDeviceState('hand-warmer')
-const television = useDeviceState('television')
+const deviceStates = {
+  'air-conditioner': useDeviceState('air-conditioner'),
+  'fan': useDeviceState('fan'),
+  'robot-vacuum': robot,
+  'hand-warmer': useDeviceState('hand-warmer'),
+  'television': useDeviceState('television'),
+}
 const sceneRef = shallowRef<SceneApi | null>(null)
 const trayDrag = shallowRef<{ deviceId: DeviceKind; x: number; y: number } | null>(null)
 const notice = shallowRef<string | null>(null)
@@ -25,20 +30,10 @@ const robotState = computed(() => robot.state.value)
 const currentRoom = computed(() => editor.template.value.rooms.find(room => room.id === editor.activeRoomId.value) ?? editor.template.value.rooms[0])
 const trayRoomId = computed(() => overviewMode.value ? null : editor.activeRoomId.value)
 const trayRoomName = computed(() => overviewMode.value ? '全屋设备' : currentRoom.value?.name ?? '我的设备')
-const activeDevices = computed<DeviceKind[]>(() => {
-  const active: DeviceKind[] = []
-  if (airConditioner.state.value.status)
-    active.push('air-conditioner')
-  if (fan.state.value.power)
-    active.push('fan')
-  if (robotState.value.status === 'cleaning' || robotState.value.status === 'returning')
-    active.push('robot-vacuum')
-  if (warmer.state.value.power)
-    active.push('hand-warmer')
-  if (television.state.value.power)
-    active.push('television')
-  return active
-})
+const activeDevices = computed<DeviceKind[]>(() => HOME_DEVICE_ORDER.filter(kind => isDeviceRunning(kind, deviceStates[kind].state.value)))
+const deviceTones = computed(() => Object.fromEntries(
+  HOME_DEVICE_ORDER.map(kind => [kind, getDeviceTone(kind, deviceStates[kind].state.value)]),
+) as Record<DeviceKind, DeviceTone>)
 
 function showNotice(message: string) {
   notice.value = message
@@ -145,6 +140,9 @@ onUnmounted(() => {
 
 <template>
   <div class="home-experience">
+    <div class="home-ambient" aria-hidden="true">
+      <span /><span /><span />
+    </div>
     <HomeTopbar
       :template-id="editor.state.value.templateId"
       :sync-status="editor.syncStatus.value"
@@ -179,6 +177,7 @@ onUnmounted(() => {
         :robot-progress="robot.visualProgress.value"
         :robot-cleaning="robotState.status === 'cleaning'"
         :active-devices="activeDevices"
+        :device-tones="deviceTones"
         @select="selectDevice"
         @place="placeDevice"
         @nudge="editor.moveDeviceByKeyboard"
@@ -208,6 +207,7 @@ onUnmounted(() => {
       :active-room-name="trayRoomName"
       :edit-mode="editor.editMode.value"
       :active-devices="activeDevices"
+      :device-tones="deviceTones"
       @select="selectDevice"
       @drag-start="handleTrayDragStart"
       @drag-move="handleTrayDragMove"
@@ -222,28 +222,43 @@ onUnmounted(() => {
       :style="{ left: `${trayDrag.x}px`, top: `${trayDrag.y}px` }"
       aria-hidden="true"
     >
-      <HomeDeviceGlyph :device-id="trayDrag.deviceId" />
+      <HomeDeviceGlyph :device-id="trayDrag.deviceId" :tone="deviceTones[trayDrag.deviceId]" />
     </div>
   </div>
 </template>
 
 <style scoped>
-.home-experience { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; min-height: 100%; overflow: hidden; background: var(--brand-page-background); color: var(--brand-ink); }
-.home-stage { position: relative; display: grid; align-items: center; min-height: 0; padding: 0 22px 14px; }
+.home-experience { position: relative; isolation: isolate; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; min-height: 100%; overflow: hidden; background: var(--brand-page-background); color: var(--brand-ink); }
+.home-experience > :deep(.home-topbar) { animation: rise-in var(--dur-3) var(--ease-out) backwards; }
+.home-stage { position: relative; display: grid; align-items: center; min-height: 0; padding: 0 22px 14px; animation: rise-in var(--dur-4) var(--ease-out) 90ms backwards; }
+.home-experience > :deep(.device-tray) { animation: rise-in var(--dur-3) var(--ease-out) 200ms backwards; }
+
+/* Slow drifting light behind the glass, like clouds over a garden */
+.home-ambient { position: absolute; z-index: -1; inset: 0; overflow: hidden; pointer-events: none; }
+.home-ambient span { position: absolute; width: 46vmax; height: 46vmax; border-radius: 50%; filter: blur(60px); animation: ambient-drift 28s ease-in-out infinite; }
+.home-ambient span:nth-child(1) { top: -18vmax; left: -10vmax; background: var(--ambient-a); }
+.home-ambient span:nth-child(2) { top: -12vmax; right: -14vmax; background: var(--ambient-b); animation-duration: 34s; animation-delay: -9s; }
+.home-ambient span:nth-child(3) { bottom: -24vmax; left: 30%; background: var(--ambient-c); animation-duration: 40s; animation-delay: -17s; }
+
 .home-stage__control { position: absolute; z-index: 12; top: 50%; right: 42px; transform: translateY(-50%); }
-.home-notice { position: absolute; z-index: 16; bottom: 28px; left: 50%; padding: 9px 14px; border: 1px solid rgba(255, 255, 255, 0.72); border-radius: 999px; background: rgba(46, 57, 83, 0.82); box-shadow: 0 10px 30px rgba(38, 48, 75, 0.24); color: white; font-size: 11px; transform: translateX(-50%); backdrop-filter: blur(12px); }
-.device-drag-ghost { position: fixed; z-index: 100; display: grid; place-items: center; width: 88px; height: 88px; border: 1px solid rgba(126, 149, 219, 0.5); border-radius: 50%; background: rgba(247, 250, 255, 0.82); box-shadow: 0 15px 34px rgba(53, 72, 122, 0.25); pointer-events: none; transform: translate(-50%, -50%); backdrop-filter: blur(12px); }
+.home-notice { position: absolute; z-index: 16; bottom: 28px; left: 50%; display: flex; align-items: center; gap: 8px; padding: 10px 16px; border: 1px solid rgba(255, 255, 255, 0.18); border-radius: 999px; background: color-mix(in oklab, var(--brand-primary) 88%, transparent); box-shadow: var(--shadow-md); color: white; font-size: 11px; font-weight: 600; transform: translateX(-50%); backdrop-filter: blur(12px); }
+.home-notice::before { width: 6px; height: 6px; border-radius: 50%; background: var(--brand-warm); content: ''; animation: breathe 1.6s ease-in-out infinite; }
+.device-drag-ghost { position: fixed; z-index: 100; display: grid; place-items: center; width: 92px; height: 92px; border: 1px solid var(--brand-line-strong); border-radius: 50%; background: var(--brand-glass-strong); box-shadow: var(--shadow-lg); pointer-events: none; transform: translate(-50%, -50%) rotate(-4deg) scale(1.04); backdrop-filter: blur(12px); animation: ghost-in var(--dur-2) var(--ease-spring); }
 .device-drag-ghost :deep(.device-glyph) { width: 76%; height: 76%; }
-.control-panel-enter-active, .control-panel-leave-active { transition: opacity 180ms ease, transform 180ms ease; }
-.control-panel-enter-from, .control-panel-leave-to { opacity: 0; transform: translate(18px, -50%); }
-.notice-enter-active, .notice-leave-active { transition: opacity 160ms ease, transform 160ms ease; }
-.notice-enter-from, .notice-leave-to { opacity: 0; transform: translate(-50%, 8px); }
+.control-panel-enter-active { transition: opacity var(--dur-2) var(--ease-out), transform var(--dur-3) var(--ease-spring), filter var(--dur-2) ease; }
+.control-panel-leave-active { transition: opacity var(--dur-1) ease, transform var(--dur-2) var(--ease-out), filter var(--dur-1) ease; }
+.control-panel-enter-from, .control-panel-leave-to { opacity: 0; filter: blur(6px); transform: translate(24px, -50%) scale(0.96); }
+.notice-enter-active { transition: opacity var(--dur-2) ease, transform var(--dur-3) var(--ease-spring); }
+.notice-leave-active { transition: opacity var(--dur-1) ease, transform var(--dur-2) ease; }
+.notice-enter-from, .notice-leave-to { opacity: 0; transform: translate(-50%, 14px) scale(0.92); }
+@keyframes ghost-in { from { opacity: 0; transform: translate(-50%, -50%) scale(0.6); } }
 @media (min-width: 721px) and (max-height: 850px) { .home-stage { max-height: calc(100vh - 206px); } }
 @media (max-width: 720px) {
   .home-experience { display: block; min-height: 100%; overflow-y: auto; padding-bottom: env(safe-area-inset-bottom); }
   .home-stage { display: block; padding: 0 10px 12px; }
-  .home-stage__control { position: fixed; z-index: 40; top: auto; right: 0; bottom: 0; left: 0; max-height: 76vh; overflow-y: auto; transform: none; }
+  .home-stage__control { position: fixed; z-index: 40; top: auto; right: 0; bottom: 0; left: 0; max-height: 80vh; overflow-y: auto; transform: none; }
   .home-notice { position: fixed; bottom: 84px; white-space: nowrap; }
-  .control-panel-enter-from, .control-panel-leave-to { transform: translateY(24px); }
+  .control-panel-enter-from, .control-panel-leave-to { filter: none; transform: translateY(100%); }
+  .control-panel-enter-active { transition: transform var(--dur-3) var(--ease-out), opacity var(--dur-2) ease; }
 }
 </style>

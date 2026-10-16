@@ -104,14 +104,21 @@ function unbind() {
 
 <style scoped>
 .ac-binding { border: 1px solid var(--brand-outline); border-radius: 18px; background: var(--brand-surface-raised); color: var(--brand-ink); }
-.ac-binding summary { display: flex; align-items: center; gap: 8px; padding: 16px 20px; font-size: 13px; font-weight: 650; cursor: pointer; }
+.ac-binding { overflow: hidden; border-color: var(--brand-line); border-radius: 20px; background: var(--brand-glass); box-shadow: var(--shadow-sm); transition: box-shadow var(--dur-2) ease; }
+.ac-binding[open] { box-shadow: var(--shadow-md); }
+.ac-binding summary { display: flex; align-items: center; gap: 8px; padding: 16px 20px; font-size: 13px; font-weight: 650; list-style: none; cursor: pointer; }
+.ac-binding summary::-webkit-details-marker { display: none; }
+.ac-binding summary::after { margin-left: auto; color: var(--brand-muted); content: '›'; font-size: 18px; transition: transform var(--dur-2) var(--ease-spring); }
+.ac-binding[open] summary::after { transform: rotate(90deg); }
+.ac-binding[open] .ac-binding__form { animation: rise-in var(--dur-3) var(--ease-out); }
 .ac-binding__form { display: grid; gap: 12px; padding: 0 20px 20px; }
 .ac-binding p, .ac-binding small { margin: 0; color: var(--brand-muted); font-size: 12px; line-height: 1.7; }
 .ac-binding label { display: grid; gap: 6px; font-size: 12px; font-weight: 650; }
 .ac-binding input, .ac-binding select { min-width: 0; width: 100%; min-height: 42px; padding: 9px 12px; border: 1px solid var(--brand-outline); border-radius: 10px; background: var(--brand-surface); color: var(--brand-ink); font: inherit; }
-.ac-binding button { justify-self: start; min-height: 40px; padding: 8px 14px; border: 1px solid var(--brand-outline); border-radius: 10px; background: var(--brand-primary-soft); color: var(--brand-ink); font: inherit; font-size: 12px; cursor: pointer; }
+.ac-binding button { justify-self: start; transition: transform var(--dur-2) var(--ease-spring); min-height: 40px; padding: 8px 14px; border: 1px solid var(--brand-outline); border-radius: 10px; background: var(--brand-primary-soft); color: var(--brand-ink); font: inherit; font-size: 12px; cursor: pointer; }
+.ac-binding button:active:not(:disabled) { transform: scale(.96); }
 .ac-binding button:disabled { opacity: .5; cursor: not-allowed; }
 .ac-binding__actions { display: flex; flex-wrap: wrap; gap: 8px; }
-.ac-binding .ac-binding__error { color: #b85f53; }
+.ac-binding .ac-binding__error { color: var(--tone-danger); }
 .ac-binding :focus-visible { outline: 2px solid var(--brand-secondary); outline-offset: 3px; }
 </style>

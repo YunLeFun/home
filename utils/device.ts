@@ -1,6 +1,4 @@
 import type {
-  AirConditionerAction,
-  AirConditionerState,
   AcCapabilities,
   DeviceActionByKind,
   DeviceKind,
@@ -18,18 +16,14 @@ import type {
   TelevisionAction,
   TelevisionState,
 } from '~/types'
-import { clampAcTemperature } from './home-assistant'
+import type { DeviceTone } from '~/devices/types'
+import { getDevicePlugin } from '~/devices/registry'
 
 export const DEFAULT_TELEVISION_SOURCE_URL = 'https://media.w3.org/2010/05/sintel/trailer.mp4'
 
 const deviceKinds: DeviceKind[] = ['air-conditioner', 'fan', 'robot-vacuum', 'hand-warmer', 'television']
-const minAirConditionerTemperature = 16
-const maxAirConditionerTemperature = 31
-const defaultAirConditionerState: AirConditionerState = {
-  status: false,
-  mode: 'cold',
-  temperature: 26,
-}
+// Kinds that must be provided by a registered device plugin.
+const pluginDeviceKinds: DeviceKind[] = ['air-conditioner']
 
 export function isDeviceKind(value: unknown): value is DeviceKind {
   return deviceKinds.includes(value as DeviceKind)
@@ -81,25 +75,18 @@ export function isTelevisionSourceUrl(value: unknown): value is string {
   }
 }
 
-function normalizeAirConditionerState(value: unknown): AirConditionerState {
-  if (!isRecord(value))
-    return { ...defaultAirConditionerState }
-
-  return {
-    status: typeof value.status === 'boolean' ? value.status : false,
-    mode: value.mode === 'hot' ? 'hot' : 'cold',
-    temperature: numberInRange(
-      value.temperature,
-      defaultAirConditionerState.temperature,
-      minAirConditionerTemperature,
-      maxAirConditionerTemperature,
-    ),
-  }
+function requirePlugin<K extends DeviceKind>(kind: K) {
+  const plugin = getDevicePlugin(kind)
+  if (!plugin && pluginDeviceKinds.includes(kind))
+    throw new Error(`Device plugin "${kind}" is not installed`)
+  return plugin
 }
 
 export function createDefaultDeviceState<K extends DeviceKind>(kind: K, changedAt = new Date().toISOString()): DeviceStateByKind<K> {
+  const plugin = requirePlugin(kind)
+  if (plugin)
+    return plugin.state.create(changedAt)
   const states = {
-    'air-conditioner': { ...defaultAirConditionerState },
     'fan': {
       power: false,
       speed: 1,
@@ -131,16 +118,16 @@ export function createDefaultDeviceState<K extends DeviceKind>(kind: K, changedA
       stateChangedAt: changedAt,
     } satisfies TelevisionState,
   }
-  return states[kind] as DeviceStateByKind<K>
+  return states[kind as Exclude<DeviceKind, 'air-conditioner'>] as DeviceStateByKind<K>
 }
 
 export function normalizeDeviceState<K extends DeviceKind>(kind: K, value: unknown): DeviceStateByKind<K> {
+  const plugin = requirePlugin(kind)
+  if (plugin)
+    return plugin.state.normalize(value)
   const fallback = createDefaultDeviceState(kind)
   if (!isRecord(value))
     return fallback
-
-  if (kind === 'air-conditioner')
-    return normalizeAirConditionerState(value) as DeviceStateByKind<K>
 
   if (kind === 'fan') {
     const speed = (value.speed === 2 || value.speed === 3) ? value.speed : 1
@@ -191,28 +178,6 @@ function timerDate(minutes: number | null, now: string) {
 
 function isValidTimerMinutes(value: unknown) {
   return value === null || (typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1440)
-}
-
-function reduceAirConditioner(state: AirConditionerState, action: AirConditionerAction, capabilities?: AcCapabilities): AirConditionerState {
-  const min = capabilities?.minTemperature ?? minAirConditionerTemperature
-  const max = capabilities?.maxTemperature ?? maxAirConditionerTemperature
-  const step = capabilities?.temperatureStep ?? 1
-  const temperature = (value: number) => capabilities ? clampAcTemperature(value, capabilities) : Math.min(max, Math.max(min, value))
-  if (action.type === 'increment')
-    return { ...state, temperature: Number(temperature(state.temperature + step).toFixed(4)) }
-  if (action.type === 'decrement')
-    return { ...state, temperature: Number(temperature(state.temperature - step).toFixed(4)) }
-  if (action.type === 'toggleStatus')
-    return { ...state, status: !state.status }
-  if (action.type === 'status')
-    return { ...state, status: action.status }
-  if (action.type === 'mode')
-    return { ...state, mode: action.mode }
-  if (capabilities) {
-    const next = { ...state, ...action.payload }
-    return { status: next.status, mode: next.mode, temperature: temperature(next.temperature) }
-  }
-  return normalizeAirConditionerState({ ...state, ...action.payload })
 }
 
 function reduceFan(state: FanState, action: FanAction, now: string): FanState {
@@ -272,12 +237,9 @@ export function reduceDeviceState<K extends DeviceKind>(
   changedAt = new Date().toISOString(),
   capabilities?: AcCapabilities,
 ): DeviceStateByKind<K> {
-  if (kind === 'air-conditioner')
-    return reduceAirConditioner(
-      capabilities ? state as AirConditionerState : normalizeAirConditionerState(state),
-      action as AirConditionerAction,
-      capabilities,
-    ) as DeviceStateByKind<K>
+  const plugin = requirePlugin(kind)
+  if (plugin)
+    return plugin.state.reduce(state, action, changedAt, capabilities)
   if (kind === 'fan')
     return reduceFan(state as FanState, action as FanAction, changedAt) as DeviceStateByKind<K>
   if (kind === 'robot-vacuum')
@@ -288,18 +250,12 @@ export function reduceDeviceState<K extends DeviceKind>(
 }
 
 export function isDeviceAction(kind: DeviceKind, value: unknown): value is DeviceRuntimeAction {
+  const plugin = requirePlugin(kind)
+  if (plugin)
+    return plugin.state.isAction(value)
   if (!isRecord(value) || typeof value.type !== 'string')
     return false
 
-  if (kind === 'air-conditioner') {
-    if (value.type === 'increment' || value.type === 'decrement' || value.type === 'toggleStatus')
-      return true
-    if (value.type === 'status')
-      return typeof value.status === 'boolean'
-    if (value.type === 'mode')
-      return value.mode === 'cold' || value.mode === 'hot'
-    return value.type === 'update' && isRecord(value.payload)
-  }
   if (kind === 'fan') {
     return value.type === 'toggle' || value.type === 'toggle-oscillation'
       || (value.type === 'set-speed' && (value.speed === 1 || value.speed === 2 || value.speed === 3))
@@ -324,4 +280,38 @@ export function isDeviceState(kind: DeviceKind, value: unknown) {
     return false
   const normalized = normalizeDeviceState(kind, value)
   return JSON.stringify(normalized) === JSON.stringify(value)
+}
+
+/**
+ * Whether a device is doing work and should animate in the scene.
+ *
+ * @param kind - Device kind
+ * @param state - Current runtime state
+ * @returns `true` while the device is running
+ */
+export function isDeviceRunning<K extends DeviceKind>(kind: K, state: DeviceStateByKind<K>): boolean {
+  const plugin = requirePlugin(kind)
+  if (plugin)
+    return plugin.state.isActive(state)
+  if (kind === 'robot-vacuum') {
+    const status = (state as RobotVacuumState).status
+    return status === 'cleaning' || status === 'returning'
+  }
+  return (state as FanState | HandWarmerState | TelevisionState).power
+}
+
+/**
+ * Visual tone the shell uses to tint halos, airflow and backdrops.
+ *
+ * @param kind - Device kind
+ * @param state - Current runtime state
+ * @returns The tone for the current state
+ */
+export function getDeviceTone<K extends DeviceKind>(kind: K, state: DeviceStateByKind<K>): DeviceTone {
+  const plugin = requirePlugin(kind)
+  if (plugin)
+    return plugin.state.tone(state)
+  if (!isDeviceRunning(kind, state))
+    return 'idle'
+  return kind === 'hand-warmer' ? 'warm' : 'active'
 }

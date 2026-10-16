@@ -1,0 +1,242 @@
+// Control primitives shared by the home shell and device plugins.
+
+.ui-card {
+  border: 1px solid var(--brand-line);
+  border-radius: 24px;
+  background: var(--brand-glass-strong);
+  box-shadow: var(--shadow-lg), inset 0 1px 0 var(--brand-highlight);
+  color: var(--brand-ink);
+  backdrop-filter: blur(22px) saturate(1.2);
+}
+
+.ui-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  width: fit-content;
+  min-height: 26px;
+  padding: 0 10px;
+  border: 1px solid var(--brand-line);
+  border-radius: 999px;
+  background: var(--brand-glass);
+  color: var(--brand-muted);
+  font-size: 10px;
+  font-weight: 650;
+  white-space: nowrap;
+
+  > i {
+    width: 6px;
+    height: 6px;
+    flex: none;
+    border-radius: 50%;
+    background: var(--tone-active);
+    box-shadow: 0 0 0 3px var(--tone-active-soft);
+  }
+
+  &[data-status="syncing"] > i,
+  &[data-status="connecting"] > i {
+    background: var(--brand-warm);
+    animation: breathe 1s ease-in-out infinite;
+  }
+
+  &[data-status="local"] > i { background: var(--brand-faint); box-shadow: none; }
+
+  &[data-status="error"] > i,
+  &[data-status="offline"] > i,
+  &[data-status="needs-token"] > i,
+  &[data-status="unauthorized"] > i {
+    background: var(--tone-danger);
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--tone-danger) 18%, transparent);
+  }
+}
+
+// Power orb: a rotating light ring and ripple announce that a device is running.
+.ui-orb {
+  --orb-tone: var(--tone-active);
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 68px;
+  height: 68px;
+  border: 1px solid var(--brand-line-strong);
+  border-radius: 50%;
+  background: linear-gradient(145deg, var(--brand-glass-strong), var(--brand-glass-sunken));
+  box-shadow: var(--shadow-sm), inset 0 1px 1px var(--brand-highlight);
+  color: var(--brand-muted);
+  font-size: 22px;
+  cursor: pointer;
+  transition:
+    transform var(--dur-2) var(--ease-spring),
+    background var(--dur-2) ease,
+    color var(--dur-2) ease,
+    box-shadow var(--dur-3) var(--ease-out);
+
+  &:hover:not(:disabled) { transform: translateY(-2px); }
+  &:active:not(:disabled) { transform: scale(0.92); }
+  &:disabled { cursor: not-allowed; opacity: 0.5; }
+
+  &[data-tone="cool"] { --orb-tone: var(--tone-cool); }
+  &[data-tone="heat"] { --orb-tone: var(--tone-heat); }
+  &[data-tone="warm"] { --orb-tone: var(--tone-warm); }
+
+  &::before,
+  &::after {
+    position: absolute;
+    border-radius: 50%;
+    content: '';
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--dur-3) ease;
+  }
+
+  &::before {
+    inset: -6px;
+    background: conic-gradient(from 0deg, transparent 0 62%, color-mix(in oklab, var(--orb-tone) 60%, white) 84%, transparent 100%);
+    mask: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 calc(100% - 2px));
+  }
+
+  &::after { inset: 0; border: 2px solid var(--orb-tone); }
+
+  &.is-on {
+    border-color: transparent;
+    background: radial-gradient(circle at 32% 26%, color-mix(in oklab, var(--orb-tone) 58%, white), var(--orb-tone) 72%);
+    box-shadow:
+      0 0 0 7px color-mix(in oklab, var(--orb-tone) 14%, transparent),
+      0 14px 30px color-mix(in oklab, var(--orb-tone) 42%, transparent);
+    color: white;
+
+    &::before { opacity: 1; animation: spin 3.4s linear infinite; }
+    &::after { animation: ripple-out 2.6s var(--ease-out) infinite; }
+  }
+
+  > span { position: relative; z-index: 1; }
+}
+
+// Segmented control with a spring-driven thumb. Set --count and --index inline.
+.ui-segments {
+  --count: 2;
+  --index: 0;
+  --gap: 4px;
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(var(--count), minmax(0, 1fr));
+  gap: var(--gap);
+  padding: 4px;
+  border-radius: 15px;
+  background: var(--brand-glass-sunken);
+  isolation: isolate;
+
+  &::before {
+    position: absolute;
+    z-index: -1;
+    top: 4px;
+    bottom: 4px;
+    left: 4px;
+    width: calc((100% - 8px - (var(--count) - 1) * var(--gap)) / var(--count));
+    border-radius: 11px;
+    background: var(--brand-glass-strong);
+    box-shadow: var(--shadow-sm), inset 0 1px 0 var(--brand-highlight);
+    content: '';
+    transform: translateX(calc(var(--index) * (100% + var(--gap))));
+    transition: transform var(--dur-3) var(--ease-spring), opacity var(--dur-2) ease;
+  }
+
+  &[data-empty="true"]::before { opacity: 0; }
+
+  > button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 36px;
+    padding: 0 8px;
+    border: 0;
+    border-radius: 11px;
+    background: transparent;
+    color: var(--brand-muted);
+    font-size: 11px;
+    font-weight: 650;
+    cursor: pointer;
+    transition: color var(--dur-2) ease;
+
+    &[aria-pressed="true"] { color: var(--segment-tone, var(--brand-ink)); }
+    &:disabled { cursor: not-allowed; opacity: 0.45; }
+  }
+}
+
+.ui-step {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--brand-line);
+  border-radius: 50%;
+  background: var(--brand-glass);
+  box-shadow: inset 0 1px 0 var(--brand-highlight);
+  color: var(--brand-ink);
+  font-size: 18px;
+  cursor: pointer;
+  transition: transform var(--dur-2) var(--ease-spring), background var(--dur-1) ease;
+
+  &:hover:not(:disabled) { background: var(--brand-glass-strong); }
+  &:active:not(:disabled) { transform: scale(0.86); }
+  &:disabled { color: var(--brand-faint); cursor: not-allowed; opacity: 0.55; }
+}
+
+.ui-wide {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--brand-line);
+  border-radius: 13px;
+  background: var(--brand-glass);
+  color: var(--brand-muted);
+  font-size: 11px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: border-color var(--dur-2) ease, color var(--dur-2) ease, transform var(--dur-2) var(--ease-spring);
+
+  &:active:not(:disabled) { transform: scale(0.97); }
+  &.active,
+  &[aria-pressed="true"] { border-color: var(--brand-line-strong); color: var(--brand-ink); }
+  &:disabled { cursor: not-allowed; opacity: 0.45; }
+}
+
+.ui-cta {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 42px;
+  overflow: hidden;
+  border-radius: 14px;
+  background: var(--brand-primary);
+  box-shadow: 0 10px 24px rgba(var(--brand-focus-rgb), 0.24);
+  color: white;
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+  transition: transform var(--dur-2) var(--ease-spring), box-shadow var(--dur-2) ease;
+
+  // Light sweep on hover.
+  &::after {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(105deg, transparent 30%, rgba(255, 255, 255, 0.22) 50%, transparent 70%);
+    content: '';
+    transform: translateX(-100%);
+    transition: transform var(--dur-4) var(--ease-out);
+  }
+
+  &:hover { transform: translateY(-1px); box-shadow: 0 14px 30px rgba(var(--brand-focus-rgb), 0.3); }
+  &:hover::after { transform: translateX(100%); }
+
+  > span:last-child { transition: transform var(--dur-2) var(--ease-spring); }
+  &:hover > span:last-child { transform: translateX(3px); }
+}
