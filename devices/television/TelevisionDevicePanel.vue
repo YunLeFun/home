@@ -2,7 +2,7 @@
 import { computed, shallowRef, watch } from 'vue'
 import TelevisionScreen from './TelevisionScreen.vue'
 import type { TelevisionState } from '~/types'
-import { isTelevisionSourceUrl } from '~/utils/device'
+import { isTelevisionSourceUrl } from './state'
 
 const television = useDeviceState('television')
 const state = computed(() => television.state.value as TelevisionState)

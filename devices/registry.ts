@@ -56,7 +56,7 @@ export function unregisterDevicePlugin(kind: DeviceKind): void {
  * Look up the plugin that owns a device kind.
  *
  * @param kind - The device kind
- * @returns The plugin, or `undefined` when the kind is still a legacy built-in
+ * @returns The plugin, or `undefined` when none is registered for the kind
  */
 export function getDevicePlugin<K extends DeviceKind>(kind: K): DevicePlugin<K> | undefined {
   return plugins.get(kind) as unknown as DevicePlugin<K> | undefined

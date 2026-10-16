@@ -3,7 +3,7 @@ import type { DeviceKind } from '~/types'
 import { getDevicePlugin } from '~/devices/registry'
 import { isDeviceKind } from '~/utils/device'
 
-// Static pages under /items still serve legacy built-ins; this route serves plugin devices.
+// Every device detail page is served by its plugin; unknown or uninstalled kinds 404.
 definePageMeta({
   layout: 'home',
   validate: (route) => {

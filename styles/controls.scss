@@ -165,6 +165,41 @@
   }
 }
 
+// Power orb beside a large rolling reading, used at the top of quick controls.
+.ui-hero {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 16px;
+  padding: 12px;
+  border-radius: 20px;
+  background: var(--brand-glass-sunken);
+
+  > div:last-child { display: grid; gap: 3px; }
+
+  strong {
+    display: inline-flex;
+    align-items: flex-start;
+    color: var(--brand-ink);
+    font-size: 34px;
+    font-weight: 620;
+    letter-spacing: -0.05em;
+    line-height: 1;
+  }
+
+  sup { margin: 4px 0 0 3px; color: var(--brand-muted); font-size: 12px; letter-spacing: 0; }
+  small { color: var(--brand-muted); font-size: 10px; }
+}
+
+.ui-note {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  color: var(--brand-faint);
+  font-size: 10px;
+}
+
 .ui-step {
   display: grid;
   place-items: center;

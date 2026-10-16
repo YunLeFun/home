@@ -34,10 +34,10 @@ The browser uses `@cloudbase/js-sdk` v3 for authentication and document persiste
 Devices can ship as self-contained plugins under `devices/<kind>/`. A plugin is defined with `defineDevicePlugin()` and has three parts:
 
 - `manifest`: name, route, footprint, accepted surfaces, accent tones, and integrations (for example Home Assistant `climate`). `HOME_DEVICES` derives its metadata from the manifest.
-- `state`: a framework-independent state machine (`create`, `normalize`, `reduce`, `isAction`, `isActive`, `tone`). `utils/device.ts` delegates every plugin-owned kind to it, and fails loudly if the plugin is not installed.
+- `state`: a framework-independent state machine (`create`, `normalize`, `reduce`, `isAction`, `isActive`, `tone`). `utils/device.ts` delegates every device kind to it, and fails loudly if the plugin is not installed.
 - `components`: lazily imported `glyph`, `quickControl`, and `panel` slots. The scene, quick-control shell, and `/items/[device]` route resolve them through the registry, so each plugin's UI and dependencies load in their own chunk.
 
-`plugins/0.device-plugins.ts` installs `BUILTIN_DEVICE_PLUGINS` before any other Nuxt plugin and preloads glyphs for the first render. The air conditioner is the first plugin: its `@yunlefun-home/air-conditioner` renderer and Home Assistant binding form only load with its detail panel. Fan, robot vacuum, hand warmer, and television remain legacy built-ins until they are migrated.
+`plugins/0.device-plugins.ts` installs `BUILTIN_DEVICE_PLUGINS` before any other Nuxt plugin and preloads glyphs for the first render. Every device ships as a plugin: air conditioner, fan, robot vacuum, hand warmer, and television. The air conditioner's `@yunlefun-home/air-conditioner` renderer and Home Assistant binding form only load with its detail panel, and the television's player only loads with its panel; the others use their quick control as the detail panel.
 
 ## Cloud Home Architecture
 

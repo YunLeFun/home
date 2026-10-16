@@ -1,6 +1,10 @@
 import type { DevicePluginManifest } from '~/devices/types'
 import type { DeviceKind, HomeTemplate, HomeTemplateId, VirtualHomeState } from '~/types'
 import { airConditionerManifest } from '~/devices/air-conditioner/manifest'
+import { fanManifest } from '~/devices/fan/manifest'
+import { handWarmerManifest } from '~/devices/hand-warmer/manifest'
+import { robotVacuumManifest } from '~/devices/robot-vacuum/manifest'
+import { televisionManifest } from '~/devices/television/manifest'
 
 export interface HomeDeviceDefinition {
   id: DeviceKind
@@ -37,43 +41,11 @@ export const HOME_DEVICE_ORDER: DeviceKind[] = [
 ]
 
 export const HOME_DEVICES: Record<DeviceKind, HomeDeviceDefinition> = {
-  'television': {
-    id: 'television',
-    name: '云端电视',
-    description: '独立影音与在线片源播放',
-    icon: 'i-carbon-screen',
-    route: '/items/television',
-    width: 230,
-    height: 126,
-  },
+  'television': fromManifest(televisionManifest),
   'air-conditioner': fromManifest(airConditionerManifest),
-  'fan': {
-    id: 'fan',
-    name: '云端风扇',
-    description: '柔风与摇头',
-    icon: 'i-carbon-windy',
-    route: '/items/fan',
-    width: 92,
-    height: 182,
-  },
-  'robot-vacuum': {
-    id: 'robot-vacuum',
-    name: '扫地机器人',
-    description: '全屋路线清扫',
-    icon: 'i-carbon-clean',
-    route: '/items/robot-vacuum',
-    width: 104,
-    height: 76,
-  },
-  'hand-warmer': {
-    id: 'hand-warmer',
-    name: '暖手宝',
-    description: '随手温暖三档',
-    icon: 'i-carbon-temperature-hot',
-    route: '/items/hand-warmer',
-    width: 66,
-    height: 74,
-  },
+  'fan': fromManifest(fanManifest),
+  'robot-vacuum': fromManifest(robotVacuumManifest),
+  'hand-warmer': fromManifest(handWarmerManifest),
 }
 
 export const HOME_TEMPLATES: Record<HomeTemplateId, HomeTemplate> = {
