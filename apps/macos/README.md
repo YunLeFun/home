@@ -19,6 +19,7 @@ open apps/macos/build/YunHome.app
 - 菜单栏托盘：左键打开五类设备快捷控制，支持切换主窗口、桌面空调、桌面遥控器和配件置顶；点击设备进入详情。右键打开带勾选状态的原生菜单。在设置中可关闭或恢复菜单栏图标，偏好会自动保存。
 - 快捷键：`⌘⇧K` 打开快捷控制、`⌘0` 恢复主窗口、`⌘,` 打开设置、`⌘W` 关闭窗口。隐藏菜单栏图标后，快捷控制会从主窗口打开；关闭主窗口后仍可从 Dock 恢复应用。通过菜单或快捷控制中的“退出”结束应用。
 - 桌面空调：复用 CuteAC 的 3D 模型、导风板、温度显示和冷暖出风效果；拖动移动，双击开关，右键隐藏或切换置顶。
+- 室温：把这台 Mac 当作空调所在的房间。空调显示窗右上角显示 CPU/SoC 温度，风速条和出风动画跟随风扇负载，空调详情页显示温度、风扇转速和 macOS 散热状态。只读，不需要 root；只在主窗口、快捷控制或桌面空调可见时每 3 秒采样一次。
 - 三维遥控器：原创圆角白色 USDZ 模型，LCD 同步显示温度、模式和连接状态；电源、升温、降温、冷暖切换四个按钮支持按压反馈，拖出按钮会取消操作。空调详情页可直接操作，也可独立显示在桌面，拖动机身移动，右键置顶或隐藏。
 - 所有原生入口共享一个 `HomeStore`，状态和房间分配自动保存在本机 UserDefaults；桌面挂件的位置与显示偏好也会保存。
 - 定时器按绝对时间运行，只在最近的截止时间唤醒一次；应用启动、唤醒、重新激活时也会检查到期时间。应用退出时无法执行定时操作，再次启动时补齐本机状态。
@@ -40,6 +41,7 @@ open apps/macos/build/YunHome.app
 - **进程外沙箱**：插件脚本运行在随 App 打包的 `YunHomePluginHost` 进程里，每个插件独占一个 JavaScriptCore 虚拟机，没有定时器、网络、文件、模块或 `console`。每次调用 250 ms 超时，超时即结束宿主进程并在下次调用时自动重启；同一插件连续出错 3 次后停用，重新安装可恢复。插件无法拖慢或拖垮主 App。
 - **原生渲染**：插件不提供界面代码，只用 `controls.json` 描述电源、表盘、步进、分段、滑杆等控件，App 用 SwiftUI 原生组件绘制。渲染只读取缓存的状态与展示信息，只有用户操作时才调用一次插件。同一设备的操作按顺序执行，快速连点不会互相覆盖。
 - **宿主能力**：插件可在清单中请求宿主渲染器，例如 `renderer: "cute-ac-3d"` 复用现有 RealityKit 空调模型。权限白名单与 Web 一致，安装前逐条以中文说明。
+- **室温权限 `sensor:thermal`（仅官方插件）**：获得授权的插件在 `present(state, context)` 和 `reduce` 的 `context.room` 里收到 `{ celsius?, thermalState, fanRPM?, windLevel }`，`cute-ac-3d` 渲染器也会显示室温。只有**官方插件**会获得授权：从家电市场安装、SHA-256 与 `catalog.json` 一致，且 id 以 `fun.yunle.` 开头。从文件安装的包，或其他作者的认证插件，即使在清单里申请了也不会获得，插件详情页会标注“仅官方插件，未授予”。`InstalledPlugin.grants(_:)` 是唯一的判断入口。
 - **安装与存档**：精选插件随 App 打包在 `Resources/Plugins`，安装时校验 `catalog.json` 中的 SHA-256；安装目录为 `~/Library/Application Support/YunHome/Plugins/<id>/`。插件设备保存在家园存档 `version: 2` 的 `plugins` 字段，v1 存档自动迁移。
 - **应用图标**：清单和 `catalog.json` 可带 `appIcon`，格式与 Web 的 `devices/icon.ts` 相同（64×64 画布、双色背景、有限的形状 / 颜色令牌 / 变换 / 动效）。`PluginIcon` 解码时按 Web 的 `normalizePluginIcon` 校验并丢弃不支持的值，`PluginIconView` 用 `Canvas` 绘制，动效只在设备运行时播放并遵守“减弱动态效果”。没有图标时回退到 `symbol` + `tint`；精选插件的包里没有图标时使用 `catalog.json` 中审核过的图标。
 - **云端风扇**：`cn.elpsy.electric-fan` 的沙箱包源码在 `PluginSources/electric-fan/`，用 `bash apps/macos/scripts/pack-plugin.sh apps/macos/PluginSources/electric-fan apps/macos/Sources/YunHome/Resources/Plugins/electric-fan.yunplugin` 可复现打包，并把输出的 SHA-256 写入 `catalog.json`。
@@ -53,7 +55,7 @@ Sources/
   YunHomePluginHost/     # 运行插件脚本的沙箱进程（JavaScriptCore）
   HomeCore/              # Codable 状态、动作规则、房间、本机存档、插件设备
   YunHome/
-    AirConditioner/      # RealityKit 渲染 CuteAC USDZ 模型与原生出风效果
+    AirConditioner/      # RealityKit 渲染器；模型、显示窗贴图和出风层来自 CuteACKit
     HomeWindow.swift     # 全家、房间、设置
     DeviceDetail.swift   # 五类原生设备控制
     QuickControls.swift  # 菜单栏快捷控制
@@ -67,7 +69,9 @@ Tests/YunHomeTests/      # USDZ 部件、显示材质、导风板动画终态与
 
 `HomeCore` 的设备标识、字段和动作语义对齐仓库根目录的 `types/device.ts` / `utils/device.ts`。目前 Swift 与 TypeScript 各自实现，通过契约测试维护一致性；没有将 JavaScript runtime 嵌入原生进程。原生全家存档封装和日期编码是本机格式，不能直接上传成 Web 的云记录。
 
-三维空调使用 RealityKit，直接加载原始 `CuteAC.usdz`，保留导风板枢轴、Digital-7 温度贴图、冷暖指示灯、开机弹跳、拖动旋转与滚轮缩放。通过 `NSViewRepresentable` 包装 `ARView`，继续支持 macOS 14；模型异步加载，加载错误会显示在预览区域。冷暖出风继续由 Core Animation 绘制，设备状态仍由 `HomeCore` 管理。
+空调本身的原生代码来自 air-conditioner 仓库的 Swift 包 [CuteACKit](https://github.com/YunYouJun/air-conditioner/tree/main/apps/macos#共享包-cuteackit)，在 `Package.swift` 中按提交固定版本：`CuteACCore` 提供 `ACState` / `ACMode` 和室温读数（`HomeCore` 重新导出），`CuteACKit` 提供 `CuteAC.usdz`、Digital-7 字体、显示窗贴图、配色和出风层。CuteAC 菜单栏应用用的是同一份代码。升级时把 `revision` 改成 air-conditioner 的新提交。
+
+三维空调使用 RealityKit，加载 CuteACKit 中的 `CuteAC.usdz`，保留导风板枢轴、Digital-7 温度贴图、冷暖指示灯、开机弹跳、拖动旋转与滚轮缩放。通过 `NSViewRepresentable` 包装 `ARView`，继续支持 macOS 14；模型异步加载，加载错误会显示在预览区域。冷暖出风由 CuteACKit 的 Core Animation 层绘制，设备状态仍由 `HomeCore` 管理。
 
 状态、视角或尺寸变化时才创建 RealityKit 视图；动画结束后截取透明快照并释放渲染视图，静止时显示快照，避免隐藏 `ARView` 后仍持续渲染。窗口不可见或离开详情页时结束三维动画并移除出风动画，再次显示时按最新状态恢复。模型测试需要 Metal 设备，在没有 Metal 的 CI 主机上会跳过。
 

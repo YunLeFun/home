@@ -31,6 +31,9 @@ public final class HomeStore {
   public private(set) var pluginPresentations: [String: PluginPresentation] = [:]
   /// Most recent failure per plugin device, cleared on the next success.
   public private(set) var pluginErrors: [String: String] = [:]
+  /// The Mac seen as the room, fed by the app's `ThermalMonitor` while
+  /// something shows it. Only plugins granted `sensor:thermal` receive it.
+  public private(set) var room: RoomReading?
   @ObservationIgnored private let pluginInstaller: PluginInstaller
   @ObservationIgnored private let pluginHost: PluginHostClient
   @ObservationIgnored private var pluginQueues: [String: Task<Void, Never>] = [:]
@@ -219,10 +222,30 @@ public final class HomeStore {
   /// Wait until queued actions for a device have finished; used by tests.
   public func settle(plugin id: String) async { await pluginQueues[id]?.value }
 
+  /// Record a new room reading and let thermal-granted plugin devices
+  /// re-present with it, so their summaries show the room temperature.
+  public func updateRoom(_ reading: RoomReading?) {
+    guard reading != room else { return }
+    room = reading
+    for instance in snapshot.plugins where installedPlugins[instance.pluginId]?.grants(PluginPermission.thermal) == true {
+      Task { [weak self] in await self?.refresh(instance) }
+    }
+  }
+
+  /// Host data passed to a plugin's `reduce` and `present`. The room reading
+  /// is only included for plugins granted `sensor:thermal`.
+  public func pluginContext(for pluginId: String) -> JSONValue? {
+    guard let plugin = installedPlugins[pluginId], plugin.grants(PluginPermission.thermal), let room,
+          let data = try? JSONEncoder().encode(room),
+          let value = try? JSONDecoder().decode(JSONValue.self, from: data) else { return nil }
+    return .object(["room": value])
+  }
+
   private func perform(plugin id: String, action: JSONValue) async {
     guard let instance = snapshot.plugin(id), installedPlugins[instance.pluginId] != nil else { return }
     do {
-      let result = try await pluginHost.dispatch(plugin: instance.pluginId, state: instance.state, action: action)
+      let result = try await pluginHost.dispatch(plugin: instance.pluginId, state: instance.state, action: action,
+                                                 context: pluginContext(for: instance.pluginId))
       guard let index = snapshot.plugins.firstIndex(where: { $0.id == id }) else { return }
       snapshot.plugins[index].state = result.state
       snapshot.plugins[index].changedAt = Date()
@@ -242,7 +265,7 @@ public final class HomeStore {
       await refresh(existing)
       return existing
     }
-    let created = try await pluginHost.create(plugin: plugin.id)
+    let created = try await pluginHost.create(plugin: plugin.id, context: pluginContext(for: plugin.id))
     let instance = PluginInstance(pluginId: plugin.id, name: plugin.manifest.name, state: created.state)
     snapshot.plugins.append(instance)
     snapshot.changedAt = instance.changedAt
@@ -267,7 +290,8 @@ public final class HomeStore {
   private func refresh(_ instance: PluginInstance) async {
     guard installedPlugins[instance.pluginId] != nil else { return }
     do {
-      let result = try await pluginHost.present(plugin: instance.pluginId, state: instance.state)
+      let result = try await pluginHost.present(plugin: instance.pluginId, state: instance.state,
+                                                context: pluginContext(for: instance.pluginId))
       pluginPresentations[instance.id] = result.presentation
       pluginErrors[instance.id] = nil
     } catch {

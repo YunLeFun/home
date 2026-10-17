@@ -1,3 +1,4 @@
+@_exported import CuteACCore
 import Foundation
 
 public enum DeviceKind: String, Codable, CaseIterable, Identifiable {
@@ -49,24 +50,9 @@ public enum HomeRoom: String, Codable, CaseIterable, Identifiable {
   }
 }
 
-// Field names and enum raw values follow types/device.ts. Native storage is
-// independent; this does not imply shared browser sessions or cloud sync.
-public enum ACMode: String, Codable, CaseIterable {
-  case cold, hot
-}
-
-public struct ACState: Codable, Equatable {
-  public var status = false
-  public var mode = ACMode.cold
-  public var temperature = 26.0
-  public static let temperatureRange = 16.0...31.0
-  public var temperatureLabel: String { temperature.formatted(.number.precision(.fractionLength(0...2))) }
-  public init(status: Bool = false, mode: ACMode = .cold, temperature: Double = 26) {
-    self.status = status
-    self.mode = mode
-    self.temperature = min(31, max(16, temperature))
-  }
-}
+// The air conditioner's state (`ACState`, `ACMode`) comes from CuteACCore,
+// re-exported below, so CuteAC and Yun Home share one definition. Field names
+// and raw values follow types/device.ts.
 
 public struct FanState: Codable, Equatable {
   public var power = false

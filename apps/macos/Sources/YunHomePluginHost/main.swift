@@ -73,8 +73,10 @@ func presentation(from value: JSONValue) throws -> PluginPresentation {
   return PluginPresentation(active: active, tone: tone, summary: String(summary.prefix(80)))
 }
 
-func result(_ sandbox: Sandbox, state: JSONValue) throws -> PluginStateResult {
-  PluginStateResult(state: state, presentation: try presentation(from: sandbox.call("present", [state])))
+/// `context` carries host data such as device limits and, for official plugins
+/// granted `sensor:thermal`, the room reading.
+func result(_ sandbox: Sandbox, state: JSONValue, context: JSONValue?) throws -> PluginStateResult {
+  PluginStateResult(state: state, presentation: try presentation(from: sandbox.call("present", [state, context ?? .object([:])])))
 }
 
 func handle(_ request: PluginHostRequest) throws -> PluginStateResult? {
@@ -89,14 +91,14 @@ func handle(_ request: PluginHostRequest) throws -> PluginStateResult? {
   guard let sandbox = sandboxes[request.plugin] else { throw SandboxError(message: "插件未加载") }
   switch request.method {
   case .create:
-    return try result(sandbox, state: sandbox.call("create", []))
+    return try result(sandbox, state: sandbox.call("create", []), context: request.context)
   case .present:
-    return try result(sandbox, state: sandbox.call("normalize", [request.state ?? .null]))
+    return try result(sandbox, state: sandbox.call("normalize", [request.state ?? .null]), context: request.context)
   case .dispatch:
     let action = request.action ?? .null
     guard try sandbox.call("isAction", [action]).boolValue == true else { throw SandboxError(message: "插件不支持这个操作") }
     let reduced = try sandbox.call("reduce", [request.state ?? .null, action, request.context ?? .object([:])])
-    return try result(sandbox, state: sandbox.call("normalize", [reduced]))
+    return try result(sandbox, state: sandbox.call("normalize", [reduced]), context: request.context)
   case .load, .unload:
     return nil
   }

@@ -1,4 +1,5 @@
 import AppKit
+import CuteACKit
 import Metal
 import RealityKit
 import Testing
@@ -18,7 +19,7 @@ struct ACSceneTests {
 
     for mode in ACMode.allCases {
       for temperature in [16.0, 26.0, 26.5, 31.0] {
-        controller.apply(ACState(status: true, mode: mode, temperature: temperature), animated: false)
+        controller.apply(ACState(status: true, mode: mode, temperature: temperature), room: nil, animated: false)
         let expected = resting.rotation * simd_quatf(angle: 40 * .pi / 180, axis: [1, 0, 0])
         #expect(simd_length(louver.orientation.vector - expected.vector) < 0.0001)
         #expect(louver.position == resting.translation)
@@ -26,14 +27,14 @@ struct ACSceneTests {
         let displayMaterial = try #require(firstMaterial(in: display) as? UnlitMaterial)
         #expect(displayMaterial.color.texture != nil)
         let ledMaterial = try #require(firstMaterial(in: led) as? UnlitMaterial)
-        #expect(colorDistance(ledMaterial.color.tint, ACSceneController.accent(for: mode)) < 0.01)
+        #expect(colorDistance(ledMaterial.color.tint, ACPalette.accent(for: mode)) < 0.01)
       }
     }
-    controller.apply(ACState(), animated: false)
+    controller.apply(ACState(), room: nil, animated: false)
     #expect(simd_length(louver.orientation.vector - resting.rotation.vector) < 0.0001)
     let offMaterial = try #require(firstMaterial(in: led) as? UnlitMaterial)
-    #expect(colorDistance(offMaterial.color.tint, ACSceneController.accent(for: .cold)) > 0.1)
-    #expect(colorDistance(offMaterial.color.tint, ACSceneController.accent(for: .hot)) > 0.1)
+    #expect(colorDistance(offMaterial.color.tint, ACPalette.accent(for: .cold)) > 0.1)
+    #expect(colorDistance(offMaterial.color.tint, ACPalette.accent(for: .hot)) > 0.1)
     #expect(controller.airflowOrigin.x.isFinite && controller.airflowOrigin.y.isFinite)
   }
 
@@ -42,13 +43,13 @@ struct ACSceneTests {
     let louver = try #require(controller.model.findEntity(named: "Louver"))
     let resting = louver.transform
     let originalModel = controller.model.transform
-    controller.apply(ACState(), animated: false)
-    controller.apply(ACState(status: true), animated: true)
-    controller.apply(ACState(status: false), animated: true)
+    controller.apply(ACState(), room: nil, animated: false)
+    controller.apply(ACState(status: true), room: nil, animated: true)
+    controller.apply(ACState(status: false), room: nil, animated: true)
     controller.finishAnimations()
     #expect(louver.transform == resting)
     #expect(controller.model.transform == originalModel)
-    controller.apply(ACState(status: true, mode: .hot), animated: true)
+    controller.apply(ACState(status: true, mode: .hot), room: nil, animated: true)
     controller.finishAnimations()
     let expected = resting.rotation * simd_quatf(angle: 40 * .pi / 180, axis: [1, 0, 0])
     #expect(simd_length(louver.orientation.vector - expected.vector) < 0.0001)
@@ -76,7 +77,7 @@ struct ACSceneTests {
     let desktop = try await ACSceneController.load()
     let desktopLouver = try #require(desktop.model.findEntity(named: "Louver"))
     let resting = desktopLouver.transform
-    detail.apply(ACState(status: true), animated: false)
+    detail.apply(ACState(status: true), room: nil, animated: false)
     #expect(detail.model !== desktop.model)
     #expect(detail.anchor !== desktop.anchor)
     #expect(desktopLouver.transform == resting)

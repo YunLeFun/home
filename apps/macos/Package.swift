@@ -9,22 +9,31 @@ let package = Package(
     // Runs third-party plugin scripts out of process; bundled next to the app executable.
     .executable(name: "YunHomePluginHost", targets: ["YunHomePluginHost"]),
   ],
-  dependencies: [.package(name: "YunHomeConnectivity", path: "../..")],
+  dependencies: [
+    .package(name: "YunHomeConnectivity", path: "../.."),
+    // The air conditioner's state, Mac thermal readings, LCD, airflow and model,
+    // shared with the standalone CuteAC menu bar app.
+    .package(url: "https://github.com/YunYouJun/air-conditioner.git", revision: "2835aa9b89eab00a94bf85be2522256e6947c547"),
+  ],
   targets: [
     .target(name: "HomePlugins"),
     .executableTarget(name: "YunHomePluginHost", dependencies: ["HomePlugins"]),
-    .target(name: "HomeCore", dependencies: ["HomePlugins", .product(name: "HomeDeviceKit", package: "YunHomeConnectivity")]),
+    .target(name: "HomeCore", dependencies: [
+      "HomePlugins",
+      .product(name: "HomeDeviceKit", package: "YunHomeConnectivity"),
+      .product(name: "CuteACCore", package: "air-conditioner"),
+    ]),
     .executableTarget(
       name: "YunHome",
-      dependencies: ["HomeCore", "HomePlugins", .product(name: "HomeDeviceKit", package: "YunHomeConnectivity")],
-      resources: [.copy("Resources/CuteAC.usdz"), .copy("Resources/ACRemote.usdz"), .copy("Resources/digital-7-mono.ttf"),
-                  .copy("Resources/AirConditioner-LICENSE.txt"), .copy("Resources/Plugins")]
+      dependencies: ["HomeCore", "HomePlugins", .product(name: "HomeDeviceKit", package: "YunHomeConnectivity"),
+                     .product(name: "CuteACKit", package: "air-conditioner")],
+      resources: [.copy("Resources/ACRemote.usdz"), .copy("Resources/AirConditioner-LICENSE.txt"), .copy("Resources/Plugins")]
     ),
     .testTarget(name: "HomePluginsTests", dependencies: ["HomePlugins", "YunHomePluginHost"], resources: [.copy("Fixtures")]),
     .testTarget(name: "HomeCoreTests", dependencies: ["HomeCore", "HomePlugins", "YunHomePluginHost",
                                                    .product(name: "HomeDeviceKit", package: "YunHomeConnectivity")],
                 resources: [.copy("Fixtures")]),
-    .testTarget(name: "YunHomeTests", dependencies: ["YunHome", "HomeCore"]),
+    .testTarget(name: "YunHomeTests", dependencies: ["YunHome", "HomeCore", .product(name: "CuteACKit", package: "air-conditioner")]),
   ],
   swiftLanguageModes: [.v5]
 )

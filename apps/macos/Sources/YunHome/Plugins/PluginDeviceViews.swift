@@ -159,7 +159,8 @@ struct PluginDeviceDetail: View {
 
         if let plugin {
           if plugin.manifest.renderer == "cute-ac-3d" {
-            PluginACStage(state: instance.state, tone: presentation?.tone)
+            PluginACStage(state: instance.state, tone: presentation?.tone,
+                          room: plugin.grants(PluginPermission.thermal) ? store.room : nil)
           }
           HomeCard {
             PluginControlsView(controls: plugin.package.controls, state: instance.state, tone: presentation?.tone) { action in
@@ -191,12 +192,21 @@ struct PluginDeviceDetail: View {
 /// Where a plugin came from and what it may do.
 struct PluginProvenance: View {
   let plugin: InstalledPlugin
+
+  /// Official-only permissions a third-party plugin asked for are listed as refused.
+  private var permissionSummary: String {
+    let permissions = plugin.manifest.permissions
+    if permissions.isEmpty { return "未申请任何权限" }
+    let labels = permissions.map { plugin.grants($0) || !PluginPermission.officialOnly.contains($0) ? $0 : "\($0)（仅官方插件，未授予）" }
+    return "权限：\(labels.joined(separator: "、"))"
+  }
   var body: some View {
     VStack(alignment: .leading, spacing: 6) {
-      Label(plugin.verified ? "已认证插件 · 在沙箱中运行" : "未认证插件 · 在沙箱中运行，请确认来源可信",
+      Label(plugin.isOfficial ? "官方插件 · 在沙箱中运行"
+              : plugin.verified ? "已认证插件 · 在沙箱中运行" : "未认证插件 · 在沙箱中运行，请确认来源可信",
             systemImage: plugin.verified ? "checkmark.seal" : "exclamationmark.shield")
         .foregroundStyle(plugin.verified ? AnyShapeStyle(.secondary) : AnyShapeStyle(.orange))
-      Text("\(plugin.manifest.author.name) · v\(plugin.manifest.version) · \(plugin.manifest.permissions.isEmpty ? "未申请任何权限" : "权限：\(plugin.manifest.permissions.joined(separator: "、"))")")
+      Text("\(plugin.manifest.author.name) · v\(plugin.manifest.version) · \(permissionSummary)")
         .foregroundStyle(.tertiary)
     }.font(.caption)
   }
@@ -206,13 +216,15 @@ struct PluginProvenance: View {
 struct PluginACStage: View {
   let state: JSONValue
   let tone: String?
+  /// Only set for plugins granted `sensor:thermal`.
+  var room: RoomReading?
   private var acState: ACState {
     ACState(status: state["status"]?.boolValue ?? false,
             mode: state["mode"]?.stringValue == "hot" ? .hot : .cold,
             temperature: state["temperature"]?.numberValue ?? 26)
   }
   var body: some View {
-    ACPreview(state: acState)
+    ACPreview(state: acState, room: room)
       .frame(maxWidth: .infinity).frame(height: 220)
       .padding(16)
       .background(HomeTheme.modelBackground, in: RoundedRectangle(cornerRadius: HomeTheme.cornerRadius, style: .continuous))

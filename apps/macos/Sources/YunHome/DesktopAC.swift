@@ -68,6 +68,6 @@ final class DesktopACPanel: NSPanel {
 struct DesktopACView: View {
   let store: HomeStore
   var body: some View {
-    ACPreview(state: store.acState, interactive: false).frame(width: 300, height: 190)
+    ACPreview(state: store.acState, room: store.room, interactive: false).frame(width: 300, height: 190)
   }
 }

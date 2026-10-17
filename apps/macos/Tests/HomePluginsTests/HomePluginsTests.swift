@@ -133,6 +133,31 @@ private func lampSource(reduce body: String = "return { on: !state.on }") -> Str
   #expect(installer.installed().isEmpty)
 }
 
+@Test func thermalIsOnlyGrantedToOfficialPlugins() throws {
+  let root = try temporaryDirectory()
+  defer { try? FileManager.default.removeItem(at: root) }
+  #expect(PluginPermission.isKnown(PluginPermission.thermal))
+
+  // The YunLe air conditioner from the market is official and gets the room reading.
+  let official = try PluginInstaller(root: root.appendingPathComponent("market"))
+    .install(archive: fixture, expectedSHA256: try PluginPackage.sha256(of: fixture))
+  #expect(official.manifest.permissions.contains(PluginPermission.thermal))
+  #expect(official.isOfficial && official.grants(PluginPermission.thermal))
+
+  // The same package picked from disk is not: its id alone proves nothing.
+  let sideloaded = try PluginInstaller(root: root.appendingPathComponent("file")).install(archive: fixture)
+  #expect(!sideloaded.isOfficial && !sideloaded.grants(PluginPermission.thermal))
+
+  // Nor is a reviewed third-party plugin, although its other permissions apply.
+  let manifest = validManifest.replacingOccurrences(of: #""permissions":[]"#, with: #""permissions":["sensor:thermal","storage"]"#)
+  let archive = try makeArchive(["manifest.json": manifest, "controls.json": validControls, "state.js": lampSource()],
+                                in: try temporaryDirectory())
+  let thirdParty = try PluginInstaller(root: root.appendingPathComponent("third-party"))
+    .install(archive: archive, expectedSHA256: try PluginPackage.sha256(of: archive))
+  #expect(thirdParty.verified && !thirdParty.isOfficial)
+  #expect(!thirdParty.grants(PluginPermission.thermal) && thirdParty.grants("storage"))
+}
+
 @Test func fileInstallsAreMarkedUnverified() throws {
   let root = try temporaryDirectory()
   defer { try? FileManager.default.removeItem(at: root) }
@@ -152,7 +177,8 @@ private func lampSource(reduce body: String = "return { on: !state.on }") -> Str
   await client.register(plugin: plugin.id, source: plugin.package.stateSource)
 
   let created = try await client.create(plugin: plugin.id)
-  #expect(created.state == .object(["status": .bool(false), "mode": .string("cold"), "temperature": .number(26), "sound": .string("normal")]))
+  #expect(created.state == .object(["status": .bool(false), "mode": .string("cold"), "temperature": .number(26),
+                                    "sound": .string("normal"), "swing": .bool(false)]))
   #expect(created.presentation == PluginPresentation(active: false, tone: "idle", summary: "待机 · 26°C"))
 
   var state = created.state
@@ -169,6 +195,11 @@ private func lampSource(reduce body: String = "return { on: !state.on }") -> Str
   }
   let normalized = try await client.present(plugin: plugin.id, state: try JSONValue.parse(#"{"temperature":99,"mode":"dry"}"#))
   #expect(normalized.state["temperature"] == .number(31) && normalized.state["mode"] == .string("cold"))
+
+  // `present` receives the host context, e.g. the room reading for official plugins.
+  let room = try JSONValue.parse(#"{"room":{"celsius":53,"thermalState":"nominal","fanRPM":1500,"windLevel":1}}"#)
+  let withRoom = try await client.present(plugin: plugin.id, state: halfStep.state, context: room)
+  #expect(withRoom.presentation.summary == "制热 · 27.5°C · 室温 53°C")
 }
 
 @Test func runsTheBundledFanScriptOutOfProcess() async throws {

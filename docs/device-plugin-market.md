@@ -71,6 +71,7 @@ type PluginPermission =
   | 'storage' // 每个实例 16 KB 状态，随账号同步
   | 'notify' // 在 Home 内弹出提示
   | 'sensor:compute-pressure' // 读取浏览器 CPU 压力
+  | 'sensor:thermal' // 读取本机 CPU 温度、风扇转速与散热状态；仅授予官方插件（目前只有原生客户端提供）
   | `network:${string}` // 访问指定 HTTPS 源
   | `home-assistant:${string}` // 代理调用用户为该实例绑定的某类 HA 实体，如 home-assistant:climate
 ```

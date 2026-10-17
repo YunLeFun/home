@@ -1,3 +1,4 @@
+import CuteACKit
 import SwiftUI
 import HomeCore
 
@@ -187,13 +188,15 @@ struct HomeSectionHeading: View {
 
 struct ACPreview: View {
   let state: ACState
+  /// The Mac's temperature and fans for the LCD and airflow; nil hides them.
+  var room: RoomReading?
   var interactive = true
   @State private var controller: ACSceneController?
   @State private var modelError: String?
   var body: some View {
     Group {
       if let controller {
-        ACSceneView(controller: controller, state: state, isActive: true, interactive: interactive)
+        ACSceneView(controller: controller, state: state, room: room, isActive: true, interactive: interactive)
       } else if let modelError {
         Label(modelError, systemImage: "exclamationmark.triangle")
           .font(.caption).foregroundStyle(.secondary)
@@ -213,5 +216,31 @@ struct ACPreview: View {
       }
     }
     .accessibilityLabel("三维云空调，\(state.status ? "已开启" : "待机")，\(state.temperature)摄氏度")
+  }
+}
+
+/// The Mac seen as the room: CPU/SoC temperature, fastest fan and how macOS
+/// rates the heat. Same wording as the CuteAC menu bar app.
+struct RoomSummary: View {
+  let room: RoomReading
+  var body: some View {
+    let warning = ACPalette.warning(for: room.thermalState).map { Color(nsColor: $0) }
+    HStack(spacing: 12) {
+      if let celsius = room.celsius {
+        Label("室温 \(celsius)°C", systemImage: "thermometer.medium").help("这台 Mac 的 CPU 温度")
+      }
+      if let rpm = room.fanRPM {
+        Label("\(rpm) RPM", systemImage: "fan").help("风扇转速")
+      }
+      Spacer(minLength: 0)
+      Text(room.thermalState.label)
+        .font(.caption2.weight(.semibold))
+        .padding(.horizontal, 7).padding(.vertical, 2)
+        .foregroundStyle(warning ?? Color.secondary)
+        .background(Capsule().fill((warning ?? Color.primary).opacity(0.12)))
+        .help("macOS 的散热状态")
+    }
+    .font(.caption.monospacedDigit())
+    .foregroundStyle(.secondary)
   }
 }

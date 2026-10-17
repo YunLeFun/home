@@ -55,6 +55,19 @@ public struct InstalledPlugin: Equatable, Sendable, Identifiable {
   public var id: String { package.manifest.id }
   public var manifest: PluginManifest { package.manifest }
   public var verified: Bool { source == .market }
+
+  /// Published by YunLe: installed from the bundled catalog with a matching
+  /// checksum, under the `fun.yunle.` namespace. The namespace alone proves
+  /// nothing (a sideloaded file can claim any id); the checksum does.
+  public var isOfficial: Bool { verified && id.hasPrefix(Self.officialNamespace) }
+  public static let officialNamespace = "fun.yunle."
+
+  /// Whether the host actually grants `permission`: the manifest must ask for
+  /// it, and official-only permissions also need an official plugin.
+  public func grants(_ permission: String) -> Bool {
+    guard manifest.permissions.contains(permission) else { return false }
+    return !PluginPermission.officialOnly.contains(permission) || isOfficial
+  }
 }
 
 /// Installs `.yunplugin` archives into Application Support and lists them.

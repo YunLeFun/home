@@ -1,5 +1,6 @@
 import AppKit
 import Combine
+import CuteACKit
 import RealityKit
 import HomeCore
 
@@ -9,7 +10,9 @@ protocol ACSceneRendering: AnyObject {
   var showsAirflow: Bool { get }
   var settlingDuration: Duration { get }
   var airflowOrigin: SIMD3<Float> { get }
-  func apply(_ state: ACState, animated: Bool)
+  /// `room` feeds the LCD (room temperature, wind bars); renderers without
+  /// a display ignore it.
+  func apply(_ state: ACState, room: RoomReading?, animated: Bool)
   func finishAnimations()
   func orbit(delta: CGPoint)
   func zoom(delta: CGFloat)
@@ -39,6 +42,7 @@ final class ACSceneController: ACSceneRendering {
   private var targetLouver: Transform
   private let restingModel: Transform
   private var lastState: ACState?
+  private var lastRoom: RoomReading?
   private var yaw = Float(atan2(0.55, 3.0))
   private var pitch = Float(atan2(-0.43, hypot(0.55, 3.0)))
   private var distance = Float(sqrt(0.55 * 0.55 + 0.43 * 0.43 + 3 * 3))
@@ -54,14 +58,20 @@ final class ACSceneController: ACSceneRendering {
     }
   }
 
+  /// The unit itself comes from CuteACKit, shared with the CuteAC menu bar app.
   static func load() async throws -> ACSceneController {
-    try await ACSceneController(model: loadModel(named: "CuteAC"))
+    guard let url = ACModel.url else { throw ModelError.missingResource }
+    return try ACSceneController(model: await loadModel(at: url))
   }
 
   static func loadModel(named name: String) async throws -> Entity {
     guard let url = Bundle.module.url(forResource: name, withExtension: "usdz") else {
       throw ModelError.missingResource
     }
+    return try await loadModel(at: url)
+  }
+
+  static func loadModel(at url: URL) async throws -> Entity {
     let model: Entity
     if #available(macOS 15, *) {
       model = try await Entity(contentsOf: url)
@@ -78,12 +88,12 @@ final class ACSceneController: ACSceneRendering {
 
   init(model: Entity) throws {
     self.model = model
-    guard let louver = model.findEntity(named: "Louver") else { throw ModelError.missingPart("Louver") }
-    guard let display = model.findEntity(named: "Display").flatMap(Self.firstModel(in:)) else {
-      throw ModelError.missingPart("Display")
+    guard let louver = model.findEntity(named: ACModel.Part.louver) else { throw ModelError.missingPart(ACModel.Part.louver) }
+    guard let display = model.findEntity(named: ACModel.Part.display).flatMap(Self.firstModel(in:)) else {
+      throw ModelError.missingPart(ACModel.Part.display)
     }
-    guard let led = model.findEntity(named: "Led").flatMap(Self.firstModel(in:)) else {
-      throw ModelError.missingPart("Led")
+    guard let led = model.findEntity(named: ACModel.Part.led).flatMap(Self.firstModel(in:)) else {
+      throw ModelError.missingPart(ACModel.Part.led)
     }
     self.louver = louver
     self.display = display
@@ -95,12 +105,17 @@ final class ACSceneController: ACSceneRendering {
     setUpLightsAndCamera()
   }
 
-  func apply(_ state: ACState, animated: Bool) {
+  func apply(_ state: ACState, room: RoomReading?, animated: Bool) {
     let previous = lastState
-    guard previous != state else { return }
+    let stateChanged = previous != state
+    guard stateChanged || room != lastRoom else { return }
     lastState = state
+    lastRoom = room
+    updateDisplay(state, room: room)
+    guard stateChanged else { return }
+
     targetLouver = restingLouver
-    targetLouver.rotation *= simd_quatf(angle: state.status ? 40 * .pi / 180 : 0, axis: [1, 0, 0])
+    targetLouver.rotation *= simd_quatf(angle: state.status ? Float(ACModel.openLouverAngle) : 0, axis: [1, 0, 0])
     louver.stopAllAnimations()
     if animated {
       louver.move(to: targetLouver, relativeTo: louver.parent, duration: 0.5, timingFunction: .easeInOut)
@@ -108,9 +123,13 @@ final class ACSceneController: ACSceneRendering {
       louver.transform = targetLouver
     }
 
-    let ledColor = state.status ? Self.accent(for: state.mode) : NSColor(calibratedRed: 0.56, green: 0.6, blue: 0.67, alpha: 1)
-    Self.setMaterial(UnlitMaterial(color: ledColor), on: led)
-    let image = Self.displayImage(for: state)
+    Self.setMaterial(UnlitMaterial(color: ACPalette.led(for: state)), on: led)
+    if animated && state.status && previous?.status == false { bounce() }
+  }
+
+  /// The LCD texture is CuteACKit's, so both apps show the same readout.
+  private func updateDisplay(_ state: ACState, room: RoomReading?) {
+    let image = ACDisplay.image(for: state, room: room)
     if let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) {
       do {
         let texture = try TextureResource.generate(from: cgImage, options: .init(semantic: .color))
@@ -121,7 +140,6 @@ final class ACSceneController: ACSceneRendering {
         NSLog("Unable to update air conditioner display: %@", error.localizedDescription)
       }
     }
-    if animated && state.status && previous?.status == false { bounce() }
   }
 
   /// Also commits animation targets when a window is hidden mid-transition.
@@ -142,63 +160,9 @@ final class ACSceneController: ACSceneRendering {
     updateCamera()
   }
 
-  static func accent(for mode: ACMode) -> NSColor {
-    switch mode {
-    case .cold: NSColor(calibratedRed: 0.35, green: 0.66, blue: 1, alpha: 1)
-    case .hot: NSColor(calibratedRed: 1, green: 0.62, blue: 0.35, alpha: 1)
-    }
-  }
-
   var airflowOrigin: SIMD3<Float> {
     let world = louver.position(relativeTo: nil)
     return world + SIMD3(0, -0.1, 0.05)
-  }
-
-  // MARK: Display
-
-  /// LCD readout drawn once per state change with the Digital-7 seven-segment
-  /// face; unlit "88" segments sit behind the digits like a real panel. The
-  /// texture is tiny and costs nothing while idle.
-  private static func displayImage(for state: ACState) -> NSImage {
-    let size = NSSize(width: 250, height: 100)
-    return NSImage(size: size, flipped: false) { rect in
-      NSColor(calibratedRed: 0.07, green: 0.09, blue: 0.12, alpha: 1).setFill()
-      rect.fill()
-
-      let font = ACFonts.digital(size: 84)
-      let color = state.status ? accent(for: state.mode) : NSColor(calibratedWhite: 1, alpha: 0)
-      let ghost = NSAttributedString(string: "88", attributes: [
-        .font: font,
-        .foregroundColor: NSColor(calibratedWhite: 1, alpha: 0.06),
-      ])
-      let digitsSize = ghost.size()
-      let origin = NSPoint(x: 24, y: (rect.height - digitsSize.height) / 2 + 4)
-      ghost.draw(at: origin)
-      guard state.status else { return true }
-
-      NSAttributedString(string: state.temperatureLabel, attributes: [
-        .font: state.temperatureLabel.count > 2 ? ACFonts.digital(size: 58) : font,
-        .foregroundColor: color,
-      ]).draw(at: origin)
-
-      NSAttributedString(string: "°C", attributes: [
-        .font: NSFont.systemFont(ofSize: 22, weight: .bold),
-        .foregroundColor: color.withAlphaComponent(0.85),
-      ]).draw(at: NSPoint(x: origin.x + digitsSize.width + 6, y: rect.midY + 6))
-
-      let symbolName = state.mode == .cold ? "snowflake" : "sun.max.fill"
-      if let symbol = NSImage(systemSymbolName: symbolName, accessibilityDescription: nil)?
-        .withSymbolConfiguration(.init(pointSize: 26, weight: .bold)) {
-        let tinted = NSImage(size: symbol.size, flipped: false) { symbolRect in
-          symbol.draw(in: symbolRect)
-          color.set()
-          symbolRect.fill(using: .sourceAtop)
-          return true
-        }
-        tinted.draw(in: NSRect(x: rect.maxX - 58, y: 16, width: 28, height: 28))
-      }
-      return true
-    }
   }
 
   // MARK: Motion and setup

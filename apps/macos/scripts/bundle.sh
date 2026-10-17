@@ -9,7 +9,10 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN_DIR/YunHome" "$APP/Contents/MacOS/YunHome"
 # Sandboxed plugin scripts run in this helper, next to the app executable.
 cp "$BIN_DIR/YunHomePluginHost" "$APP/Contents/MacOS/YunHomePluginHost"
-ditto "$BIN_DIR/YunHome_YunHome.bundle" "$APP/Contents/Resources/YunHome_YunHome.bundle"
+# Resource bundles: the app's own and CuteACKit's (air conditioner model and font).
+for BUNDLE in YunHome_YunHome CuteACKit_CuteACKit; do
+  ditto "$BIN_DIR/$BUNDLE.bundle" "$APP/Contents/Resources/$BUNDLE.bundle"
+done
 
 # Reuse Home's existing brand artwork for the Dock and Finder icon.
 ICONSET="$PWD/build/Home.iconset"

@@ -1,0 +1,14 @@
+{
+  "originHash" : "0367b467edb7755677c6c9f65825ab86b01725e677549ba4fa05a062d0ada574",
+  "pins" : [
+    {
+      "identity" : "air-conditioner",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/YunYouJun/air-conditioner.git",
+      "state" : {
+        "revision" : "2835aa9b89eab00a94bf85be2522256e6947c547"
+      }
+    }
+  ],
+  "version" : 3
+}

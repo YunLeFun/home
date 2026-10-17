@@ -28,7 +28,16 @@ public enum PluginError: LocalizedError, Equatable {
 /// Capabilities a plugin may request. Unknown permissions are rejected so a
 /// newer plugin cannot silently gain access on an older host.
 public enum PluginPermission {
-  public static let known: Set<String> = ["storage", "notify", "sensor:compute-pressure", "home-assistant:climate"]
+  public static let known: Set<String> = ["storage", "notify", "sensor:compute-pressure", "sensor:thermal", "home-assistant:climate"]
+
+  /// Read the Mac's CPU temperature, fan speed and thermal state. Only official
+  /// plugins (see `InstalledPlugin.isOfficial`) are ever granted it.
+  public static let thermal = "sensor:thermal"
+
+  /// Permissions that are never granted to third-party or sideloaded plugins,
+  /// however they were installed. Other plugins may still declare them; the
+  /// request is shown as refused and ignored.
+  public static let officialOnly: Set<String> = [thermal]
 
   public static func isKnown(_ permission: String) -> Bool {
     if known.contains(permission) { return true }
@@ -42,6 +51,7 @@ public enum PluginPermission {
     case "storage": "保存本设备的状态（不超过 16 KB），随家园存档保存"
     case "notify": "在家园内显示提示"
     case "sensor:compute-pressure": "读取电脑的 CPU 负载等级"
+    case "sensor:thermal": "读取这台 Mac 的 CPU 温度、风扇转速和散热状态（只读，仅官方插件可用）"
     case "home-assistant:climate": "通过家园代为控制你为它绑定的 Home Assistant 空调实体，无法读取令牌"
     default: permission.hasPrefix("network:") ? "访问 \(permission.dropFirst(8))" : permission
     }

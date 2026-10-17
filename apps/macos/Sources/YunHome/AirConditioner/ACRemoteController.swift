@@ -1,4 +1,5 @@
 import AppKit
+import CuteACKit
 import RealityKit
 import HomeCore
 import HomeDeviceKit
@@ -154,7 +155,7 @@ final class ACRemoteController: ACSceneRendering {
     return true
   }
 
-  func apply(_ state: ACState, animated: Bool) {
+  func apply(_ state: ACState, room: RoomReading?, animated: Bool) {
     Self.setTexture(displayImage(state), on: screen)
   }
 

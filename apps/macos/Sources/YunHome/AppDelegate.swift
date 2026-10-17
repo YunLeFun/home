@@ -1,10 +1,12 @@
 import AppKit
+import Combine
+import CuteACKit
 import Observation
 import SwiftUI
 import HomeCore
 
 @MainActor
-final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSPopoverDelegate {
   let store: HomeStore
   private var homeWindow: NSWindow?
   private var statusItem: NSStatusItem?
@@ -14,6 +16,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
   private var remotePanel: DesktopRemotePanel?
   private var timer: Timer?
   private let captureDirectory: URL?
+  /// Reads the Mac's temperature and fans (CuteACKit) for the AC's LCD and for
+  /// official plugins; sampled only while a window, the panel or the desktop
+  /// air conditioner is on screen.
+  private let thermal = ThermalMonitor()
+  private var thermalReading: AnyCancellable?
 
   override init() {
     let arguments = CommandLine.arguments
@@ -45,6 +52,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     setUpStatusItem()
     observeStore()
     updateCompanions()
+    if captureDirectory != nil { thermal.pin(.demo) }
+    thermalReading = thermal.$reading.sink { [weak self] reading in self?.store.updateRoom(reading) }
+    observeThermalActivity()
     NotificationCenter.default.addObserver(self, selector: #selector(didWake), name: NSApplication.didBecomeActiveNotification, object: nil)
     NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(didWake), name: NSWorkspace.didWakeNotification, object: nil)
     if let captureDirectory {
@@ -146,6 +156,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
   private func setUpPopover() {
     popover.behavior = .transient
+    popover.delegate = self
     popover.appearance = NSApp.appearance
     popover.contentViewController = NSHostingController(rootView: QuickControls(
       store: store, presentation: presentation,
@@ -224,6 +235,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
       }
     }
   }
+
+  private func observeThermalActivity() {
+    withObservationTracking {
+      updateThermalActivity()
+    } onChange: { [weak self] in
+      Task { @MainActor in self?.observeThermalActivity() }
+    }
+  }
+
+  private func updateThermalActivity() {
+    thermal.setActive(presentation.isMainWindowVisible || store.showDesktopAC || popover.isShown)
+  }
+
+  func popoverDidShow(_ notification: Notification) { updateThermalActivity() }
+  func popoverDidClose(_ notification: Notification) { updateThermalActivity() }
 
   private func updateCompanions() {
     if store.showMenuBarIcon { setUpStatusItem() }

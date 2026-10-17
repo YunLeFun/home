@@ -48,12 +48,12 @@ public actor PluginHostClient {
 
   public func isDisabled(_ plugin: String) -> Bool { (faults[plugin] ?? 0) >= Self.maxFaults }
 
-  public func create(plugin: String) async throws -> PluginStateResult {
-    try await call(PluginHostRequest(id: 0, method: .create, plugin: plugin))
+  public func create(plugin: String, context: JSONValue? = nil) async throws -> PluginStateResult {
+    try await call(PluginHostRequest(id: 0, method: .create, plugin: plugin, context: context))
   }
 
-  public func present(plugin: String, state: JSONValue) async throws -> PluginStateResult {
-    try await call(PluginHostRequest(id: 0, method: .present, plugin: plugin, state: state))
+  public func present(plugin: String, state: JSONValue, context: JSONValue? = nil) async throws -> PluginStateResult {
+    try await call(PluginHostRequest(id: 0, method: .present, plugin: plugin, state: state, context: context))
   }
 
   public func dispatch(plugin: String, state: JSONValue, action: JSONValue, context: JSONValue? = nil) async throws -> PluginStateResult {

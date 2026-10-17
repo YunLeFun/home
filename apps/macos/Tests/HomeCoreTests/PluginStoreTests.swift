@@ -57,6 +57,12 @@ private func catalogEntry() throws -> PluginCatalogEntry {
   #expect(store.isActive(plugin: instance) && store.activeCount == 1)
   #expect(store.status(for: instance) == "制冷 · 29°C")
 
+  // As an official plugin it receives the Mac's room reading and re-presents.
+  store.updateRoom(RoomReading(celsius: 53, thermalState: .nominal, fanRPM: 1500, windLevel: 1))
+  #expect(store.pluginContext(for: instance.pluginId)?["room"]?["celsius"] == .number(53))
+  for _ in 0..<50 where store.status(for: instance) != "制冷 · 29°C · 室温 53°C" { try await Task.sleep(for: .milliseconds(20)) }
+  #expect(store.status(for: instance) == "制冷 · 29°C · 室温 53°C")
+
   store.move(plugin: instance.id, to: .bedroom)
 
   // A fresh store restores the device from disk and the archive.

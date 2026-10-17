@@ -78,10 +78,11 @@ struct ACControls: View {
                         tone: state.status ? (state.mode == .cold ? .cool : .heat) : nil)
       }
       HStack(spacing: 12) {
-        ACPreview(state: state)
+        ACPreview(state: state, room: store.room)
           .frame(maxWidth: .infinity).frame(height: 220)
         ACRemotePreview(store: store).frame(width: 138, height: 250)
       }
+      if let room = store.room { RoomSummary(room: room) }
       HStack {
         Label("拖动空调旋转视角", systemImage: "hand.draw")
         Spacer()

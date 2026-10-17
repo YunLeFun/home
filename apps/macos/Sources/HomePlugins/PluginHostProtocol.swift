@@ -8,9 +8,9 @@ public struct PluginHostRequest: Codable, Sendable {
     case unload
     /// `create()` then `present()`
     case create
-    /// `normalize(state)` then `present()`
+    /// `normalize(state)` then `present(state, context)`
     case present
-    /// `isAction(action)`, `reduce(state, action, context)`, then `present()`
+    /// `isAction(action)`, `reduce(state, action, context)`, then `present(state, context)`
     case dispatch
   }
 
