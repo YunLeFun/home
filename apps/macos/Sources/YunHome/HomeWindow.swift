@@ -58,7 +58,7 @@ struct HomeWindow: View {
             .tag(HomeDestination.plugin(instance.id))
             .transition(.move(edge: .leading).combined(with: .opacity))
           }
-          Label("插件市场", systemImage: "puzzlepiece.extension").tag(HomeDestination.market)
+          Label("家电市场", systemImage: "puzzlepiece.extension").tag(HomeDestination.market)
         }
         Section {
           Label("设置", systemImage: "gearshape").tag(HomeDestination.settings)

@@ -7,6 +7,7 @@ import HomePlugins
 /// The bundled, reviewed plugin catalog.
 enum BundledPluginCatalog {
   static var directory: URL? { Bundle.module.url(forResource: "Plugins", withExtension: nil) }
+  static let entries = load()
   static func load() -> [PluginCatalogEntry] {
     guard let url = directory?.appendingPathComponent("catalog.json") else { return [] }
     return (try? PluginCatalog.load(from: url).plugins) ?? []
@@ -16,7 +17,7 @@ enum BundledPluginCatalog {
 struct PluginMarketView: View {
   @Bindable var store: HomeStore
   let open: (String) -> Void
-  @State private var entries = BundledPluginCatalog.load()
+  private let entries = BundledPluginCatalog.entries
   @State private var selection: PluginCatalogEntry?
   @State private var pendingFile: (url: URL, package: PluginPackage)?
   @State private var message: String?
@@ -26,7 +27,7 @@ struct PluginMarketView: View {
       VStack(alignment: .leading, spacing: 22) {
         HStack(alignment: .top) {
           VStack(alignment: .leading, spacing: 7) {
-            Text("插件市场").font(.system(size: 30, weight: .bold))
+            Text("家电市场").font(.system(size: 30, weight: .bold))
             Text("为家园添加新设备。插件在独立沙箱中运行，控件由系统原生组件呈现。")
               .font(.callout).foregroundStyle(.secondary)
           }
@@ -52,7 +53,7 @@ struct PluginMarketView: View {
       .padding(HomeTheme.contentPadding).frame(maxWidth: 1100).frame(maxWidth: .infinity)
       .animation(.smooth, value: message)
     }
-    .navigationTitle("插件市场")
+    .navigationTitle("家电市场")
     .sheet(item: $selection) { entry in
       PluginMarketDetail(store: store, entry: entry, open: { id in selection = nil; open(id) })
     }
@@ -102,7 +103,9 @@ struct PluginMarketCard: View {
       HomeCard {
         VStack(alignment: .leading, spacing: 14) {
           HStack(alignment: .top) {
-            PluginBadge(symbol: entry.symbol, tint: tint, size: 48)
+            // Hovering previews the icon running, as on the web.
+            PluginAppIcon(icon: entry.appIcon, symbol: entry.symbol, tint: tint, active: hovered,
+                          tone: entry.previewTone ?? "active", size: 56)
               .scaleEffect(hovered ? 1.06 : 1)
               .rotationEffect(.degrees(hovered ? -4 : 0))
             Spacer()
@@ -146,13 +149,15 @@ struct PluginMarketDetail: View {
   @State private var confirming = false
   @State private var installing = false
   @State private var error: String?
+  @State private var previewRunning = false
   private var installedInstance: PluginInstance? { store.snapshot.plugins.first { $0.pluginId == entry.id } }
   private var tint: Color { Color(pluginHex: entry.tint) ?? HomeTheme.brand }
 
   var body: some View {
     VStack(alignment: .leading, spacing: 20) {
       HStack(spacing: 16) {
-        PluginBadge(symbol: entry.symbol, tint: tint, size: 64)
+        PluginAppIcon(icon: entry.appIcon, symbol: entry.symbol, tint: tint, active: previewRunning,
+                      tone: previewRunning ? entry.previewTone ?? "active" : nil, size: 72, label: "\(entry.name)图标")
           .symbolEffect(.bounce, value: installedInstance != nil)
         VStack(alignment: .leading, spacing: 5) {
           HStack(spacing: 6) {
@@ -160,6 +165,12 @@ struct PluginMarketDetail: View {
             if entry.verified { Image(systemName: "checkmark.seal.fill").foregroundStyle(HomeTheme.brand) }
           }
           Text("\(entry.author) · v\(entry.version) · \(entry.category)").font(.callout).foregroundStyle(.secondary)
+          if entry.appIcon != nil {
+            Picker("图标预览", selection: $previewRunning) {
+              Text("待机").tag(false)
+              Text("运行").tag(true)
+            }.pickerStyle(.segmented).labelsHidden().fixedSize().controlSize(.small).padding(.top, 2)
+          }
         }
         Spacer()
       }

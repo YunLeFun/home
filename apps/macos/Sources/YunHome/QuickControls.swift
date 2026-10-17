@@ -115,7 +115,7 @@ private struct QuickPluginRow: View {
     HStack(spacing: 12) {
       Button(action: open) {
         HStack(spacing: 10) {
-          PluginBadge(symbol: store.symbol(for: instance), tint: store.tint(for: instance), size: 34)
+          PluginInstanceIcon(store: store, instance: instance, size: 34)
           VStack(alignment: .leading, spacing: 3) {
             Text(instance.name).font(.callout.weight(.medium)).foregroundStyle(.primary)
             Text(store.status(for: instance)).font(.caption).foregroundStyle(.secondary)

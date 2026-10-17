@@ -7,8 +7,13 @@ public struct PluginCatalogEntry: Codable, Equatable, Sendable, Identifiable {
   public var description: String
   public var author: String
   public var category: String
+  /// SF Symbol shown when the plugin has no `appIcon`
   public var symbol: String
   public var tint: String?
+  /// The plugin's own app icon, shared with the web
+  public var appIcon: PluginIcon?
+  /// Tone the icon previews in the market (`cool`, `heat`, `warm`, `active`)
+  public var previewTone: String?
   public var version: String
   public var permissions: [String]
   public var renderer: String?
@@ -20,10 +25,12 @@ public struct PluginCatalogEntry: Codable, Equatable, Sendable, Identifiable {
   public var homepage: String?
 
   public init(id: String, name: String, description: String, author: String, category: String, symbol: String,
-              tint: String? = nil, version: String, permissions: [String] = [], renderer: String? = nil,
+              tint: String? = nil, appIcon: PluginIcon? = nil, previewTone: String? = nil, version: String,
+              permissions: [String] = [], renderer: String? = nil,
               package: String, sha256: String, verified: Bool, homepage: String? = nil) {
     self.id = id; self.name = name; self.description = description; self.author = author
-    self.category = category; self.symbol = symbol; self.tint = tint; self.version = version
+    self.category = category; self.symbol = symbol; self.tint = tint; self.appIcon = appIcon
+    self.previewTone = previewTone; self.version = version
     self.permissions = permissions; self.renderer = renderer; self.package = package
     self.sha256 = sha256; self.verified = verified; self.homepage = homepage
   }

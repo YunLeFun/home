@@ -34,13 +34,15 @@ open apps/macos/build/YunHome.app
 
 ## 设备插件
 
-原生客户端可以安装第三方设备插件，空调插件 `fun.yunle.air-conditioner` 是第一个。侧栏“插件市场”列出经审核的精选插件，也可以“从文件安装” `.yunplugin` 包（标记为未认证并在安装前提示）。
+原生客户端可以安装第三方设备插件，空调插件 `fun.yunle.air-conditioner` 是第一个。侧栏“家电市场”列出经审核的精选插件，也可以“从文件安装” `.yunplugin` 包（标记为未认证并在安装前提示）。
 
-- **包格式**：`.yunplugin` 是只含 `manifest.json`、`state.js`、`controls.json` 三个文件的 zip，清单与 Web 插件市场共用。`state.js` 导出 `globalThis.plugin = { create, normalize, isAction, reduce, present }`，全部为 JSON 进、JSON 出的纯函数。
+- **包格式**：`.yunplugin` 是只含 `manifest.json`、`state.js`、`controls.json` 三个文件的 zip，清单与 Web 家电市场共用。`state.js` 导出 `globalThis.plugin = { create, normalize, isAction, reduce, present }`，全部为 JSON 进、JSON 出的纯函数。
 - **进程外沙箱**：插件脚本运行在随 App 打包的 `YunHomePluginHost` 进程里，每个插件独占一个 JavaScriptCore 虚拟机，没有定时器、网络、文件、模块或 `console`。每次调用 250 ms 超时，超时即结束宿主进程并在下次调用时自动重启；同一插件连续出错 3 次后停用，重新安装可恢复。插件无法拖慢或拖垮主 App。
 - **原生渲染**：插件不提供界面代码，只用 `controls.json` 描述电源、表盘、步进、分段、滑杆等控件，App 用 SwiftUI 原生组件绘制。渲染只读取缓存的状态与展示信息，只有用户操作时才调用一次插件。同一设备的操作按顺序执行，快速连点不会互相覆盖。
 - **宿主能力**：插件可在清单中请求宿主渲染器，例如 `renderer: "cute-ac-3d"` 复用现有 RealityKit 空调模型。权限白名单与 Web 一致，安装前逐条以中文说明。
 - **安装与存档**：精选插件随 App 打包在 `Resources/Plugins`，安装时校验 `catalog.json` 中的 SHA-256；安装目录为 `~/Library/Application Support/YunHome/Plugins/<id>/`。插件设备保存在家园存档 `version: 2` 的 `plugins` 字段，v1 存档自动迁移。
+- **应用图标**：清单和 `catalog.json` 可带 `appIcon`，格式与 Web 的 `devices/icon.ts` 相同（64×64 画布、双色背景、有限的形状 / 颜色令牌 / 变换 / 动效）。`PluginIcon` 解码时按 Web 的 `normalizePluginIcon` 校验并丢弃不支持的值，`PluginIconView` 用 `Canvas` 绘制，动效只在设备运行时播放并遵守“减弱动态效果”。没有图标时回退到 `symbol` + `tint`；精选插件的包里没有图标时使用 `catalog.json` 中审核过的图标。
+- **云端风扇**：`cn.elpsy.electric-fan` 的沙箱包源码在 `PluginSources/electric-fan/`，用 `bash apps/macos/scripts/pack-plugin.sh apps/macos/PluginSources/electric-fan apps/macos/Sources/YunHome/Resources/Plugins/electric-fan.yunplugin` 可复现打包，并把输出的 SHA-256 写入 `catalog.json`。
 - **更新精选插件**：在 air-conditioner 仓库运行 `pnpm -C packages/home-plugin build`（构建可复现），把 `dist/air-conditioner.yunplugin` 复制到 `Sources/YunHome/Resources/Plugins/` 与两个测试的 `Fixtures/`，并更新 `catalog.json` 的版本和 SHA-256。
 
 ## 结构与共享约定
@@ -57,7 +59,7 @@ Sources/
     QuickControls.swift  # 菜单栏快捷控制
     DesktopAC.swift      # 桌面挂件
     DesktopRemote.swift  # 独立遥控器窗口
-    Plugins/             # 插件市场、插件设备卡片与声明式控件渲染
+    Plugins/             # 家电市场、插件设备卡片与声明式控件渲染
 Tests/HomePluginsTests/  # 清单、安装校验、沙箱、超时看门狗与空调插件契约测试
 Tests/HomeCoreTests/     # 状态契约、持久化、定时、异常存档与插件设备测试
 Tests/YunHomeTests/      # USDZ 部件、显示材质、导风板动画终态与相机交互测试

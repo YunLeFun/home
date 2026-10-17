@@ -48,6 +48,23 @@ extension HomeStore {
   func symbol(for instance: PluginInstance) -> String {
     installedPlugin(for: instance)?.manifest.symbol ?? "puzzlepiece.extension"
   }
+  /// The plugin's own icon; a market plugin whose package has none uses the reviewed catalog's.
+  func appIcon(for instance: PluginInstance) -> PluginIcon? {
+    guard let plugin = installedPlugin(for: instance) else { return nil }
+    if let icon = plugin.manifest.appIcon { return icon }
+    return plugin.verified ? BundledPluginCatalog.entries.first { $0.id == plugin.id }?.appIcon : nil
+  }
+}
+
+/// An installed plugin device's icon, running while the device is on.
+struct PluginInstanceIcon: View {
+  let store: HomeStore
+  let instance: PluginInstance
+  var size: CGFloat = 42
+  var body: some View {
+    PluginAppIcon(icon: store.appIcon(for: instance), symbol: store.symbol(for: instance), tint: store.tint(for: instance),
+                  active: store.isActive(plugin: instance), tone: store.pluginPresentations[instance.id]?.tone, size: size)
+  }
 }
 
 // MARK: Tile
@@ -65,7 +82,7 @@ struct PluginDeviceTile: View {
     HomeCard {
       VStack(alignment: .leading, spacing: 17) {
         HStack {
-          Button(action: select) { PluginBadge(symbol: store.symbol(for: instance), tint: store.tint(for: instance), size: 44) }
+          Button(action: select) { PluginInstanceIcon(store: store, instance: instance, size: 44) }
             .buttonStyle(.plain).accessibilityLabel("查看\(instance.name)")
           Spacer()
           if let power, let action = power.action {
@@ -129,7 +146,7 @@ struct PluginDeviceDetail: View {
     return ScrollView {
       VStack(alignment: .leading, spacing: 20) {
         HStack(spacing: 14) {
-          PluginBadge(symbol: store.symbol(for: instance), tint: store.tint(for: instance), size: 48)
+          PluginInstanceIcon(store: store, instance: instance, size: 52)
           VStack(alignment: .leading, spacing: 6) {
             Text(instance.name).font(.title2.weight(.semibold))
             Text(store.status(for: instance)).foregroundStyle(.secondary).contentTransition(.numericText())
@@ -162,7 +179,7 @@ struct PluginDeviceDetail: View {
             } message: { Text("插件文件和它的设备状态都会被删除。") }
         } else {
           ContentUnavailableView("插件未安装", systemImage: "puzzlepiece.extension",
-                                 description: Text("在插件市场重新安装后即可恢复控制。"))
+                                 description: Text("在家电市场重新安装后即可恢复控制。"))
         }
       }.padding(HomeTheme.contentPadding).frame(maxWidth: 1050)
         .frame(maxWidth: .infinity)

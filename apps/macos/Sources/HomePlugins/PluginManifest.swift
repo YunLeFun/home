@@ -72,8 +72,11 @@ public struct PluginManifest: Codable, Equatable, Sendable {
   public var description: String
   public var author: Author
   public var category: String
+  /// SF Symbol shown when the plugin has no `appIcon`
   public var symbol: String
   public var tint: String?
+  /// The plugin's own app icon, shared with the web
+  public var appIcon: PluginIcon?
   public var permissions: [String]
   public var renderer: String?
   public var entry: Entry

@@ -53,6 +53,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         do {
           try FileManager.default.createDirectory(at: captureDirectory, withIntermediateDirectories: true)
           try captureHome(to: captureDirectory.appendingPathComponent("home.png"))
+          presentation.selection = .market
+          try? await Task.sleep(for: .seconds(1))
+          try captureHome(to: captureDirectory.appendingPathComponent("market.png"))
           print("Captured \(captureDirectory.path)")
         } catch {
           fputs("Capture failed: \(error)\n", stderr)
