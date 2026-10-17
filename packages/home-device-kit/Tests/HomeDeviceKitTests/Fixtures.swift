@@ -30,6 +30,7 @@ func climateEntity(mode: String = "off", temperature: Double = 24, updated: Int 
   var revision = 1
   var serviceDelay = Duration.zero
   var readingEvent: HAEntity?
+  var config: HAValue = .object(["unit_system": .object(["temperature": .string("°C")])])
 
   func socket(_ url: URL) -> any HAWebSocket {
     let socket = MockSocket(server: self)
@@ -73,7 +74,9 @@ func climateEntity(mode: String = "off", temperature: Double = 24, updated: Int 
         revision += 1
       }
     }
-    if type == "get_states", let event = readingEvent {
+    if type == "get_config" {
+      socket.push(result(message, value: config))
+    } else if type == "get_states", let event = readingEvent {
       readingEvent = nil
       let stale = entity
       report(event)

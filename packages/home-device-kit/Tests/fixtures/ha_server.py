@@ -27,7 +27,7 @@ class Server(socketserver.ThreadingTCPServer):
             "last_updated": datetime.datetime.now(datetime.timezone.utc).isoformat(),
             "attributes": {
                 "friendly_name": "联调空调（模拟 HA）", "temperature": self.temperature,
-                "current_temperature": 27, "temperature_unit": "°C",
+                "current_temperature": 27,
                 "min_temp": 16, "max_temp": 32, "target_temp_step": 0.5,
                 "hvac_modes": ["off", "cool", "heat", "dry"], "supported_features": 1,
             },
@@ -69,7 +69,10 @@ class Handler(socketserver.BaseRequestHandler):
                     self.send({"type": "pong", "id": identifier})
                     continue
                 if kind == "subscribe_events":
-                    self.subscription = identifier
+                    if message.get("event_type") == "state_changed":
+                        self.subscription = identifier
+                elif kind == "get_config":
+                    response = {"unit_system": {"temperature": "°C"}}
                 elif kind == "get_states":
                     with self.server.lock:
                         response = [self.server.entity()]
