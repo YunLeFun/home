@@ -66,11 +66,22 @@ export function surfacePointToWorld(surface: HomeSurface, u: number, v: number):
   }
 }
 
+/**
+ * Surface coordinates of a point, the inverse of {@link surfacePointToWorld}.
+ * Surfaces have level top and bottom edges, so the row comes from y and the
+ * position along it from the slanted side edges. Points off the surface are
+ * clamped to its edge.
+ */
 export function worldPointToSurface(surface: HomeSurface, point: HomePoint) {
-  const bounds = getPolygonBounds(surface.polygon)
+  const [topLeft, topRight, bottomRight, bottomLeft] = surface.polygon
+  const top = (topLeft.y + topRight.y) / 2
+  const bottom = (bottomLeft.y + bottomRight.y) / 2
+  const v = clamp((point.y - top) / Math.max(1, bottom - top))
+  const left = mix(topLeft.x, bottomLeft.x, v)
+  const right = mix(topRight.x, bottomRight.x, v)
   return {
-    u: clamp((point.x - bounds.minX) / Math.max(1, bounds.maxX - bounds.minX)),
-    v: clamp((point.y - bounds.minY) / Math.max(1, bounds.maxY - bounds.minY)),
+    u: clamp((point.x - left) / Math.max(1, right - left)),
+    v,
   }
 }
 
@@ -105,7 +116,8 @@ export function findSurfaceAtPoint(template: HomeTemplate, deviceId: DeviceKind,
   for (const candidate of candidates) {
     const local = worldPointToSurface(candidate.surface, point)
     const world = surfacePointToWorld(candidate.surface, local.u, local.v)
-    if (!isBlocked(template, candidate.surface.roomId, world))
+    // Obstacles are furniture footprints on the floor; tabletops sit on top of them.
+    if (candidate.surface.kind !== 'floor' || !isBlocked(template, candidate.surface.roomId, world))
       return { surface: candidate.surface, ...local, world }
   }
   return null
