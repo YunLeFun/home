@@ -7,7 +7,7 @@ import { SCENE3D_TEMPLATES } from '~/constants/scene3d'
 import { getPointAlongRoute, getRobotRoute } from '~/utils/home'
 import { buildDevice, buildRobotDock } from './devices'
 import { buildFurniture } from './furniture'
-import { Kit, PALETTE } from './kit'
+import { Kit, PALETTE, TONE_COLORS } from './kit'
 import { projectFloorPoint, projectPlacement, roomAtWorldX, roomExtent, SCENE3D, worldX } from './projection'
 
 /** A device hotspot projected to canvas pixels. */
@@ -461,7 +461,7 @@ export class HomeScene3D {
       const p = projectFloorPoint(point, template.width)
       return new THREE.Vector3(p.x, 0.012, p.z)
     }))
-    const line = new THREE.Line(geometry, new THREE.LineDashedMaterial({ color: '#5f939e', dashSize: 0.12, gapSize: 0.1, transparent: true, opacity: 0.75 }))
+    const line = new THREE.Line(geometry, new THREE.LineDashedMaterial({ color: TONE_COLORS.cool, dashSize: 0.12, gapSize: 0.1, transparent: true, opacity: 0.75 }))
     line.computeLineDistances()
     this.route = line
     this.deviceRoot.add(line)

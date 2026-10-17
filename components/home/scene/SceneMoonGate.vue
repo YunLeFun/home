@@ -15,7 +15,7 @@ const size = props.r * 2 + 24
     <clipPath :id="clipId">
       <circle :cx="cx" :cy="cy" :r="r * 0.78" />
     </clipPath>
-    <circle :cx="cx" :cy="cy" :r="r * 0.78" style="fill: var(--sc-sage-wall-2)" />
+    <circle :cx="cx" :cy="cy" :r="r * 0.78" style="fill: var(--sc-sky-wall-2)" />
     <g :clip-path="`url(#${clipId})`">
       <path
 :d="`M${cx - r} ${cy + r * 0.3}c${r * 0.4} -${r * 0.3} ${r * 0.8} ${r * 0.1} ${r * 1.2} -${r * 0.1}s${r * 0.6} ${r * 0.2} ${r * 0.8} 0V${cy + r}H${cx - r}Z`"

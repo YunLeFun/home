@@ -15,7 +15,7 @@ export const airConditionerManifest: DevicePluginManifest<'air-conditioner'> = {
   route: '/items/air-conditioner',
   size: { width: 190, height: 88 },
   surfaces: ['wall'],
-  accent: { cool: '#6f9ea8', heat: '#d18c5c' },
+  accent: { cool: '#06b6d4', heat: '#ff6b4a' },
   integrations: [
     {
       id: 'home-assistant',

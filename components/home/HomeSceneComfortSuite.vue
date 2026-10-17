@@ -21,7 +21,7 @@ import SceneWindow from './scene/SceneWindow.vue'
 
     <g data-layer="shell">
       <SceneRoomShell :x0="18" :x1="805" divider />
-      <SceneRoomShell :x0="805" :x1="1582" accent="sage" />
+      <SceneRoomShell :x0="805" :x1="1582" accent="sky" />
       <rect x="18" y="30" width="1564" height="760" rx="6" fill="none" style="stroke: var(--sc-partition)" stroke-width="10" />
     </g>
 

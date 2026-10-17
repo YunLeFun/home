@@ -87,7 +87,7 @@ useHead({ title: () => definition.value.name })
   view-transition-name: device-hero;
 }
 
-.device-detail__vector :deep(.device-glyph) { position: relative; z-index: 1; width: 78%; height: 78%; filter: drop-shadow(0 22px 24px rgba(40, 49, 47, 0.18)); animation: float-y 5s ease-in-out infinite; }
+.device-detail__vector :deep(.device-glyph) { position: relative; z-index: 1; width: 78%; height: 78%; filter: drop-shadow(0 22px 24px rgba(30, 64, 115, 0.18)); animation: float-y 5s ease-in-out infinite; }
 .device-detail__aurora { position: absolute; inset: 6%; border-radius: 50%; background: radial-gradient(circle, color-mix(in oklab, var(--detail-tone) 34%, transparent), transparent 68%); filter: blur(18px); opacity: 0.45; transition: opacity var(--dur-4) ease, background var(--dur-4) ease; }
 .device-detail__vector.is-running .device-detail__aurora { opacity: 1; animation: breathe 4s ease-in-out infinite; }
 .device-detail__orbit { position: absolute; inset: 2%; border: 1px dashed var(--brand-line-strong); border-radius: 50%; opacity: 0.6; animation: spin 40s linear infinite; }

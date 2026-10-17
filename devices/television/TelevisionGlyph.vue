@@ -41,7 +41,7 @@ withDefaults(defineProps<DeviceGlyphProps>(), {
   pointer-events: none;
 }
 
-.tv-glyph__shadow { fill: rgba(40, 49, 47, 0.14); }
+.tv-glyph__shadow { fill: rgba(59, 70, 88, 0.14); }
 .tv-glyph__body { fill: #2e3542; stroke: #171c25; stroke-width: 2; }
 .tv-glyph__screen { fill: #182235; stroke: #65718a; stroke-width: 1.5; transition: fill 180ms ease; }
 .tv-glyph__sky { fill: #435575; opacity: 0.28; }
@@ -51,10 +51,10 @@ withDefaults(defineProps<DeviceGlyphProps>(), {
 .tv-glyph__foot { fill: none; stroke: #343c49; stroke-linecap: round; stroke-width: 5; }
 .tv-glyph__led { fill: #758099; }
 
-.tv-glyph.is-active .tv-glyph__screen { fill: #6f949c; }
-.tv-glyph.is-active .tv-glyph__sky { fill: #b6d3d4; opacity: 0.76; }
+.tv-glyph.is-active .tv-glyph__screen { fill: #a3d2f6; }
+.tv-glyph.is-active .tv-glyph__sky { fill: #d8ecfc; opacity: 0.76; }
 .tv-glyph.is-active .tv-glyph__cloud { fill: #f5f8ff; opacity: 0.9; animation: tv-glyph-cloud 5s ease-in-out infinite; transform-box: fill-box; }
-.tv-glyph.is-active .tv-glyph__led { fill: #7fa07e; filter: drop-shadow(0 0 3px rgba(127, 160, 126, 0.9)); }
+.tv-glyph.is-active .tv-glyph__led { fill: #22c55e; filter: drop-shadow(0 0 3px rgba(34, 197, 94, 0.9)); }
 
 @keyframes tv-glyph-cloud {
   50% { transform: translateX(5px); }

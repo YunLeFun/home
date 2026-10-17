@@ -40,16 +40,16 @@ withDefaults(defineProps<DeviceGlyphProps>(), {
   pointer-events: none;
 }
 
-.robot-glyph__shadow { fill: rgba(40, 49, 47, 0.14); }
-.robot-glyph__base { fill: #c4cbc0; stroke: #8a948b; stroke-width: 1.5; }
-.robot-glyph__body { fill: #fbfbf8; stroke: #a9b3a6; stroke-width: 2; }
-.robot-glyph__panel { fill: #e1e6de; stroke: #a5aea2; stroke-width: 1.5; }
-.robot-glyph__lidar { fill: #aab3a8; }
-.robot-glyph__lidar-top { fill: #e4e9e1; }
-.robot-glyph__detail { fill: none; stroke: #858f86; stroke-linecap: round; stroke-width: 2; }
-.robot-glyph__led { fill: #b2bab0; transition: fill var(--dur-3) ease; }
+.robot-glyph__shadow { fill: rgba(59, 70, 88, 0.14); }
+.robot-glyph__base { fill: #cdd6e1; stroke: #8fa0b6; stroke-width: 1.5; }
+.robot-glyph__body { fill: #ffffff; stroke: #9aabbf; stroke-width: 2; }
+.robot-glyph__panel { fill: #e3e9f1; stroke: #9aabbf; stroke-width: 1.5; }
+.robot-glyph__lidar { fill: #b3c0d0; }
+.robot-glyph__lidar-top { fill: #eef2f7; }
+.robot-glyph__detail { fill: none; stroke: #8fa0b6; stroke-linecap: round; stroke-width: 2; }
+.robot-glyph__led { fill: #b8c4d3; transition: fill var(--dur-3) ease; }
 
-.robot-glyph.is-active .robot-glyph__led { fill: #7fa07e; filter: drop-shadow(0 0 4px rgba(127, 160, 126, 0.8)); }
+.robot-glyph.is-active .robot-glyph__led { fill: #22c55e; filter: drop-shadow(0 0 4px rgba(34, 197, 94, 0.8)); }
 
 .robot-glyph.is-active .robot-glyph__lidar-top {
   animation: robot-glyph-lidar 1.6s linear infinite;

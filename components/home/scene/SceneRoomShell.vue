@@ -5,7 +5,7 @@
 const props = withDefaults(defineProps<{
   x0: number
   x1: number
-  accent?: 'paper' | 'sage' | 'clay'
+  accent?: 'paper' | 'sky' | 'clay'
   /** Draw a partition on the right edge */
   divider?: boolean
 }>(), { accent: 'paper', divider: false })

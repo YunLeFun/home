@@ -15,6 +15,6 @@ export const televisionManifest: DevicePluginManifest<'television'> = {
   route: '/items/television',
   size: { width: 230, height: 126 },
   surfaces: ['wall'],
-  accent: { cool: '#6f949c', heat: '#6f949c' },
+  accent: { cool: '#4fb6ef', heat: '#4fb6ef' },
   integrations: [],
 }

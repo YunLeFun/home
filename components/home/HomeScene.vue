@@ -373,7 +373,7 @@ v-for="room in dimmedRooms" :key="room.id" :x="room.x" :y="room.y" :width="room.
 
 .home-scene__route polyline {
   fill: none;
-  stroke: rgba(95, 147, 158, 0.9);
+  stroke: color-mix(in oklab, var(--tone-cool) 90%, transparent);
   stroke-dasharray: 12 10;
   stroke-linecap: round;
   stroke-width: 4;

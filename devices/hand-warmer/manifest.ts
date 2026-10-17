@@ -15,6 +15,6 @@ export const handWarmerManifest: DevicePluginManifest<'hand-warmer'> = {
   route: '/items/hand-warmer',
   size: { width: 66, height: 74 },
   surfaces: ['tabletop'],
-  accent: { cool: '#c59a55', heat: '#c59a55' },
+  accent: { cool: '#f2a93b', heat: '#f2a93b' },
   integrations: [],
 }

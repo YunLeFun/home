@@ -13,6 +13,6 @@
       </g>
     </mask>
   </defs>
-  <rect width="64" height="64" fill="#F4F5EF"/>
-  <rect width="64" height="64" fill="#28312F" mask="url(#maskable-cloud-gate)"/>
+  <rect width="64" height="64" fill="#EFF6FF"/>
+  <rect width="64" height="64" fill="#2563EB" mask="url(#maskable-cloud-gate)"/>
 </svg>
