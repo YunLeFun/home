@@ -68,6 +68,12 @@ final class DesktopACPanel: NSPanel {
 struct DesktopACView: View {
   let store: HomeStore
   var body: some View {
-    ACPreview(state: store.acState, room: store.room, interactive: false).frame(width: 300, height: 190)
+    ACPreview(state: store.acState, room: store.haBinding == nil ? store.room : nil, interactive: false).frame(width: 300, height: 190)
+      .overlay(alignment: .bottom) {
+        if let device = store.selectedHADevice {
+          Text(device.label).font(.caption).lineLimit(1).padding(5)
+            .background(.regularMaterial, in: Capsule()).padding(.horizontal, 10)
+        }
+      }
   }
 }

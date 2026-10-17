@@ -9,7 +9,7 @@ final class DesktopRemotePanel: NSPanel, NSWindowDelegate {
 
   init(store: HomeStore) {
     self.store = store
-    super.init(contentRect: NSRect(x: 0, y: 0, width: 160, height: 300),
+    super.init(contentRect: NSRect(x: 0, y: 0, width: 190, height: 330),
                styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
     isOpaque = false
     backgroundColor = .clear
@@ -17,7 +17,7 @@ final class DesktopRemotePanel: NSPanel, NSWindowDelegate {
     hidesOnDeactivate = false
     isReleasedWhenClosed = false
     collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle, .fullScreenAuxiliary]
-    contentView = NSHostingView(rootView: ACRemotePreview(store: store, draggable: true).frame(width: 160, height: 300))
+    contentView = NSHostingView(rootView: DesktopRemoteContent(store: store))
     updateLevel()
     if !setFrameUsingName("YunHome.DesktopRemote"), let screen = NSScreen.main?.visibleFrame {
       setFrameOrigin(NSPoint(x: screen.maxX - 205, y: screen.maxY - 545))
@@ -46,4 +46,20 @@ final class DesktopRemotePanel: NSPanel, NSWindowDelegate {
   }
   @objc private func toggleLevel() { store.desktopAlwaysOnTop.toggle() }
   @objc private func hideRemote() { store.showDesktopRemote = false }
+}
+
+private struct DesktopRemoteContent: View {
+  let store: HomeStore
+  var body: some View {
+    VStack(spacing: 0) {
+      if let device = store.selectedHADevice {
+        Menu {
+          ForEach(store.haDevices) { item in Button(item.label) { store.selectHADevice(item.id) } }
+        } label: {
+          Text(device.label).font(.caption).lineLimit(1)
+        }.frame(width: 180).help("当前控制：\(device.label)")
+      }
+      ACRemotePreview(store: store, draggable: true).frame(width: 160, height: 300)
+    }.frame(width: 190, height: 330)
+  }
 }

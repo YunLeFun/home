@@ -7,8 +7,14 @@ import HomePlugins
 public final class HomeStore {
   public private(set) var snapshot: HomeSnapshot
   public private(set) var storageMessage: String?
-  public private(set) var homeAssistant: HomeAssistantClimate
-  public private(set) var haBinding: HABinding?
+  public private(set) var haDevices: [HADeviceBinding] = []
+  public private(set) var selectedHAID: String?
+  public private(set) var haConnections: [String: HomeAssistantClimate] = [:]
+  private let virtualConnection: HomeAssistantClimate
+  public var selectedHADevice: HADeviceBinding? { haDevices.first { $0.id == selectedHAID } }
+  public var haBinding: HABinding? { selectedHADevice?.binding }
+  public var homeAssistant: HomeAssistantClimate { selectedHAID.flatMap { haConnections[$0] } ?? virtualConnection }
+  public var acDisplayName: String { selectedHADevice?.label ?? DeviceKind.airConditioner.name }
   public var showMenuBarIcon: Bool {
     didSet { defaults.set(showMenuBarIcon, forKey: "yun-home:menu-bar-icon") }
   }
@@ -23,7 +29,9 @@ public final class HomeStore {
   }
   @ObservationIgnored private let defaults: UserDefaults
   @ObservationIgnored private let key = "yun-home:native:v1"
-  @ObservationIgnored private var restoreTask: Task<Void, Never>?
+  @ObservationIgnored private var restoreTasks: [String: Task<Void, Never>] = [:]
+  @ObservationIgnored private let connectionFactory: () -> HomeAssistantClimate
+  @ObservationIgnored private let sharedBindings: (any HABindingCatalogStore)?
 
   /// Installed sandbox plugins by plugin id.
   public private(set) var installedPlugins: [String: InstalledPlugin] = [:]
@@ -41,15 +49,16 @@ public final class HomeStore {
   @ObservationIgnored private var pluginQueues: [String: Task<Void, Never>] = [:]
 
   public init(defaults: UserDefaults = .standard, now: Date = Date(), homeAssistant: HomeAssistantClimate? = nil,
-              pluginRoot: URL? = nil, pluginHostExecutable: URL? = nil) {
+              pluginRoot: URL? = nil, pluginHostExecutable: URL? = nil,
+              connectionFactory: (() -> HomeAssistantClimate)? = nil,
+              sharedBindings: (any HABindingCatalogStore)? = nil) {
     self.defaults = defaults
+    self.sharedBindings = sharedBindings
     pluginInstaller = PluginInstaller(root: pluginRoot ?? PluginInstaller.defaultRoot())
     pluginHost = PluginHostClient(executable: pluginHostExecutable ?? PluginHostClient.bundledExecutable())
-    self.homeAssistant = homeAssistant ?? HomeAssistantClimate()
+    self.virtualConnection = homeAssistant ?? connectionFactory?() ?? HomeAssistantClimate()
+    self.connectionFactory = connectionFactory ?? { HomeAssistantClimate() }
     showMenuBarIcon = defaults.object(forKey: "yun-home:menu-bar-icon") as? Bool ?? true
-    if let data = defaults.data(forKey: "yun-home:ha-binding:v1") {
-      haBinding = try? JSONDecoder().decode(HABinding.self, from: data)
-    }
     showDesktopAC = defaults.bool(forKey: "yun-home:desktop-ac")
     showDesktopRemote = defaults.bool(forKey: "yun-home:desktop-remote")
     desktopAlwaysOnTop = defaults.bool(forKey: "yun-home:desktop-on-top")
@@ -70,10 +79,7 @@ public final class HomeStore {
     }
     expireTimers(at: now)
     loadPlugins()
-    if let binding = haBinding {
-      let connection = self.homeAssistant
-      restoreTask = Task { await connection.restore(binding) }
-    }
+    loadHABindings()
   }
 
   public var acState: ACState {
@@ -96,32 +102,14 @@ public final class HomeStore {
     return snapshot.isActive(device)
   }
   public var activeCount: Int {
-    DeviceKind.allCases.filter(isActive).count + snapshot.plugins.filter { isActive(plugin: $0) }.count
+    virtualDevices.filter(isActive).count + haDevices.filter { isHAActive($0.id) }.count
+      + snapshot.plugins.filter { isActive(plugin: $0) }.count
   }
   public func status(for device: DeviceKind) -> String {
     guard device == .airConditioner, haBinding != nil else { return snapshot.status(for: device) }
     guard homeAssistant.state == .online else { return homeAssistant.state.name }
     guard let state = homeAssistant.snapshot else { return "未找到空调实体" }
     return "\(haModeName(state.mode)) · \(acState.temperatureLabel)°C\(homeAssistant.pending ? " · 等待确认" : "")"
-  }
-
-  public func bindHomeAssistant(_ candidate: HomeAssistantClimate, entityID: String) throws {
-    let binding = try candidate.bind(entityID: entityID)
-    let data = try JSONEncoder().encode(binding)
-    restoreTask?.cancel(); restoreTask = nil
-    if homeAssistant !== candidate {
-      homeAssistant.disconnect()
-      homeAssistant = candidate
-    }
-    haBinding = binding
-    defaults.set(data, forKey: "yun-home:ha-binding:v1")
-  }
-  public func unbindHomeAssistant() {
-    restoreTask?.cancel(); restoreTask = nil
-    homeAssistant.disconnect()
-    homeAssistant = HomeAssistantClimate()
-    haBinding = nil
-    defaults.removeObject(forKey: "yun-home:ha-binding:v1")
   }
 
   public func send(_ action: HomeAction, at now: Date = Date()) {
@@ -136,9 +124,11 @@ public final class HomeStore {
         }
         return
       }
-      if case .allOff = action { homeAssistant.request(.power(false)) }
     }
-    if case .allOff = action { turnOffPlugins() }
+    if case .allOff = action {
+      for connection in haConnections.values where connection.canControl { connection.request(.power(false)) }
+      turnOffPlugins()
+    }
     snapshot.apply(action, at: now)
     snapshot.expireTimers(at: now)
     persist()
@@ -161,6 +151,140 @@ public final class HomeStore {
   private func persist() {
     do { defaults.set(try JSONEncoder().encode(snapshot), forKey: key) }
     catch { storageMessage = "本次更改未能保存到本机。" }
+  }
+
+  // MARK: Real air conditioners
+
+  public var virtualDevices: [DeviceKind] { DeviceKind.allCases.filter { $0 != .airConditioner || haDevices.isEmpty } }
+  public var rooms: [HomeRoom] {
+    var result = HomeRoom.allCases
+    for room in haDevices.map(\.room) + Array(snapshot.rooms.values) + snapshot.plugins.map(\.room) {
+      if !result.contains(room) { result.append(room) }
+    }
+    return result
+  }
+  public func isHAActive(_ id: String) -> Bool {
+    guard let connection = haConnections[id] else { return false }
+    return connection.state == .online && connection.snapshot?.isOn == true
+  }
+  public func haStatus(_ id: String) -> String {
+    guard let connection = haConnections[id] else { return "未连接" }
+    guard connection.state == .online else { return connection.state.name }
+    guard let state = connection.snapshot else { return "未找到空调实体" }
+    let temperature = state.targetTemperature.map { " · \($0.formatted())\(state.temperatureUnit ?? "")" } ?? ""
+    return haModeName(state.mode) + temperature + (connection.pending ? " · 等待确认" : "")
+  }
+  public func selectHADevice(_ id: String) {
+    guard haDevices.contains(where: { $0.id == id }) else { return }
+    selectedHAID = id
+    persistHABindings()
+  }
+  public func toggleHADevice(_ id: String) {
+    guard let connection = haConnections[id], connection.canControl else { return }
+    connection.request(.power(!connection.displayPower))
+  }
+  public func moveHADevice(_ id: String, to room: HomeRoom) {
+    guard let index = haDevices.firstIndex(where: { $0.id == id }) else { return }
+    haDevices[index].room = room
+    persistHABindings()
+  }
+  public func bindHomeAssistant(_ candidate: HomeAssistantClimate, entityID: String) throws {
+    try bindHomeAssistants(candidate, selections: [HADeviceSelection(entityID: entityID,
+      room: HomeRoom(name: candidate.entityRooms[entityID] ?? ""))])
+  }
+  public func bindHomeAssistants(_ candidate: HomeAssistantClimate, selections: [HADeviceSelection]) throws {
+    guard candidate.state == .online, let endpoint = candidate.endpoint, !selections.isEmpty,
+          Set(selections.map(\.entityID)).count == selections.count else { throw HAError.disconnected }
+    // Validate the whole selection before writing the credential or changing bindings.
+    let additions = try selections.map { selection -> HADeviceBinding in
+      guard let entity = candidate.entities.first(where: { $0.id == selection.entityID }) else { throw HAError.entityMissing }
+      guard entity.unsupportedReason == nil else { throw HAError.unsupported }
+      return HADeviceBinding(binding: try HABinding(endpoint: endpoint, entityID: selection.entityID),
+                             name: entity.name, room: selection.room)
+    }
+    _ = try candidate.bind(entityID: additions[0].binding.entityID)
+    for (index, device) in additions.enumerated() {
+      restoreTasks.removeValue(forKey: device.id)?.cancel()
+      if let old = haConnections[device.id], old !== candidate { old.disconnect() }
+      if let previous = haDevices.firstIndex(where: { $0.id == device.id }) { haDevices[previous] = device }
+      else { haDevices.append(device) }
+      let connection = index == 0 ? candidate : connectionFactory()
+      haConnections[device.id] = connection
+      if index != 0 { restore(device, using: connection) }
+    }
+    let updatedIDs = Set(additions.map(\.id))
+    for device in haDevices where device.binding.endpoint == endpoint && !updatedIDs.contains(device.id) {
+      if let connection = haConnections[device.id] { restore(device, using: connection) }
+    }
+    selectedHAID = additions[0].id
+    persistHABindings()
+  }
+  public func unbindHomeAssistant() {
+    if let selectedHAID { removeHADevice(selectedHAID) }
+  }
+  public func removeHADevice(_ id: String) {
+    restoreTasks.removeValue(forKey: id)?.cancel()
+    haConnections.removeValue(forKey: id)?.disconnect()
+    haDevices.removeAll { $0.id == id }
+    if selectedHAID == id { selectedHAID = haDevices.first?.id }
+    persistHABindings()
+  }
+  public func reconnectHADevices(at endpoint: HAEndpoint) {
+    for device in haDevices where device.binding.endpoint == endpoint {
+      if let connection = haConnections[device.id] { restore(device, using: connection) }
+    }
+  }
+  public func forgetHACredential(at endpoint: HAEndpoint) throws {
+    for device in haDevices where device.binding.endpoint == endpoint {
+      restoreTasks.removeValue(forKey: device.id)?.cancel()
+      try haConnections[device.id]?.forgetCredential()
+    }
+  }
+  private func restore(_ device: HADeviceBinding, using connection: HomeAssistantClimate) {
+    restoreTasks.removeValue(forKey: device.id)?.cancel()
+    // Disable controls immediately, before the asynchronous restore starts.
+    connection.disconnect()
+    restoreTasks[device.id] = Task { await connection.restore(device.binding) }
+  }
+  private func loadHABindings() {
+    if let data = defaults.data(forKey: "yun-home:ha-devices:v2") {
+      do {
+        let saved = try JSONDecoder().decode([HADeviceBinding].self, from: data)
+        var seen = Set<String>()
+        haDevices = saved.filter { seen.insert($0.id).inserted }
+      } catch {
+        defaults.set(data, forKey: "yun-home:ha-devices:v2:recovery")
+        storageMessage = "真实设备绑定未能读取，已保留恢复副本，请重新连接。"
+      }
+    } else if let data = defaults.data(forKey: "yun-home:ha-binding:v1"),
+              let binding = try? JSONDecoder().decode(HABinding.self, from: data) {
+      haDevices = [HADeviceBinding(binding: binding, name: "空调", room: snapshot.room(for: .airConditioner))]
+    }
+    let savedSelection = defaults.string(forKey: "yun-home:ha-selected:v2")
+    selectedHAID = haDevices.first(where: { $0.id == savedSelection })?.id ?? haDevices.first?.id
+    for device in haDevices {
+      let connection = device.id == haDevices.first?.id ? virtualConnection : connectionFactory()
+      haConnections[device.id] = connection
+      restore(device, using: connection)
+    }
+    if !haDevices.isEmpty { persistHABindings() }
+    else { exportHABindings() }
+  }
+  private func persistHABindings() {
+    do {
+      defaults.set(try JSONEncoder().encode(haDevices), forKey: "yun-home:ha-devices:v2")
+      defaults.set(selectedHAID, forKey: "yun-home:ha-selected:v2")
+      defaults.removeObject(forKey: "yun-home:ha-binding:v1")
+      exportHABindings()
+    } catch { storageMessage = "真实设备绑定未能保存，请重试。" }
+  }
+
+  private func exportHABindings() {
+    do {
+      try sharedBindings?.save(haDevices.map {
+        HASharedDevice(binding: $0.binding, name: $0.name, roomID: $0.room.rawValue, roomName: $0.room.name)
+      })
+    } catch { storageMessage = "设备已保存，但共享绑定目录未能更新，请检查本机文件权限。" }
   }
 
   // MARK: Plugins

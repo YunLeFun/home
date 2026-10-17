@@ -29,23 +29,40 @@ public enum DeviceKind: String, Codable, CaseIterable, Identifiable {
   }
 }
 
-public enum HomeRoom: String, Codable, CaseIterable, Identifiable {
-  case living = "living-room"
-  case bedroom
-  case utility = "utility-room"
+public struct HomeRoom: RawRepresentable, Codable, Hashable, CaseIterable, Identifiable, Sendable {
+  public let rawValue: String
+  public init(rawValue: String) { self.rawValue = rawValue }
+  public static let living = HomeRoom(rawValue: "living-room")
+  public static let bedroom = HomeRoom(rawValue: "bedroom")
+  public static let utility = HomeRoom(rawValue: "utility-room")
+  public static let unassigned = HomeRoom(rawValue: "unassigned")
+  public static let allCases: [HomeRoom] = [.living, .bedroom, .utility]
+  public init(name: String) {
+    let name = String(name.trimmingCharacters(in: .whitespacesAndNewlines).prefix(60))
+    self = Self.allCases.first { $0.name == name }
+      ?? (name.isEmpty || name == "未分配" ? .unassigned : HomeRoom(rawValue: "room:" + name))
+  }
+  public init(from decoder: Decoder) throws { rawValue = try decoder.singleValueContainer().decode(String.self) }
+  public func encode(to encoder: Encoder) throws {
+    var container = encoder.singleValueContainer()
+    try container.encode(rawValue)
+  }
   public var id: String { rawValue }
   public var name: String {
-    switch self {
-    case .living: "客厅"
-    case .bedroom: "卧室"
-    case .utility: "家政区"
+    switch rawValue {
+    case "living-room": "客厅"
+    case "bedroom": "卧室"
+    case "utility-room": "家政区"
+    case "unassigned": "未分配"
+    default: rawValue.hasPrefix("room:") ? String(rawValue.dropFirst(5)) : rawValue
     }
   }
   public var symbol: String {
-    switch self {
-    case .living: "sofa"
-    case .bedroom: "bed.double"
-    case .utility: "washer"
+    switch rawValue {
+    case "living-room": "sofa"
+    case "bedroom": "bed.double"
+    case "utility-room": "washer"
+    default: name.contains("卧") ? "bed.double" : "door.left.hand.open"
     }
   }
 }

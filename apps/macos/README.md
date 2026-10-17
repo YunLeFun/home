@@ -10,7 +10,7 @@ pnpm macos:build
 open apps/macos/build/YunHome.app
 ```
 
-也可直接运行 `swift run --package-path apps/macos YunHome`、`swift test --package-path apps/macos` 和 `bash apps/macos/scripts/bundle.sh`，不需要安装 Node 依赖。
+也可直接运行 `./script/build_and_run.sh --verify`、`swift test --package-path apps/macos` 和 `bash apps/macos/scripts/bundle.sh`，不需要安装 Node 依赖。开发入口会构建 debug App bundle 并启动；发布打包仍默认使用 release。Codex 的 Run 按钮也使用此入口。
 
 ## 当前功能
 
@@ -19,19 +19,27 @@ open apps/macos/build/YunHome.app
 - 菜单栏托盘：左键打开五类设备快捷控制，支持切换主窗口、桌面空调、桌面遥控器和配件置顶；点击设备进入详情。右键打开带勾选状态的原生菜单。在设置中可关闭或恢复菜单栏图标，偏好会自动保存。
 - 快捷键：`⌘⇧K` 打开快捷控制、`⌘0` 恢复主窗口、`⌘,` 打开设置、`⌘W` 关闭窗口。隐藏菜单栏图标后，快捷控制会从主窗口打开；关闭主窗口后仍可从 Dock 恢复应用。通过菜单或快捷控制中的“退出”结束应用。
 - 桌面空调：复用 CuteAC 的 3D 模型、导风板、温度显示和冷暖出风效果；拖动移动，双击开关，右键隐藏或切换置顶。
-- 室温：把这台 Mac 当作空调所在的房间。空调显示窗右上角显示 CPU/SoC 温度，风速条和出风动画跟随风扇负载，空调详情页显示温度、风扇转速和 macOS 散热状态。只读，不需要 root；只在主窗口、快捷控制或桌面空调可见时每 3 秒采样一次。
+- 虚拟设备室温：把这台 Mac 当作空调所在的房间。空调显示窗右上角显示 CPU/SoC 温度，风速条和出风动画跟随风扇负载，空调详情页显示温度、风扇转速和 macOS 散热状态。只读，不需要 root；只在主窗口、快捷控制或桌面空调可见时每 3 秒采样一次。
 - 三维遥控器：原创圆角白色 USDZ 模型，LCD 同步显示温度、模式和连接状态；电源、升温、降温、冷暖切换四个按钮支持按压反馈，拖出按钮会取消操作。空调详情页可直接操作，也可独立显示在桌面，拖动机身移动，右键置顶或隐藏。
 - 所有原生入口共享一个 `HomeStore`，状态和房间分配自动保存在本机 UserDefaults；桌面挂件的位置与显示偏好也会保存。
 - 定时器按绝对时间运行，只在最近的截止时间唤醒一次；应用启动、唤醒、重新激活时也会检查到期时间。应用退出时无法执行定时操作，再次启动时补齐本机状态。
 - 电视离开详情页或退出应用会暂停。菜单栏的电视开关只控制电源；播放在电视详情页进行。清扫进度、电量与回充均为虚拟体验，不能当作真实设备数据。
 
-空调支持绑定 Home Assistant：在空调详情或设置中填写 HA 地址与长期访问令牌，测试连接、选择 `climate.*` 实体并保存。可主动查找局域网中的 HA；令牌存 Keychain，绑定记录只保存地址和实体 ID。真实设备的温度范围和步进以 HA 回报为准，支持 0.5°C 等小数步进。
+空调支持批量绑定 Home Assistant：在空调详情或设置中填写 HA 地址与长期访问令牌，测试连接、勾选一个或多个 `climate.*` 实体并保存。可主动查找本机及局域网中的 HA；令牌按地址存 Keychain，绑定记录仅包含地址、实体 ID、名称与本机房间。温度范围和步进以 HA 回报为准，支持 0.5°C 等小数步进。旧版 HA 缺少实体温标时读取系统温标，未知或华氏温标禁用控制。
 
-绑定后，主窗口、菜单栏和桌面空调控制同一个实体。断线时取消待发操作并禁用控制，重连只读取状态；不会回退为虚拟空调。解除绑定保留令牌，“删除此 HA 的本机令牌”会删除凭据并断开连接。HA 服务调用成功后仍需状态确认，超时会重新读取并显示不确定结果。
+每台真实空调有独立卡片、连接、待发指令和确认状态。房间默认沿用 HA 分区，可改为现有房间或新建名称；不会写回米家或 HA。侧栏和概览按房间过滤，菜单栏可分别控制，桌面配件跟随“当前空调”并显示目标名称。真实设备室温取自所选空调的 `current_temperature`，不显示 Mac CPU 温度。
 
-本版不包含原生账号登录、CloudBase 同步、完整房屋布局编辑或 WidgetKit。原生存档与浏览器存档独立。当前真实设备适配只支持一个 HA 地址下的一台空调；实际型号与家庭网络仍需验收。
+断线时取消待发操作并禁用控制，重连只读取状态。单台解绑保留同一 HA 的其余绑定与令牌；删除 HA 令牌会断开该地址的全部设备。全屋关闭会分别向各台可控空调发送关闭指令。HA 服务调用成功后仍需状态确认，超时会重新读取并显示不确定结果。
+
+`yun-home:ha-devices:v2` 保存多设备记录，`yun-home:ha-selected:v2` 保存当前目标；原有 `yun-home:ha-binding:v1` 单台记录自动迁移。三个默认房间的存档 ID 不变，自定义房间也以字符串保存。
+
+正常启动和修改绑定时，Home 同时发布不含令牌的 `~/Library/Application Support/YunHome/ha-bindings.json`，供 CuteAC 原生 App 读取。CuteAC 复用现有钥匙串令牌和房间映射，两个 App 各自选择当前空调；启动 Home 一次即可发布原有绑定。演示模式不会写共享目录。详见 [HomeDeviceKit 共享约定](../../packages/home-device-kit/README.md#home-与-cuteac-共用绑定)。
+
+本版不包含原生账号登录、CloudBase 同步、完整房屋布局编辑或 WidgetKit。原生存档与浏览器存档独立。已用本机 HA 与三台真实小米空调验证绑定、分区和状态读取，并按授权完成次卧开关、调温及 CuteAC → Home 状态同步，测试后恢复原设置。详见[联调记录](../../docs/home-assistant-validation.md)。
 
 构建结果为本机临时签名应用，尚未进行 Developer ID 签名和公证。
+
+应用的中文显示名与短名称统一为“云之彼端”；构建产物仍为 `YunHome.app`，可执行文件、bundle ID 和存档键保持原值，以保留现有偏好及钥匙串绑定。
 
 ## 发布与更新
 
@@ -92,7 +100,7 @@ python3 apps/macos/Model/build_ac_remote.py
 
 模型保留独立按钮枢轴和屏幕 UV，无额外纹理下载或三维运行时依赖；LCD 和品牌文字在应用中生成。
 
-HA 连接实现位于仓库的独立 [HomeDeviceKit](../../packages/home-device-kit/README.md)，通过根目录 Swift Package 导出，不依赖 HomeCore 或 Home 界面。后续 air-conditioner 原生 App 可以导入同一模块。路线比较见 [原生设备接入](../../docs/native-device-connections.md)。
+HA 连接实现位于仓库的独立 [HomeDeviceKit](../../packages/home-device-kit/README.md)，通过根目录 Swift Package 导出，不依赖 HomeCore 或 Home 界面。air-conditioner 原生 App 已导入同一模块，读取 Home 发布的绑定目录。路线比较见 [原生设备接入](../../docs/native-device-connections.md)。
 
 下一阶段接入云端时，需要为原生客户端单独注册 OAuth / PKCE 回调和登录会话；Web 端的 `home-web` 重定向注册与 CloudBase 浏览器会话不能直接复用。HA 令牌仅保存在 Keychain，并继续保持“云端快照不自动发设备指令”的规则。
 

@@ -3,7 +3,7 @@ import SwiftUI
 import HomeCore
 
 enum HomeDestination: Hashable {
-  case overview, room(HomeRoom), device(DeviceKind), plugin(String), market, settings
+  case overview, room(HomeRoom), device(DeviceKind), haDevice(String), plugin(String), market, settings
 }
 
 @MainActor
@@ -21,19 +21,19 @@ struct HomeWindow: View {
 
   var body: some View {
     NavigationSplitView {
-      List(selection: $presentation.selection) {
+      List(selection: sidebarSelection) {
         Section {
           Label("我的家", systemImage: "house").tag(HomeDestination.overview)
         }
         Section("房间") {
-          ForEach(HomeRoom.allCases) { room in
+          ForEach(store.rooms) { room in
             Label(room.name, systemImage: room.symbol)
               .badge(itemCount(in: room))
               .tag(HomeDestination.room(room))
           }
         }
         Section("设备") {
-          ForEach(DeviceKind.allCases) { device in
+          ForEach(store.virtualDevices) { device in
             HStack {
               Label(device.name, systemImage: device.symbol)
               Spacer()
@@ -42,6 +42,14 @@ struct HomeWindow: View {
                   .accessibilityLabel("正在运行")
               }
             }.tag(HomeDestination.device(device))
+          }
+        }
+        if !store.haDevices.isEmpty {
+          Section("真实空调") {
+            ForEach(store.haDevices) { device in
+              Label(device.label, systemImage: "air.conditioner.horizontal")
+                .tag(HomeDestination.haDevice(device.id))
+            }
           }
         }
         Section("插件") {
@@ -86,11 +94,15 @@ struct HomeWindow: View {
         switch presentation.selection ?? .overview {
         case .overview:
           HomeOverview(store: store, room: nil, select: { presentation.selection = .device($0) },
-                       selectPlugin: { presentation.selection = .plugin($0) })
+                       selectPlugin: { presentation.selection = .plugin($0) },
+                       selectHA: { store.selectHADevice($0); presentation.selection = .haDevice($0) })
         case .room(let room):
           HomeOverview(store: store, room: room, select: { presentation.selection = .device($0) },
-                       selectPlugin: { presentation.selection = .plugin($0) })
+                       selectPlugin: { presentation.selection = .plugin($0) },
+                       selectHA: { store.selectHADevice($0); presentation.selection = .haDevice($0) })
         case .device(let device): DeviceDetail(store: store, device: device)
+        case .haDevice(let id):
+          DeviceDetail(store: store, device: .airConditioner).id(id)
         case .plugin(let id):
           PluginDeviceDetail(store: store, instanceID: id, onRemoved: { presentation.selection = .market })
         case .market:
@@ -102,6 +114,11 @@ struct HomeWindow: View {
       }
       .foregroundStyle(HomeTheme.text, HomeTheme.textSecondary, HomeTheme.textTertiary)
       .background(HomeTheme.paper)
+    }
+    .onChange(of: store.selectedHAID) { _, id in
+      if case .haDevice = presentation.selection {
+        presentation.selection = id.map(HomeDestination.haDevice) ?? .device(.airConditioner)
+      }
     }
     .tint(HomeTheme.brand)
     .frame(minWidth: 880, minHeight: 620)
@@ -124,10 +141,19 @@ struct HomeWindow: View {
     }
   }
 
+  private var sidebarSelection: Binding<HomeDestination?> {
+    Binding(get: { presentation.selection }, set: { destination in
+      // Switching between two AC rows can reuse the detail view without a new
+      // onAppear. Select the command target as part of the navigation itself.
+      if case .haDevice(let id) = destination { store.selectHADevice(id) }
+      presentation.selection = destination
+    })
+  }
+
   private func itemCount(in room: HomeRoom) -> Int {
-    let devices = DeviceKind.allCases.filter { store.snapshot.room(for: $0) == room }.count
+    let devices = store.virtualDevices.filter { store.snapshot.room(for: $0) == room }.count
     let plugins = store.snapshot.plugins.filter { $0.room == room }.count
-    return devices + plugins
+    return devices + plugins + store.haDevices.filter { $0.room == room }.count
   }
 }
 
@@ -136,12 +162,14 @@ struct HomeOverview: View {
   let room: HomeRoom?
   let select: (DeviceKind) -> Void
   var selectPlugin: (String) -> Void = { _ in }
+  var selectHA: (String) -> Void = { _ in }
   private var devices: [DeviceKind] {
-    DeviceKind.allCases.filter { room == nil || store.snapshot.room(for: $0) == room }
+    store.virtualDevices.filter { room == nil || store.snapshot.room(for: $0) == room }
   }
   private var plugins: [PluginInstance] { store.snapshot.plugins.filter { room == nil || $0.room == room } }
-  private var deviceCount: Int { devices.count + plugins.count }
-  private var runningCount: Int { devices.filter { store.isActive($0) }.count + plugins.filter { store.isActive(plugin: $0) }.count }
+  private var realDevices: [HADeviceBinding] { store.haDevices.filter { room == nil || $0.room == room } }
+  private var deviceCount: Int { devices.count + plugins.count + realDevices.count }
+  private var runningCount: Int { devices.filter { store.isActive($0) }.count + plugins.filter { store.isActive(plugin: $0) }.count + realDevices.filter { store.isHAActive($0.id) }.count }
 
   var body: some View {
     ScrollView {
@@ -169,7 +197,7 @@ struct HomeOverview: View {
             VStack(alignment: .leading, spacing: 6) {
               Text(runningCount == 0 ? "\(room?.name ?? "家里")，一切安静" : "\(runningCount) 台设备正在运行")
                 .font(.title3.weight(.semibold))
-              Text(room == nil ? "\(HomeRoom.allCases.count) 个房间 · \(deviceCount) 台设备" : "房间内共 \(deviceCount) 台设备")
+              Text(room == nil ? "\(store.rooms.count) 个房间 · \(deviceCount) 台设备" : "房间内共 \(deviceCount) 台设备")
                 .font(.callout).foregroundStyle(.secondary)
             }
             Spacer(minLength: 12)
@@ -185,6 +213,9 @@ struct HomeOverview: View {
         LazyVGrid(columns: [GridItem(.adaptive(minimum: 240), spacing: 16)], spacing: 16) {
           ForEach(devices) { device in
             DeviceTile(store: store, device: device, select: { select(device) })
+          }
+          ForEach(realDevices) { device in
+            HADeviceTile(store: store, device: device, select: { selectHA(device.id) })
           }
           ForEach(plugins) { instance in
             PluginDeviceTile(store: store, instance: instance, select: { selectPlugin(instance.id) })
