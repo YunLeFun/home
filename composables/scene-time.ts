@@ -22,11 +22,14 @@ export function phaseForHour(hours: number): ScenePhase {
 /**
  * Wall-clock time and lighting phase for the home scene. Server rendering and
  * the first client paint use a fixed daytime so hydration matches; the real
- * time takes over after mount. Dark mode always shows night.
+ * time takes over after mount. Once mounted, dark mode always shows night: the
+ * server cannot know the colour mode, so it waits for mount like the clock.
  */
 export function useSceneTime() {
   // 10:10 is the conventional resting position of clock hands.
   const minutes = useState('scene-time-minutes', () => 10 * 60 + 10)
+  // Shared, so components mounted after hydration start from the live phase.
+  const mounted = useState('scene-time-mounted', () => false)
   const colorMode = useColorMode()
   let timer: ReturnType<typeof setInterval> | undefined
 
@@ -36,6 +39,7 @@ export function useSceneTime() {
   }
 
   onMounted(() => {
+    mounted.value = true
     tick()
     timer = setInterval(tick, 30_000)
   })
@@ -45,6 +49,6 @@ export function useSceneTime() {
       clearInterval(timer)
   })
 
-  const phase = computed<ScenePhase>(() => colorMode.value === 'dark' ? 'night' : phaseForHour(minutes.value / 60))
+  const phase = computed<ScenePhase>(() => mounted.value && colorMode.value === 'dark' ? 'night' : phaseForHour(minutes.value / 60))
   return { minutes, phase }
 }
