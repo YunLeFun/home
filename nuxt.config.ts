@@ -24,7 +24,6 @@ export default defineNuxtConfig({
     '~/styles/css-vars.css',
     '~/styles/index.scss',
     '~/styles/controls.scss',
-    '~/styles/scene.scss',
     '@yunlefun-home/air-conditioner/controls.css',
   ],
 

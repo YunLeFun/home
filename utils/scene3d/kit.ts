@@ -3,7 +3,7 @@ import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.j
 
 /**
  * The 晴空暖居 palette in 3D: warm white walls, honey oak, sky linen and
- * dopamine accents, matching the 2D scene variables in `styles/scene.scss`.
+ * dopamine accents.
  */
 export const PALETTE = {
   wallWarm: '#fbf7f0',

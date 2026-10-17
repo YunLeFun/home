@@ -8,10 +8,6 @@ import type { DeviceVisual } from '~/utils/scene3d/devices'
 import { HOME_DEVICES, HOME_DEVICE_ORDER } from '~/constants/home'
 import { getDeviceMotionSpeed, getDeviceTone, isDeviceRunning } from '~/utils/device'
 
-interface Scene2dApi {
-  getWorldPoint: (clientX: number, clientY: number) => HomePoint | null
-}
-
 interface Scene3dApi {
   getWorldPoint: (clientX: number, clientY: number, deviceId: DeviceKind) => HomePoint | null
   previewDrop: (deviceId: DeviceKind, clientX: number, clientY: number) => void
@@ -27,7 +23,6 @@ const deviceStates = {
   'hand-warmer': useDeviceState('hand-warmer'),
   'television': useDeviceState('television'),
 }
-const scene2dRef = shallowRef<Scene2dApi | null>(null)
 const scene3dRef = shallowRef<Scene3dApi | null>(null)
 const trayDrag = shallowRef<{ deviceId: DeviceKind; x: number; y: number } | null>(null)
 const notice = shallowRef<string | null>(null)
@@ -37,13 +32,12 @@ let noticeTimer: ReturnType<typeof setTimeout> | undefined
 const library = usePluginLibrary()
 // Uninstalled plugins keep their placement and state, but leave the home.
 const placements = computed(() => editor.placements.value.filter(placement => library.isInstalled(placement.deviceId)))
-const sceneMode = useSceneMode()
+const sceneRenderer = useSceneRenderer()
 const { phase } = useSceneTime()
 const scene3dReady = shallowRef(false)
-const mount3d = computed(() => sceneMode.renderer.value === '3d')
-const show2d = computed(() => sceneMode.renderer.value === '2d')
+const mount3d = computed(() => sceneRenderer.renderer.value === '3d')
 // The poster stands in until 3D is drawn, and stays where 3D cannot run.
-const showPoster = computed(() => !show2d.value && !scene3dReady.value)
+const showPoster = computed(() => !scene3dReady.value)
 const use3d = computed(() => mount3d.value && scene3dReady.value)
 
 const robotState = computed(() => robot.state.value)
@@ -114,14 +108,12 @@ function handleTrayDragMove(deviceId: DeviceKind, event: PointerEvent) {
 }
 
 function handleTrayDragEnd(deviceId: DeviceKind, event: PointerEvent) {
-  const point = use3d.value
-    ? scene3dRef.value?.getWorldPoint(event.clientX, event.clientY, deviceId)
-    : scene2dRef.value?.getWorldPoint(event.clientX, event.clientY)
+  const point = use3d.value ? scene3dRef.value?.getWorldPoint(event.clientX, event.clientY, deviceId) : null
   scene3dRef.value?.endDrag()
   trayDrag.value = null
   if (point)
     placeDevice(deviceId, point)
-  else if (sceneMode.renderer.value === 'poster')
+  else if (!use3d.value)
     showNotice('在设备卡片上选择房间即可完成摆放')
   else
     showNotice('拖到房间里的高亮区域即可完成摆放')
@@ -173,13 +165,8 @@ function removeDevice(deviceId: DeviceKind) {
   showNotice(`${HOME_DEVICES[deviceId].name}已移出房间，可在待安置中重新摆放`)
 }
 
-function changeSceneMode(mode: '3d' | '2d') {
-  sceneMode.setMode(mode)
-  showNotice(mode === '3d' ? '已切换到 3D 家园，拖动可旋转视角' : '已切换到怀旧 2D 平面')
-}
-
 function handle3dFailed() {
-  sceneMode.disable3d()
+  sceneRenderer.disable3d()
   scene3dReady.value = false
   showNotice('当前设备无法显示 3D，已换成家园预览')
 }
@@ -217,10 +204,7 @@ onUnmounted(() => {
       :edit-mode="editor.editMode.value"
       :can-undo="editor.canUndo.value"
       :can-redo="editor.canRedo.value"
-      :scene-mode="sceneMode.mode.value"
-      :scene-mode-supported="sceneMode.supported.value"
       @change-template="changeTemplate"
-      @change-scene-mode="changeSceneMode"
       @toggle-edit="toggleEditMode"
       @undo="editor.undo"
       @redo="editor.redo"
@@ -236,38 +220,16 @@ onUnmounted(() => {
         @select-room="selectRoom"
       />
 
-      <div class="home-scene-stack" :data-mode="sceneMode.renderer.value">
+      <div class="home-scene-stack" :data-mode="sceneRenderer.renderer.value">
       <Transition name="poster">
         <HomeScenePoster
           v-if="showPoster"
           :template="editor.template.value"
           :phase="phase"
           :active-room-id="overviewMode ? null : editor.activeRoomId.value"
-          :fallback="sceneMode.resolved.value && !mount3d"
+          :fallback="sceneRenderer.resolved.value && !mount3d"
         />
       </Transition>
-      <HomeScene
-        v-if="show2d"
-        ref="scene2dRef"
-        :template="editor.template.value"
-        :placements="placements"
-        :selected-device-id="editor.selectedDeviceId.value"
-        :active-room-id="editor.activeRoomId.value"
-        :overview-mode="overviewMode"
-        :edit-mode="editor.editMode.value"
-        :robot-progress="robot.visualProgress.value"
-        :robot-cleaning="robotState.status === 'cleaning'"
-        :active-devices="activeDevices"
-        :device-tones="deviceTones"
-        :device-motion-speeds="deviceMotionSpeeds"
-        :device-states="deviceStateMap"
-        @select="selectDevice"
-        @place="placeDevice"
-        @nudge="editor.moveDeviceByKeyboard"
-        @rotate="editor.rotateDevice"
-        @remove="removeDevice"
-        @room-select="selectRoom"
-      />
       <ClientOnly>
         <HomeScene3D
           v-if="mount3d"

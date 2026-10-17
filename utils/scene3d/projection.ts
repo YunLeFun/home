@@ -2,25 +2,26 @@ import type { DeviceKind, DevicePlacement, HomePoint, HomeSurface, HomeSurfaceKi
 import { clamp, getPolygonBounds, pointInPolygon, surfacePointToWorld } from '~/utils/home'
 
 /**
- * Mapping from the 2D scene (a 1600 × 800 front elevation) to the 3D diorama.
+ * Mapping from the home plan to the 3D diorama.
  *
- * The 2D art draws the back wall above a floor line at y = 570 and the floor
+ * Templates and placements are laid out on a plan: a 1600 × 800 front
+ * elevation with the back wall above a floor line at y = 570 and the floor
  * below it in perspective. The diorama keeps the same layout: x runs along the
  * back wall, wall heights come from how far above the floor line a point sits,
  * and floor depth from how far below it. One unit is roughly 1 m.
  */
 export const SCENE3D = {
-  /** World units per 2D pixel along the back wall. */
+  /** World units per plan unit along the back wall. */
   scaleX: 0.01,
-  /** World units per 2D pixel up the back wall. */
+  /** World units per plan unit up the back wall. */
   scaleY: 0.006,
-  /** 2D y of the line where the back wall meets the floor. */
+  /** Plan y of the line where the back wall meets the floor. */
   floorLine: 570,
-  /** 2D y of the front edge of the floor. */
+  /** Plan y of the front edge of the floor. */
   floorFront: 790,
   /** Depth of the floor from the back wall to the open front. */
   depth: 4.4,
-  /** Height of the walls (the top of the 2D shell at y = 30). */
+  /** Height of the walls (plan y = 30). */
   height: 3.24,
   /** Wall-mounted devices stand this far off the wall. */
   wallOffset: 0.04,
@@ -41,10 +42,10 @@ export interface TabletopSpec {
 }
 
 /**
- * Horizontal position of a 2D x coordinate, centred on the scene.
+ * Horizontal position of a plan x coordinate, centred on the scene.
  *
- * @param x - 2D x in scene pixels
- * @param width - Width of the 2D scene
+ * @param x - Plan x
+ * @param width - Width of the plan
  * @returns World x
  */
 export function worldX(x: number, width = 1600) {
@@ -52,9 +53,9 @@ export function worldX(x: number, width = 1600) {
 }
 
 /**
- * Height on the back wall of a 2D y coordinate.
+ * Height on the back wall of a plan y coordinate.
  *
- * @param y - 2D y in scene pixels
+ * @param y - Plan y
  * @returns World y, clamped to the wall
  */
 export function wallHeight(y: number) {
@@ -62,9 +63,9 @@ export function wallHeight(y: number) {
 }
 
 /**
- * Distance from the back wall of a 2D floor y coordinate.
+ * Distance from the back wall of a plan floor y coordinate.
  *
- * @param y - 2D y in scene pixels
+ * @param y - Plan y
  * @returns World z, clamped to the floor
  */
 export function floorDepth(y: number) {
@@ -73,10 +74,10 @@ export function floorDepth(y: number) {
 }
 
 /**
- * Project a point on the floor of the 2D scene.
+ * Project a point on the floor of the plan.
  *
- * @param point - 2D point on a floor surface
- * @param width - Width of the 2D scene
+ * @param point - Plan point on a floor surface
+ * @param width - Width of the plan
  * @returns The point on the diorama floor
  */
 export function projectFloorPoint(point: HomePoint, width = 1600): Vec3 {
@@ -84,10 +85,10 @@ export function projectFloorPoint(point: HomePoint, width = 1600): Vec3 {
 }
 
 /**
- * Project a point on the back wall of the 2D scene.
+ * Project a point on the back wall of the plan.
  *
- * @param point - 2D point on a wall surface
- * @param width - Width of the 2D scene
+ * @param point - Plan point on a wall surface
+ * @param width - Width of the plan
  * @returns The point just in front of the diorama wall
  */
 export function projectWallPoint(point: HomePoint, width = 1600): Vec3 {
@@ -97,13 +98,13 @@ export function projectWallPoint(point: HomePoint, width = 1600): Vec3 {
 /**
  * Project a point given in surface coordinates.
  *
- * Tabletops have no depth in the 2D art, so their height and depth range come
+ * Tabletops have no depth on the plan, so their height and depth range come
  * from the furniture they belong to.
  *
  * @param surface - The surface the point lies on
  * @param u - Position across the surface, 0 to 1
  * @param v - Position down the surface, 0 to 1
- * @param width - Width of the 2D scene
+ * @param width - Width of the plan
  * @param tabletop - 3D placement of the surface when it is a tabletop
  * @returns The point in diorama space
  */
@@ -170,11 +171,11 @@ export function roomAtWorldX(template: HomeTemplate, x: number): string | null {
 }
 
 /**
- * 2D x coordinate of a world x, the inverse of {@link worldX}.
+ * Plan x coordinate of a world x, the inverse of {@link worldX}.
  *
  * @param x - World x
- * @param width - Width of the 2D scene
- * @returns 2D x in scene pixels
+ * @param width - Width of the plan
+ * @returns Plan x
  */
 export function sceneX(x: number, width = 1600) {
   return x / SCENE3D.scaleX + width / 2
@@ -185,15 +186,15 @@ function tabletopFor(surface: HomeSurface, tabletop?: TabletopSpec): TabletopSpe
 }
 
 /**
- * The 2D point of a diorama point on a surface's plane, the inverse of
+ * The plan point of a diorama point on a surface's plane, the inverse of
  * {@link projectSurfacePoint}. Points off the surface are not clamped, so the
  * placement rules can still snap them or turn them down.
  *
  * @param surface - Surface whose plane the point lies on
  * @param position - Point in diorama space
- * @param width - Width of the 2D scene
+ * @param width - Width of the plan
  * @param tabletop - 3D placement of the surface when it is a tabletop
- * @returns The point in 2D scene pixels
+ * @returns The point on the plan
  */
 export function unprojectSurfacePoint(surface: HomeSurface, position: Vec3, width = 1600, tabletop?: TabletopSpec): HomePoint {
   const x = sceneX(position.x, width)
@@ -211,7 +212,7 @@ export function unprojectSurfacePoint(surface: HomeSurface, position: Vec3, widt
  * Corners of a surface in diorama space, for drawing it.
  *
  * @param surface - The surface
- * @param width - Width of the 2D scene
+ * @param width - Width of the plan
  * @param tabletop - 3D placement of the surface when it is a tabletop
  * @returns Top left, top right, bottom right and bottom left corners
  */
@@ -252,10 +253,10 @@ export function intersectSurfacePlane(surface: HomeSurface, ray: Ray3, tabletop?
   }
 }
 
-/** A surface a ray points at, with the matching 2D point. */
+/** A surface a ray points at, with the matching plan point. */
 export interface SurfaceRayHit {
   surface: HomeSurface
-  /** Point in 2D scene pixels, for the placement rules. */
+  /** Point on the plan, for the placement rules. */
   point: HomePoint
   /** Where the ray meets the surface's plane. */
   position: Vec3

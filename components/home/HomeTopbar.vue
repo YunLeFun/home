@@ -2,7 +2,6 @@
 import { computed, onMounted } from 'vue'
 import { appName } from '~/constants'
 import { HOME_TEMPLATES } from '~/constants/home'
-import type { SceneMode } from '~/composables/scene-mode'
 import type { HomeSyncStatus, HomeTemplateId } from '~/types'
 
 const props = defineProps<{
@@ -12,13 +11,10 @@ const props = defineProps<{
   editMode: boolean
   canUndo: boolean
   canRedo: boolean
-  sceneMode: SceneMode
-  sceneModeSupported: boolean
 }>()
 
 const emit = defineEmits<{
   changeTemplate: [templateId: HomeTemplateId]
-  changeSceneMode: [mode: SceneMode]
   toggleEdit: []
   undo: []
   redo: []
@@ -67,20 +63,6 @@ onMounted(refresh)
     </label>
 
     <div class="home-topbar__actions">
-      <div class="home-view-toggle" role="group" aria-label="家园视图" :data-mode="sceneMode">
-        <button
-          type="button"
-          :aria-pressed="sceneMode === '3d'"
-          :disabled="!sceneModeSupported"
-          :title="sceneModeSupported ? '3D 立体家园' : '当前浏览器不支持 WebGL2'"
-          @click="emit('changeSceneMode', '3d')"
-        >
-          <span class="i-carbon-cube" /><span class="home-view-toggle__text">3D</span>
-        </button>
-        <button type="button" :aria-pressed="sceneMode === '2d'" title="怀旧 2D 平面" @click="emit('changeSceneMode', '2d')">
-          <span class="i-carbon-image" /><span class="home-view-toggle__text">怀旧 2D</span>
-        </button>
-      </div>
       <NuxtLink class="home-market-link" to="/market" title="家电市场">
         <span class="i-carbon-store" /><span class="home-market-link__text">市场</span>
       </NuxtLink>
@@ -133,12 +115,6 @@ onMounted(refresh)
 .home-sync[data-status="synced"] .home-sync__dot { background: var(--tone-active); box-shadow: 0 0 0 4px var(--tone-active-soft); }
 .home-sync[data-status="syncing"] .home-sync__dot { background: var(--brand-warm); animation: sync-pulse 1s ease-in-out infinite; }
 .home-sync[data-status="error"] .home-sync__dot { background: var(--tone-danger); }
-.home-view-toggle { position: relative; display: grid; grid-template-columns: 1fr 1fr; padding: 3px; border: 1px solid var(--brand-outline); border-radius: 12px; background: var(--brand-glass); isolation: isolate; }
-.home-view-toggle::before { position: absolute; z-index: -1; top: 3px; bottom: 3px; left: 3px; width: calc(50% - 3px); border-radius: 9px; background: var(--brand-glass-strong); box-shadow: var(--shadow-sm), inset 0 1px 0 var(--brand-highlight); content: ''; transition: transform var(--dur-3) var(--ease-spring); }
-.home-view-toggle[data-mode="2d"]::before { transform: translateX(100%); }
-.home-view-toggle button { display: inline-flex; align-items: center; justify-content: center; gap: 5px; min-height: 30px; padding: 0 10px; border: 0; background: transparent; color: var(--brand-muted); font: inherit; font-size: 11px; font-weight: 700; white-space: nowrap; cursor: pointer; transition: color var(--dur-2) ease; }
-.home-view-toggle button[aria-pressed="true"] { color: var(--brand-ink); }
-.home-view-toggle button:disabled { cursor: not-allowed; opacity: 0.45; }
 .home-market-link { display: inline-flex; align-items: center; gap: 6px; min-height: 38px; padding: 0 12px; border: 1px solid var(--brand-outline); border-radius: 12px; background: var(--brand-glass); color: var(--brand-ink); font-size: 12px; font-weight: 700; text-decoration: none; transition: transform var(--dur-3) var(--ease-spring); }
 .home-market-link:hover { transform: translateY(-1px); }
 .home-market-link:active { transform: scale(0.96); }
@@ -159,9 +135,8 @@ onMounted(refresh)
   .home-template-select { grid-row: 2; grid-column: 1 / -1; width: 100%; }
   .home-brand small, .home-sync, .home-avatar { display: none; }
   .home-edit-button { padding: 0 11px; }
-  .home-view-toggle__text, .home-market-link__text { display: none; }
+  .home-market-link__text { display: none; }
   .home-market-link { width: 38px; padding: 0; justify-content: center; }
-  .home-view-toggle button { padding: 0 9px; }
 }
 @media (max-width: 420px) { .home-edit-button { width: 38px; padding: 0; justify-content: center; font-size: 0; } .home-edit-button span { font-size: 16px; } .home-brand__mark { width: 38px; height: 38px; } }
 </style>

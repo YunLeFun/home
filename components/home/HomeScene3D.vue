@@ -17,8 +17,6 @@ const props = defineProps<{
   robotCleaning: boolean
   /** Placing devices: surfaces light up and devices can be dragged. */
   editMode?: boolean
-  /** Hidden while another view is shown. */
-  hidden?: boolean
   /** Width of an overlay covering the right side, in CSS pixels. */
   insetRight?: number
 }>()
@@ -72,7 +70,7 @@ function applyAnchors(anchors: ScreenAnchor[]) {
 }
 
 function syncPaused() {
-  scene?.setPaused(Boolean(props.hidden) || !onScreen)
+  scene?.setPaused(!onScreen)
 }
 
 // Pointer: a short press picks, a drag turns the diorama a little. While
@@ -198,7 +196,7 @@ function endDrag() {
   dropValid.value = true
 }
 
-/** The 2D scene point under a point of the page, for dropping a device there. */
+/** The plan point under a point of the page, for dropping a device there. */
 function getWorldPoint(clientX: number, clientY: number, deviceId: DeviceKind): HomePoint | null {
   if (!scene || !insideCanvas(clientX, clientY))
     return null
@@ -342,7 +340,6 @@ watch(() => props.editMode, (editing) => {
 })
 watch(() => props.insetRight, () => scene?.setInsetRight(insetFor()))
 watch(phase, value => scene?.setPhase(value))
-watch(() => props.hidden, syncPaused)
 </script>
 
 <template>

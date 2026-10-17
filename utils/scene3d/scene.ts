@@ -63,7 +63,7 @@ interface CameraPose {
 /** A device being dragged to a new spot. */
 interface DeviceDrag {
   deviceId: DeviceKind
-  /** Where the pointer meets the surface, in 2D scene pixels. */
+  /** Where the pointer meets the surface, in plan coordinates. */
   point: HomePoint | null
   /** The placement a drop would make, or null when the spot is not allowed. */
   placement: DevicePlacement | null
@@ -572,13 +572,13 @@ export class HomeScene3D {
   }
 
   /**
-   * The 2D scene point under a point of the canvas, on a surface that accepts
+   * The plan point under a point of the canvas, on a surface that accepts
    * the device. Feed it to the placement rules to place the device there.
    *
    * @param deviceId - Device being placed
    * @param x - Canvas x in CSS pixels
    * @param y - Canvas y in CSS pixels
-   * @returns The point in 2D scene pixels, or null when no surface is under the pointer
+   * @returns The point in plan coordinates, or null when no surface is under the pointer
    */
   surfacePointAt(deviceId: DeviceKind, x: number, y: number): HomePoint | null {
     const template = this.template
@@ -595,7 +595,7 @@ export class HomeScene3D {
    * @param deviceId - Device being dragged
    * @param x - Canvas x in CSS pixels
    * @param y - Canvas y in CSS pixels
-   * @returns The 2D scene point and whether a drop there would place the device
+   * @returns The plan point and whether a drop there would place the device
    */
   dragDevice(deviceId: DeviceKind, x: number, y: number): { point: HomePoint | null, valid: boolean } {
     const template = this.template
