@@ -4,7 +4,7 @@ import { computed } from 'vue'
 import HomeDeviceGlyph from './HomeDeviceGlyph.vue'
 import { HOME_DEVICES } from '~/constants/home'
 import { getDevicePlugin, resolveDevicePluginComponent } from '~/devices/registry'
-import { getDeviceTone, isDeviceRunning } from '~/utils/device'
+import { getDeviceMotionSpeed, getDeviceTone, isDeviceRunning } from '~/utils/device'
 
 const props = defineProps<{ deviceId: DeviceKind }>()
 const definition = computed(() => HOME_DEVICES[props.deviceId])
@@ -13,6 +13,7 @@ const pluginPanel = computed(() => resolveDevicePluginComponent(props.deviceId, 
 const device = useDeviceState(props.deviceId)
 const running = computed(() => isDeviceRunning(props.deviceId, device.state.value))
 const tone = computed(() => getDeviceTone(props.deviceId, device.state.value))
+const motionSpeed = computed(() => getDeviceMotionSpeed(props.deviceId, device.state.value))
 
 useHead({ title: () => definition.value.name })
 </script>
@@ -38,7 +39,7 @@ useHead({ title: () => definition.value.name })
         <div class="device-detail__vector" :class="{ 'is-running': running }">
           <span class="device-detail__aurora" aria-hidden="true" />
           <span class="device-detail__orbit" aria-hidden="true" />
-          <HomeDeviceGlyph :device-id="deviceId" :active="running" :tone="tone" :title="definition.name" />
+          <HomeDeviceGlyph :device-id="deviceId" :active="running" :tone="tone" :title="definition.name" :speed="motionSpeed" :state="device.state.value" />
         </div>
       </section>
       <section class="device-detail__panel">

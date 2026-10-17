@@ -14,6 +14,19 @@ export type DevicePluginSlot = 'glyph' | 'quickControl' | 'panel'
 /** Visual tone used by the shell to tint halos, airflow and backdrops. */
 export type DeviceTone = 'idle' | 'cool' | 'heat' | 'warm' | 'active'
 
+/** Props the shell passes to every `glyph` slot. */
+export interface DeviceGlyphProps {
+  /** Whether the device is running */
+  active?: boolean
+  tone?: DeviceTone
+  /** Accessible title; the glyph is decorative when empty */
+  title?: string
+  /** Motion speed multiplier from the plugin's `motionSpeed` */
+  speed?: number
+  /** The device's state, for plugin-specific details such as oscillation */
+  state?: unknown
+}
+
 /**
  * An external system a device can be bound to, such as a Home Assistant
  * `climate.*` entity.

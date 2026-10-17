@@ -1,23 +1,36 @@
 <script setup lang="ts">
-import type { DeviceTone } from '../types'
+import type { DeviceGlyphProps } from '../types'
+import { computed, shallowRef } from 'vue'
 
-withDefaults(defineProps<{
-  /** Whether the fan is running; spins the blades */
-  active?: boolean
-  tone?: DeviceTone
-  /** Accessible title; the glyph is decorative when empty */
-  title?: string
-}>(), {
+const props = withDefaults(defineProps<DeviceGlyphProps>(), {
   active: false,
   tone: 'idle',
   title: '',
+  speed: 1,
+})
+
+// The ElpsyCN electric fan's petal, radius 90 around its hub.
+const PETAL = 'M0 -10C16 -10 29 -23 29 -39C29 -67.2 16 -90 0 -90C-16 -90 -29 -67.2 -29 -39C-29 -23 -16 -10 0 -10Z'
+const BLADE_ANGLES = [0, 120, 240]
+
+const root = shallowRef<SVGSVGElement | null>(null)
+const oscillating = computed(() => {
+  const state = props.state
+  return props.active && typeof state === 'object' && state !== null && (state as { oscillating?: unknown }).oscillating === true
+})
+
+// Blade speed follows the fan's speed level and eases between levels.
+useEasedSpin(root, '.fan-glyph__blades', {
+  active: () => props.active,
+  speed: () => props.speed,
 })
 </script>
 
 <template>
   <svg
+    ref="root"
     class="device-glyph fan-glyph"
-    :class="{ 'is-active': active }"
+    :class="{ 'is-active': active, 'is-oscillating': oscillating }"
     :data-tone="tone"
     viewBox="0 0 120 120"
     role="img"
@@ -29,15 +42,15 @@ withDefaults(defineProps<{
     <ellipse class="fan-glyph__shadow" cx="60" cy="107" rx="26" ry="7" />
     <path class="fan-glyph__stand" d="M56 68h8l5 32H51l5-32Z" />
     <rect class="fan-glyph__base" x="38" y="98" width="44" height="12" rx="6" />
-    <circle class="fan-glyph__body" cx="60" cy="43" r="34" />
-    <circle class="fan-glyph__grille" cx="60" cy="43" r="27" />
-    <g class="fan-glyph__blades">
-      <path d="M61 40c5-16 17-19 20-10 3 10-7 16-18 16Z" />
-      <path d="M57 45c-16-4-20-16-11-20 9-4 17 6 17 17Z" />
-      <path d="M61 47c10 13 5 25-5 22-10-3-10-15-1-23Z" />
+    <g class="fan-glyph__head">
+      <circle class="fan-glyph__body" cx="60" cy="43" r="34" />
+      <circle class="fan-glyph__grille" cx="60" cy="43" r="27" />
+      <g class="fan-glyph__blades">
+        <path v-for="angle in BLADE_ANGLES" :key="angle" :d="PETAL" :transform="`translate(60 43) rotate(${angle}) skewX(-8) scale(0.27)`" />
+      </g>
+      <circle class="fan-glyph__hub" cx="60" cy="43" r="6" />
+      <circle class="fan-glyph__ring" cx="60" cy="43" r="30" />
     </g>
-    <circle class="fan-glyph__hub" cx="60" cy="43" r="6" />
-    <circle class="fan-glyph__ring" cx="60" cy="43" r="30" />
   </svg>
 </template>
 
@@ -59,18 +72,29 @@ withDefaults(defineProps<{
 .fan-glyph__hub { fill: #687b67; }
 .fan-glyph__ring { fill: none; stroke: #8a948b; stroke-opacity: 0.6; stroke-width: 1.5; }
 
-.fan-glyph.is-active .fan-glyph__blades {
-  animation: fan-glyph-spin 1.15s linear infinite;
-  /* Spin around the hub, not the blade group's lopsided bounding box. */
+/* Spin and sway around the hub and the neck, not the groups' bounding boxes. */
+.fan-glyph__blades {
   transform-box: view-box;
   transform-origin: 60px 43px;
 }
 
-@keyframes fan-glyph-spin {
-  to { transform: rotate(360deg); }
+.fan-glyph__head {
+  transform-box: view-box;
+  transform-origin: 60px 70px;
+  transition: transform 600ms var(--ease-out, ease-out);
+}
+
+/* Oscillation, seen from the front: the head turns left and right. */
+/* Start a quarter in, facing forward, so switching it on never jumps. */
+.fan-glyph.is-oscillating .fan-glyph__head { animation: fan-glyph-sway 4.4s ease-in-out -1.1s infinite; }
+
+@keyframes fan-glyph-sway {
+  0%, 100% { transform: translateX(-2.5px) scaleX(0.88) skewY(3deg); }
+  25%, 75% { transform: none; }
+  50% { transform: translateX(2.5px) scaleX(0.88) skewY(-3deg); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .fan-glyph.is-active .fan-glyph__blades { animation: none; }
+  .fan-glyph.is-oscillating .fan-glyph__head { animation: none; }
 }
 </style>

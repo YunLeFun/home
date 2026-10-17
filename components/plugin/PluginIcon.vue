@@ -2,7 +2,7 @@
 import type { FunctionalComponent } from 'vue'
 import type { DevicePluginIcon, PluginIconShape } from '~/devices/icon'
 import type { DeviceTone } from '~/devices/types'
-import { computed, h, nextTick, onBeforeUnmount, onMounted, shallowRef, watch } from 'vue'
+import { computed, h, shallowRef } from 'vue'
 
 const props = withDefaults(defineProps<{
   icon: DevicePluginIcon
@@ -87,69 +87,13 @@ const style = computed(() => ({
   '--pi-bg-dark-2': props.icon.backgroundDark?.[1] ?? `color-mix(in oklab, ${props.icon.background[1]} 58%, #0e1828)`,
 }))
 
-// Spin runs on the Web Animations API rather than CSS so that a speed change
-// eases the playback rate without restarting or jumping the rotation.
-const SPIN_PERIOD = 1100
-const SPIN_RAMP = 500
+// Spin eases its speed instead of jumping when the speed changes.
 const root = shallowRef<HTMLElement | null>(null)
-let spins: Animation[] = []
-let rate = 1
-let rampFrame = 0
-
-function stopSpins() {
-  cancelAnimationFrame(rampFrame)
-  for (const spin of spins)
-    spin.cancel()
-  spins = []
-}
-
-function targetRate() {
-  return Math.max(0.25, props.speed)
-}
-
-function rampTo(target: number) {
-  cancelAnimationFrame(rampFrame)
-  const from = rate
-  const startedAt = performance.now()
-  const step = (now: number) => {
-    const progress = Math.min(1, (now - startedAt) / SPIN_RAMP)
-    rate = from + (target - from) * (1 - (1 - progress) ** 2)
-    for (const spin of spins)
-      spin.updatePlaybackRate(rate)
-    if (progress < 1)
-      rampFrame = requestAnimationFrame(step)
-  }
-  rampFrame = requestAnimationFrame(step)
-}
-
-function syncSpins() {
-  const element = root.value
-  if (!element || typeof element.animate !== 'function')
-    return
-  if (!props.active || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-    stopSpins()
-    return
-  }
-  if (spins.length === 0) {
-    rate = targetRate()
-    spins = [...element.querySelectorAll<SVGGElement>('.pi-motion--spin')].map(target => target.animate(
-      [{ transform: 'rotate(0deg)' }, { transform: 'rotate(360deg)' }],
-      { duration: SPIN_PERIOD, iterations: Infinity, delay: (Number.parseFloat(target.style.animationDelay) || 0) * 1000, fill: 'backwards' },
-    ))
-    for (const spin of spins)
-      spin.updatePlaybackRate(rate)
-    return
-  }
-  rampTo(targetRate())
-}
-
-onMounted(syncSpins)
-watch(() => [props.active, props.speed], syncSpins)
-watch(() => props.icon, () => {
-  stopSpins()
-  nextTick(syncSpins)
+useEasedSpin(root, '.pi-motion--spin', {
+  active: () => props.active,
+  speed: () => props.speed,
+  key: () => props.icon,
 })
-onBeforeUnmount(stopSpins)
 </script>
 
 <template>

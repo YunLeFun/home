@@ -1,13 +1,7 @@
 <script setup lang="ts">
-import type { DeviceTone } from '../types'
+import type { DeviceGlyphProps } from '../types'
 
-withDefaults(defineProps<{
-  /** Whether the television is on; lights the screen */
-  active?: boolean
-  tone?: DeviceTone
-  /** Accessible title; the glyph is decorative when empty */
-  title?: string
-}>(), {
+withDefaults(defineProps<DeviceGlyphProps>(), {
   active: false,
   tone: 'idle',
   title: '',

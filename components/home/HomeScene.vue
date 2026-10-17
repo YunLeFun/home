@@ -16,6 +16,8 @@ const props = defineProps<{
   robotCleaning: boolean
   activeDevices: DeviceKind[]
   deviceTones?: Partial<Record<DeviceKind, DeviceTone>>
+  deviceMotionSpeeds?: Partial<Record<DeviceKind, number>>
+  deviceStates?: Partial<Record<DeviceKind, unknown>>
 }>()
 
 const emit = defineEmits<{
@@ -264,6 +266,8 @@ v-for="room in dimmedRooms" :key="room.id" :x="room.x" :y="room.y" :width="room.
         :edit-mode="editMode"
         :active="activeDevices.includes(item.placement.deviceId)"
         :tone="deviceTones?.[item.placement.deviceId]"
+        :speed="deviceMotionSpeeds?.[item.placement.deviceId]"
+        :state="deviceStates?.[item.placement.deviceId]"
         :invalid="draggingDeviceId === item.placement.deviceId && !previewValid"
         @select="emit('select', $event)"
         @drag="handleDrag"

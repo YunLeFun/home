@@ -1,13 +1,9 @@
 <script setup lang="ts">
-import type { DeviceTone } from '../types'
+import type { DeviceGlyphProps } from '../types'
 import { AcGlyph } from '@yunlefun-home/air-conditioner/controls'
 import { computed } from 'vue'
 
-const props = withDefaults(defineProps<{
-  active?: boolean
-  tone?: DeviceTone
-  title?: string
-}>(), {
+const props = withDefaults(defineProps<DeviceGlyphProps>(), {
   active: false,
   tone: 'idle',
   title: '',

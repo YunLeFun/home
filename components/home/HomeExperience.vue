@@ -45,6 +45,9 @@ const activeDevices = computed<DeviceKind[]>(() => library.installed.value.filte
 const deviceTones = computed(() => Object.fromEntries(
   HOME_DEVICE_ORDER.map(kind => [kind, getDeviceTone(kind, deviceStates[kind].state.value)]),
 ) as Record<DeviceKind, DeviceTone>)
+const deviceStateMap = computed(() => Object.fromEntries(
+  HOME_DEVICE_ORDER.map(kind => [kind, deviceStates[kind].state.value]),
+) as Record<DeviceKind, unknown>)
 const deviceMotionSpeeds = computed(() => Object.fromEntries(
   HOME_DEVICE_ORDER.map(kind => [kind, getDeviceMotionSpeed(kind, deviceStates[kind].state.value)]),
 ) as Record<DeviceKind, number>)
@@ -231,6 +234,8 @@ onUnmounted(() => {
         :robot-cleaning="robotState.status === 'cleaning'"
         :active-devices="activeDevices"
         :device-tones="deviceTones"
+        :device-motion-speeds="deviceMotionSpeeds"
+        :device-states="deviceStateMap"
         @select="selectDevice"
         @place="placeDevice"
         @nudge="editor.moveDeviceByKeyboard"
@@ -299,7 +304,7 @@ onUnmounted(() => {
       :style="{ left: `${trayDrag.x}px`, top: `${trayDrag.y}px` }"
       aria-hidden="true"
     >
-      <HomeDeviceGlyph :device-id="trayDrag.deviceId" :tone="deviceTones[trayDrag.deviceId]" />
+      <HomeDeviceGlyph :device-id="trayDrag.deviceId" :tone="deviceTones[trayDrag.deviceId]" :state="deviceStateMap[trayDrag.deviceId]" />
     </div>
   </div>
 </template>

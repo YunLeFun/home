@@ -15,6 +15,10 @@ const props = defineProps<{
   active?: boolean
   invalid?: boolean
   tone?: DeviceTone
+  /** Motion speed multiplier for the glyph */
+  speed?: number
+  /** Device state, passed to the plugin's glyph */
+  state?: unknown
 }>()
 
 const emit = defineEmits<{
@@ -107,7 +111,7 @@ function onKeydown(event: KeyboardEvent) {
   >
     <span class="home-device__halo" />
     <span v-if="active" class="home-device__pulse" aria-hidden="true" />
-    <HomeDeviceGlyph :device-id="deviceId" :active="active" :tone="tone" :title="definition.name" />
+    <HomeDeviceGlyph :device-id="deviceId" :active="active" :tone="tone" :title="definition.name" :speed="speed" :state="state" />
     <Transition name="status-pop">
       <span v-if="active" class="home-device__status" aria-label="设备运行中" />
     </Transition>
