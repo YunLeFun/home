@@ -3,7 +3,7 @@ import type { DeviceKind } from '~/types'
 import { computed } from 'vue'
 import { HOME_DEVICES } from '~/constants/home'
 import { resolveDevicePluginComponent } from '~/devices/registry'
-import { getDeviceTone, isDeviceRunning } from '~/utils/device'
+import { getDeviceMotionSpeed, getDeviceTone, isDeviceRunning } from '~/utils/device'
 
 const props = withDefaults(defineProps<{
   deviceId: DeviceKind
@@ -23,6 +23,7 @@ const definition = computed(() => HOME_DEVICES[props.deviceId])
 const control = computed(() => resolveDevicePluginComponent(props.deviceId, 'quickControl'))
 const running = computed(() => isDeviceRunning(props.deviceId, current.value.state.value))
 const tone = computed(() => getDeviceTone(props.deviceId, current.value.state.value))
+const motionSpeed = computed(() => getDeviceMotionSpeed(props.deviceId, current.value.state.value))
 
 const syncStatus = computed(() => current.value.binding.value ? current.value.linkStatus.value : current.value.syncStatus.value)
 const syncLabel = computed(() => {
@@ -47,7 +48,7 @@ const syncLabel = computed(() => {
     <header class="quick-control__header">
       <div class="quick-control__device">
         <span class="quick-control__thumb" :class="{ 'is-running': running }">
-          <PluginIcon :icon="definition.appIcon" :size="50" :active="running" :tone="tone" />
+          <PluginIcon :icon="definition.appIcon" :size="50" :active="running" :tone="tone" :speed="motionSpeed" />
         </span>
         <span><small>{{ standalone ? '设备控制' : '快捷控制' }}</small><strong>{{ definition.name }}</strong></span>
       </div>

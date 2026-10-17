@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { HOME_DEVICES } from '~/constants/home'
+import { createFanState } from '~/devices/fan/state'
 import { isPluginIconPaint, normalizePluginIcon, PLUGIN_ICON_LIMITS } from '~/devices/icon'
+import { createDefaultDeviceState, getDeviceMotionSpeed } from '~/utils/device'
 
 describe('plugin icons', () => {
   it.each(Object.values(HOME_DEVICES).map(device => [device.id, device.appIcon] as const))('ships a valid icon for %s', (_id, icon) => {
@@ -44,5 +46,17 @@ describe('plugin icons', () => {
       nested = { type: 'group', children: [nested] }
     const result = normalizePluginIcon({ background: ['#fff', '#000'], shapes: [nested] })
     expect(result.errors.some(error => error.includes('nested too deeply'))).toBe(true)
+  })
+})
+
+describe('icon motion speed', () => {
+  it('spins the fan icon faster at higher speeds', () => {
+    const fan = createFanState('2026-01-01T00:00:00.000Z')
+    const speeds = ([1, 2, 3] as const).map(speed => getDeviceMotionSpeed('fan', { ...fan, power: true, speed }))
+    expect(speeds).toEqual([1, 1.6, 2.2])
+  })
+
+  it('defaults to 1 for plugins without a motion speed', () => {
+    expect(getDeviceMotionSpeed('television', createDefaultDeviceState('television'))).toBe(1)
   })
 })

@@ -72,6 +72,11 @@ export interface DevicePluginState<K extends DeviceKind> {
   isActive: (state: DeviceStateByKind<K>) => boolean
   /** Visual tone derived from state */
   tone: (state: DeviceStateByKind<K>) => DeviceTone
+  /**
+   * Speed multiplier for the app icon's motion (1 by default), e.g. faster
+   * spinning blades at a higher fan speed
+   */
+  motionSpeed?: (state: DeviceStateByKind<K>) => number
 }
 
 /**

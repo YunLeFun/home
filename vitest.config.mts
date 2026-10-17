@@ -12,7 +12,8 @@ export default defineConfig({
   test: {
     environment: 'node',
     // Session worktrees live under .claude/ and carry their own copies of the tests.
-    exclude: [...configDefaults.exclude, '.claude/**'],
+    // SwiftPM checks package dependencies, with their own tests, out under .build/.
+    exclude: [...configDefaults.exclude, '.claude/**', '**/.build/**'],
     setupFiles: ['./tests/setup.ts'],
   },
 })

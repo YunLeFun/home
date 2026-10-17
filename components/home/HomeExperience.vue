@@ -6,7 +6,7 @@ import type { DeviceTone } from '~/devices/types'
 import type { DeviceKind, HomePoint, HomeTemplateId } from '~/types'
 import type { DeviceVisual } from '~/utils/scene3d/devices'
 import { HOME_DEVICES, HOME_DEVICE_ORDER } from '~/constants/home'
-import { getDeviceTone, isDeviceRunning } from '~/utils/device'
+import { getDeviceMotionSpeed, getDeviceTone, isDeviceRunning } from '~/utils/device'
 
 interface SceneApi {
   getWorldPoint: (clientX: number, clientY: number) => HomePoint | null
@@ -45,6 +45,9 @@ const activeDevices = computed<DeviceKind[]>(() => library.installed.value.filte
 const deviceTones = computed(() => Object.fromEntries(
   HOME_DEVICE_ORDER.map(kind => [kind, getDeviceTone(kind, deviceStates[kind].state.value)]),
 ) as Record<DeviceKind, DeviceTone>)
+const deviceMotionSpeeds = computed(() => Object.fromEntries(
+  HOME_DEVICE_ORDER.map(kind => [kind, getDeviceMotionSpeed(kind, deviceStates[kind].state.value)]),
+) as Record<DeviceKind, number>)
 const deviceVisuals = computed(() => {
   const fan = deviceStates.fan.state.value
   const ac = deviceStates['air-conditioner']
@@ -281,6 +284,7 @@ onUnmounted(() => {
       :active-devices="activeDevices"
       :device-tones="deviceTones"
       :device-ids="library.installed.value"
+      :device-motion-speeds="deviceMotionSpeeds"
       @select="selectDevice"
       @drag-start="handleTrayDragStart"
       @drag-move="handleTrayDragMove"

@@ -93,6 +93,7 @@ export const fanIcon = definePluginIcon({
 - 画布 64 × 64；图形只有 `group`、`path`、`circle`、`ellipse`、`rect`、`line`、`polyline`、`polygon`，属性白名单固定。
 - 颜色只接受十六进制与宿主色板：`tone`、`tone-soft` 跟随设备状态（制冷、制热、暖光…），`surface`、`ink` 跟随深浅色。
 - `when: 'active' | 'idle'` 按运行状态显隐；`motion` 只能选宿主动效 `spin`、`sway`、`pulse`、`float`、`blink`、`flow`，设备运行时播放，并遵循“减少动态效果”。
+- `delay` 期间图形停在动效第 0 帧（`flow` 此时透明），错开的图形依次淡入而不是先闪现。插件可以通过状态的 `motionSpeed`（原生端为 `present()` 返回的 `motionSpeed`）调节动效速度，例如风扇按档位加快扇叶；换档时宿主平滑过渡转速，不会跳帧。
 - `normalizePluginIcon()` 校验并清洗第三方图标：丢弃未知图形与属性、`url()`、脚本、事件与外部引用，限制图形数量（80）、嵌套（4 层）与路径长度。因为宿主只用固定元素渲染数据，第三方图标无法注入标记。
 - 原生客户端可按同一份数据用 SwiftUI `Path` 绘制，与 Web 一致。
 

@@ -73,3 +73,14 @@ export function isDeviceRunning<K extends DeviceKind>(kind: K, state: DeviceStat
 export function getDeviceTone<K extends DeviceKind>(kind: K, state: DeviceStateByKind<K>): DeviceTone {
   return requirePlugin(kind).state.tone(state)
 }
+
+/**
+ * Speed multiplier for the device's app icon motion.
+ *
+ * @param kind - Device kind
+ * @param state - Current runtime state
+ * @returns The multiplier, 1 when the plugin does not set one
+ */
+export function getDeviceMotionSpeed<K extends DeviceKind>(kind: K, state: DeviceStateByKind<K>): number {
+  return requirePlugin(kind).state.motionSpeed?.(state) ?? 1
+}

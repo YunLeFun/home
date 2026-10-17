@@ -72,6 +72,9 @@ export function fanTone(state: FanState): DeviceTone {
   return state.power ? 'active' : 'idle'
 }
 
+/** Icon spin speed for each fan speed level. */
+const FAN_MOTION_SPEEDS = { 1: 1, 2: 1.6, 3: 2.2 } as const
+
 export const fanState: DevicePluginState<'fan'> = {
   create: createFanState,
   normalize: normalizeFanState,
@@ -79,4 +82,5 @@ export const fanState: DevicePluginState<'fan'> = {
   isAction: isFanAction,
   isActive: state => state.power,
   tone: fanTone,
+  motionSpeed: state => FAN_MOTION_SPEEDS[state.speed],
 }

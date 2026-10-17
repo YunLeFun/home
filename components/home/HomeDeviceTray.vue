@@ -13,6 +13,8 @@ const props = defineProps<{
   editMode: boolean
   activeDevices: DeviceKind[]
   deviceTones?: Partial<Record<DeviceKind, DeviceTone>>
+  /** App icon motion speed of each device */
+  deviceMotionSpeeds?: Partial<Record<DeviceKind, number>>
   /** Installed devices, in tray order */
   deviceIds?: DeviceKind[]
 }>()
@@ -36,6 +38,7 @@ const devices = computed(() => (props.deviceIds ?? HOME_DEVICE_ORDER).map((devic
     placed: Boolean(placement?.surfaceId),
     active: props.activeDevices.includes(deviceId),
     tone: props.deviceTones?.[deviceId] ?? 'idle',
+    motionSpeed: props.deviceMotionSpeeds?.[deviceId] ?? 1,
     roomName: placement?.roomId ? roomNameById.value[placement.roomId] : '',
   }
 }))
@@ -123,7 +126,7 @@ function onRoomChange(deviceId: DeviceKind, event: Event) {
               @pointerup="onPointerUp(device.id, $event)"
               @pointercancel="onPointerUp(device.id, $event)"
             >
-              <span class="device-tray__image"><PluginIcon :icon="device.appIcon" :size="48" :active="device.active" :tone="device.tone" /></span>
+              <span class="device-tray__image"><PluginIcon :icon="device.appIcon" :size="48" :active="device.active" :tone="device.tone" :speed="device.motionSpeed" /></span>
               <span class="device-tray__copy"><strong>{{ device.name }}</strong><small>{{ deviceSubtitle(device) }}</small></span>
               <span class="device-tray__badge" :class="device.active ? 'i-carbon-play-filled-alt' : device.placed ? 'i-carbon-checkmark-filled' : 'i-carbon-add-alt'" />
             </button>

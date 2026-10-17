@@ -2,7 +2,7 @@
 import type { FunctionalComponent } from 'vue'
 import type { DevicePluginIcon, PluginIconShape } from '~/devices/icon'
 import type { DeviceTone } from '~/devices/types'
-import { computed, h } from 'vue'
+import { computed, h, nextTick, onBeforeUnmount, onMounted, shallowRef, watch } from 'vue'
 
 const props = withDefaults(defineProps<{
   icon: DevicePluginIcon
@@ -85,12 +85,76 @@ const style = computed(() => ({
   '--pi-bg-2': props.icon.background[1],
   '--pi-bg-dark-1': props.icon.backgroundDark?.[0] ?? `color-mix(in oklab, ${props.icon.background[0]} 62%, #14233a)`,
   '--pi-bg-dark-2': props.icon.backgroundDark?.[1] ?? `color-mix(in oklab, ${props.icon.background[1]} 58%, #0e1828)`,
-  '--pi-speed': String(Math.max(0.25, props.speed)),
 }))
+
+// Spin runs on the Web Animations API rather than CSS so that a speed change
+// eases the playback rate without restarting or jumping the rotation.
+const SPIN_PERIOD = 1100
+const SPIN_RAMP = 500
+const root = shallowRef<HTMLElement | null>(null)
+let spins: Animation[] = []
+let rate = 1
+let rampFrame = 0
+
+function stopSpins() {
+  cancelAnimationFrame(rampFrame)
+  for (const spin of spins)
+    spin.cancel()
+  spins = []
+}
+
+function targetRate() {
+  return Math.max(0.25, props.speed)
+}
+
+function rampTo(target: number) {
+  cancelAnimationFrame(rampFrame)
+  const from = rate
+  const startedAt = performance.now()
+  const step = (now: number) => {
+    const progress = Math.min(1, (now - startedAt) / SPIN_RAMP)
+    rate = from + (target - from) * (1 - (1 - progress) ** 2)
+    for (const spin of spins)
+      spin.updatePlaybackRate(rate)
+    if (progress < 1)
+      rampFrame = requestAnimationFrame(step)
+  }
+  rampFrame = requestAnimationFrame(step)
+}
+
+function syncSpins() {
+  const element = root.value
+  if (!element || typeof element.animate !== 'function')
+    return
+  if (!props.active || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    stopSpins()
+    return
+  }
+  if (spins.length === 0) {
+    rate = targetRate()
+    spins = [...element.querySelectorAll<SVGGElement>('.pi-motion--spin')].map(target => target.animate(
+      [{ transform: 'rotate(0deg)' }, { transform: 'rotate(360deg)' }],
+      { duration: SPIN_PERIOD, iterations: Infinity, delay: (Number.parseFloat(target.style.animationDelay) || 0) * 1000, fill: 'backwards' },
+    ))
+    for (const spin of spins)
+      spin.updatePlaybackRate(rate)
+    return
+  }
+  rampTo(targetRate())
+}
+
+onMounted(syncSpins)
+watch(() => [props.active, props.speed], syncSpins)
+watch(() => props.icon, () => {
+  stopSpins()
+  nextTick(syncSpins)
+})
+onBeforeUnmount(stopSpins)
 </script>
 
 <template>
   <span
+    ref="root"
     class="plugin-icon"
     :data-active="active"
     :data-tone="tone"
@@ -161,15 +225,14 @@ const style = computed(() => ({
 .plugin-icon[data-active="false"] .pi-when--active,
 .plugin-icon[data-active="true"] .pi-when--idle { opacity: 0; }
 
+/* Each motion uses fill-mode backwards: a delayed shape holds its first frame, so staggered shapes fade in rather than flash. */
 .plugin-icon .pi-motion { transform-box: view-box; }
-.plugin-icon[data-active="true"] .pi-motion--spin { animation: pi-spin calc(1.1s / var(--pi-speed)) linear infinite; }
-.plugin-icon[data-active="true"] .pi-motion--sway { animation: pi-sway 3.2s ease-in-out infinite; }
-.plugin-icon[data-active="true"] .pi-motion--pulse { animation: pi-pulse 2.2s ease-in-out infinite; }
-.plugin-icon[data-active="true"] .pi-motion--float { animation: pi-float 2.6s ease-in-out infinite; }
-.plugin-icon[data-active="true"] .pi-motion--blink { animation: pi-blink 2.8s ease-in-out infinite; }
-.plugin-icon[data-active="true"] .pi-motion--flow { animation: pi-flow 1.8s ease-in infinite; }
+.plugin-icon[data-active="true"] .pi-motion--sway { animation: pi-sway 3.2s ease-in-out infinite backwards; }
+.plugin-icon[data-active="true"] .pi-motion--pulse { animation: pi-pulse 2.2s ease-in-out infinite backwards; }
+.plugin-icon[data-active="true"] .pi-motion--float { animation: pi-float 2.6s ease-in-out infinite backwards; }
+.plugin-icon[data-active="true"] .pi-motion--blink { animation: pi-blink 2.8s ease-in-out infinite backwards; }
+.plugin-icon[data-active="true"] .pi-motion--flow { animation: pi-flow 1.8s ease-in infinite backwards; }
 
-@keyframes pi-spin { to { transform: rotate(360deg); } }
 @keyframes pi-sway { 0%, 100% { transform: rotate(-14deg); } 50% { transform: rotate(14deg); } }
 @keyframes pi-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.12); } }
 @keyframes pi-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2.5px); } }
