@@ -9,7 +9,8 @@ struct HABindingEditor: View {
   @State private var discovery = HADiscovery()
   @State private var address = "http://homeassistant.local:8123"
   @State private var token = ""
-  @State private var selected = ""
+  @State private var selected = Set<String>()
+  @State private var rooms: [String: HomeRoom] = [:]
   @State private var busy = false
   @State private var tested = false
   @State private var adopted = false
@@ -23,7 +24,7 @@ struct HABindingEditor: View {
         Image(systemName: "house.and.flag").font(.title).foregroundStyle(HomeTheme.brand)
         VStack(alignment: .leading, spacing: 4) {
           Text("连接真实空调").font(.title2.weight(.semibold))
-          Text("先在 Home Assistant 中接入空调，再选择对应实体。")
+          Text("选择一台或多台空调，并确认它们所在的房间。")
             .font(.callout).foregroundStyle(.secondary)
         }
       }
@@ -68,25 +69,46 @@ struct HABindingEditor: View {
       HStack {
         Button("测试连接", systemImage: "bolt.horizontal.circle") { testConnection() }
           .disabled(busy || token.isEmpty || address.isEmpty)
+        if store.haDevices.contains(where: { $0.binding.endpoint.baseURL.absoluteString == address }) {
+          Button("使用已保存令牌") {
+            do {
+              token = try HAKeychainCredentials().load(for: HAEndpoint(address)) ?? ""
+              // Token changes invalidate an earlier test; the next click starts a fresh one.
+            } catch { errorMessage = HAError.credentialStore.localizedDescription }
+          }.disabled(busy)
+        }
         if busy { ProgressView().controlSize(.small); Text("正在读取设备…").font(.caption) }
         if tested { Label("连接成功", systemImage: "checkmark.circle").foregroundStyle(HomeTone.running.text) }
       }
       if tested {
+        if candidate.roomLookupFailed { Text("未能读取 HA 分区，可手动选择房间。").font(.caption).foregroundStyle(.secondary) }
         if candidate.entities.isEmpty {
           Text("HA 中还没有 climate 空调实体。请先安装小米等设备集成，并确认 HA 可以控制空调。")
             .font(.callout).foregroundStyle(.secondary)
         } else {
-          Picker("空调实体", selection: $selected) {
-            Text("请选择空调").tag("")
-            ForEach(candidate.entities) { entity in
-              Text("\(entity.name) · \(entity.id)\(entity.unsupportedReason == nil ? "" : " · 暂不支持")")
-                .tag(entity.id).disabled(entity.unsupportedReason != nil)
+          ScrollView {
+            VStack(alignment: .leading, spacing: 14) {
+              ForEach(candidate.entities) { entity in
+                VStack(alignment: .leading, spacing: 6) {
+                  Toggle(entity.name, isOn: Binding(
+                    get: { selected.contains(entity.id) },
+                    set: { if $0 { selected.insert(entity.id) } else { selected.remove(entity.id) } }
+                  )).toggleStyle(.checkbox).disabled(entity.unsupportedReason != nil)
+                  HStack {
+                    Text(entity.unsupportedReason ?? "\(haModeName(entity.mode)) · \(entity.minimum.formatted())–\(entity.maximum.formatted())°C · 步进 \(entity.step.formatted())°C")
+                      .font(.caption).foregroundStyle(.secondary)
+                    Spacer()
+                    HARoomPicker(room: rooms[entity.id] ?? .unassigned, options: store.rooms + rooms.values.sorted { $0.name < $1.name }) {
+                      rooms[entity.id] = $0
+                    }
+                  }
+                  Text(entity.id).font(.caption2).foregroundStyle(.tertiary).textSelection(.enabled)
+                }
+                Divider()
+              }
             }
-          }
-          if let entity = candidate.entities.first(where: { $0.id == selected }) {
-            Text(entity.unsupportedReason ?? "\(haModeName(entity.mode)) · \(entity.minimum.formatted())–\(entity.maximum.formatted())°C · 步进 \(entity.step.formatted())°C")
-              .font(.caption).foregroundStyle(.secondary)
-          }
+          }.frame(maxHeight: 250)
+          Text("已选择 \(selected.count) 台；保存会添加或更新所选设备，保留其余绑定。").font(.caption).foregroundStyle(.secondary)
         }
       }
       if let errorMessage {
@@ -102,7 +124,9 @@ struct HABindingEditor: View {
         Spacer()
         Button("保存绑定") {
           do {
-            try store.bindHomeAssistant(candidate, entityID: selected)
+            try store.bindHomeAssistants(candidate, selections: candidate.entities.filter { selected.contains($0.id) }.map {
+              HADeviceSelection(entityID: $0.id, room: rooms[$0.id] ?? .unassigned)
+            })
             adopted = true
             token = ""
             dismiss()
@@ -111,7 +135,7 @@ struct HABindingEditor: View {
           .disabled(!tested || selected.isEmpty || busy || candidate.state != .online)
       }
     }
-    .padding(26).frame(width: 580).tint(HomeTheme.brand)
+    .padding(26).frame(width: 660).tint(HomeTheme.brand)
     .onAppear { if let binding = store.haBinding { address = binding.endpoint.baseURL.absoluteString } }
     .onChange(of: address) { _, _ in invalidateTest() }
     .onChange(of: token) { _, _ in invalidateTest() }
@@ -128,7 +152,8 @@ struct HABindingEditor: View {
     candidate.disconnect()
     tested = false
     busy = false
-    selected = ""
+    selected = []
+    rooms = [:]
     errorMessage = nil
   }
   private func testConnection() {
@@ -140,8 +165,13 @@ struct HABindingEditor: View {
       do {
         try await candidate.connect(to: HAEndpoint(address), token: token)
         guard !Task.isCancelled else { return }
+        await candidate.loadRooms()
+        guard !Task.isCancelled else { return }
+        rooms = Dictionary(uniqueKeysWithValues: candidate.entities.map { entity in
+          let existing = store.haDevices.first { $0.binding.endpoint == candidate.endpoint && $0.binding.entityID == entity.id }
+          return (entity.id, existing?.room ?? HomeRoom(name: candidate.entityRooms[entity.id] ?? ""))
+        })
         tested = true
-        if candidate.entities.count == 1, let entity = candidate.entities.first, entity.unsupportedReason == nil { selected = entity.id }
       } catch {
         guard !Task.isCancelled else { return }
         errorMessage = (error as? HAError ?? .disconnected).localizedDescription
@@ -156,33 +186,85 @@ struct HAConnectionSummary: View {
   @State private var editing = false
   @State private var message: String?
   var body: some View {
-    VStack(alignment: .leading, spacing: 12) {
+    VStack(alignment: .leading, spacing: 14) {
       HStack {
         Label("真实空调", systemImage: "network").font(.headline)
         Spacer()
-        if store.haBinding != nil { Text(store.homeAssistant.state.name).font(.caption).foregroundStyle(.secondary) }
+        Text("\(store.haDevices.count) 台已绑定").font(.caption).foregroundStyle(.secondary)
+        Button(store.haDevices.isEmpty ? "绑定真实设备" : "添加空调或更新令牌", systemImage: "link") { editing = true }
       }
-      if let binding = store.haBinding {
-        Text(store.homeAssistant.snapshot?.name ?? binding.entityID).font(.callout.weight(.medium))
-        Text("\(binding.endpoint.baseURL.absoluteString) · \(binding.entityID)").font(.caption).foregroundStyle(.secondary)
-        if let reason = store.homeAssistant.snapshot?.unsupportedReason { Text(reason).font(.caption).foregroundStyle(.orange) }
-        if let error = store.homeAssistant.error { Text(error).font(.caption).foregroundStyle(.orange) }
-        HStack {
-          Button("重新连接或更换设备") { editing = true }
-          Button("解除绑定") { store.unbindHomeAssistant() }
-          Menu("更多") {
-            Button("删除此 HA 的本机令牌", role: .destructive) {
-              do { try store.homeAssistant.forgetCredential() }
-              catch { message = HAError.credentialStore.localizedDescription }
-            }
-          }.fixedSize()
-        }
-      } else {
-        Text("绑定 Home Assistant 中的空调，支持开关、冷暖模式和温度控制。")
+      if store.haDevices.isEmpty {
+        Text("连接 Home Assistant 中的空调，支持开关、冷暖模式和温度控制。")
           .font(.callout).foregroundStyle(.secondary)
-        Button("绑定真实设备", systemImage: "link") { editing = true }
       }
+      ForEach(store.haDevices) { device in
+        VStack(alignment: .leading, spacing: 7) {
+          HStack {
+            Button(device.name) { store.selectHADevice(device.id) }.buttonStyle(.plain).font(.callout.weight(.medium))
+            Spacer()
+            Text(store.haStatus(device.id)).font(.caption).foregroundStyle(.secondary)
+          }
+          Text("\(device.binding.endpoint.baseURL.absoluteString) · \(device.binding.entityID)")
+            .font(.caption2).foregroundStyle(.secondary).textSelection(.enabled)
+          if let reason = store.haConnections[device.id]?.snapshot?.unsupportedReason { Text(reason).font(.caption).foregroundStyle(.orange) }
+          if let error = store.haConnections[device.id]?.error { Text(error).font(.caption).foregroundStyle(.orange) }
+          HStack {
+            HARoomPicker(room: device.room, options: store.rooms) { store.moveHADevice(device.id, to: $0) }
+            Spacer()
+            Button("重新连接") { store.reconnectHADevices(at: device.binding.endpoint) }
+            Button("解除绑定") { store.removeHADevice(device.id) }
+            Menu("更多") {
+              Button("删除此 HA 的令牌并断开所有设备", role: .destructive) {
+                do { try store.forgetHACredential(at: device.binding.endpoint) }
+                catch { message = HAError.credentialStore.localizedDescription }
+              }
+            }.fixedSize()
+          }
+        }
+        Divider()
+      }
+      Text("房间映射保存在本机，不会改动米家或 HA 的分区。").font(.caption).foregroundStyle(.secondary)
       if let message { Text(message).font(.caption).foregroundStyle(.orange) }
     }.sheet(isPresented: $editing) { HABindingEditor(store: store) }
+  }
+}
+
+struct HARoomPicker: View {
+  let room: HomeRoom
+  let options: [HomeRoom]
+  let set: (HomeRoom) -> Void
+  @State private var adding = false
+  @State private var name = ""
+  private var choices: [HomeRoom] {
+    var seen = Set<HomeRoom>()
+    return (options + [room, .unassigned]).filter { seen.insert($0).inserted }
+  }
+  var body: some View {
+    Menu {
+      ForEach(choices) { choice in Button(choice.name) { set(choice) } }
+      Divider()
+      Button("新建房间…") { name = ""; adding = true }
+    } label: { Label(room.name, systemImage: room.symbol) }
+      .fixedSize().accessibilityLabel("所在房间：\(room.name)")
+      .popover(isPresented: $adding) {
+        VStack(alignment: .leading, spacing: 12) {
+          Text("房间名称").font(.headline)
+          TextField("例如：书房", text: $name).textFieldStyle(.roundedBorder)
+          Button("保存房间") { set(HomeRoom(name: name)); adding = false }
+            .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        }.padding(18).frame(width: 240)
+      }
+  }
+}
+
+struct HADeviceSelector: View {
+  let store: HomeStore
+  var body: some View {
+    if !store.haDevices.isEmpty {
+      Picker("当前空调", selection: Binding(get: { store.selectedHAID ?? "" }, set: { store.selectHADevice($0) })) {
+        ForEach(store.haDevices) { device in Text(device.label).tag(device.id) }
+      }
+      .accessibilityLabel("当前控制的空调")
+    }
   }
 }

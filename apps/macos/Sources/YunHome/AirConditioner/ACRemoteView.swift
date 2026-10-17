@@ -7,6 +7,7 @@ final class ACRemoteContainerView: ACSceneContainerView {
   private let store: HomeStore
   private let draggable: Bool
   private var downAction: ACRemoteAction?
+  private var downDeviceID: String?
   private var downPoint: CGPoint?
   private var dragged = false
   private var accessibilityButtons: [ACRemoteAccessibilityButton] = []
@@ -60,7 +61,7 @@ final class ACRemoteContainerView: ACSceneContainerView {
   }
 
   private func updateAccessibility() {
-    setAccessibilityValue("\(store.status(for: .airConditioner))，\(store.acState.temperatureLabel)摄氏度")
+    setAccessibilityValue("\(store.acDisplayName)，\(store.status(for: .airConditioner))，\(store.acState.temperatureLabel)摄氏度")
     for element in accessibilityButtons {
       element.setAccessibilityEnabled(element.action.isEnabled(in: store))
       let rect = convert(remote.buttonFrame(element.action, in: bounds.size), to: nil)
@@ -83,6 +84,7 @@ final class ACRemoteContainerView: ACSceneContainerView {
     if let action = remote.action(at: point, in: bounds.size) {
       guard action.isEnabled(in: store) else { return }
       downAction = action
+      downDeviceID = store.selectedHAID
       renderForChange()
       remote.setPressed(action)
     } else if draggable {
@@ -105,7 +107,7 @@ final class ACRemoteContainerView: ACSceneContainerView {
     remote.setPressed(nil)
     downAction = nil
     downPoint = nil
-    if !dragged && remote.action(at: point, in: bounds.size) == action { action.perform(in: store) }
+    if !dragged && downDeviceID == store.selectedHAID && remote.action(at: point, in: bounds.size) == action { action.perform(in: store) }
   }
 
   @discardableResult

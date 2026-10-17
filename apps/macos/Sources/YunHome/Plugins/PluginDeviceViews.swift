@@ -192,7 +192,7 @@ struct PluginDeviceDetail: View {
           }
           Spacer()
           Picker("所在房间", selection: Binding(get: { instance.room }, set: { store.move(plugin: instance.id, to: $0) })) {
-            ForEach(HomeRoom.allCases) { Text($0.name).tag($0) }
+            ForEach(store.rooms) { Text($0.name).tag($0) }
           }.frame(width: 160)
         }
 

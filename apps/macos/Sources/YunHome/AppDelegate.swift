@@ -5,6 +5,7 @@ import Observation
 import ReleaseCheck
 import SwiftUI
 import HomeCore
+import HomeDeviceKit
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSPopoverDelegate {
@@ -33,7 +34,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSPo
       store = HomeStore(defaults: defaults)
       store.send(.ac(.toggle))
       store.send(.fan(.speed(1)))
-    } else { store = HomeStore() }
+    } else { store = HomeStore(sharedBindings: HAFileBindingCatalog()) }
     super.init()
   }
 

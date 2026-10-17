@@ -12,16 +12,20 @@ struct DeviceDetail: View {
         HStack(spacing: 14) {
           DeviceBadge(device: device, size: 48)
           VStack(alignment: .leading, spacing: 6) {
-            Text(device.name).font(.title2.weight(.semibold))
+            Text(device == .airConditioner ? store.acDisplayName : device.name).font(.title2.weight(.semibold))
             Text(store.status(for: device)).foregroundStyle(.secondary)
           }
           Spacer()
+          if device == .airConditioner, let selected = store.selectedHADevice {
+            HARoomPicker(room: selected.room, options: store.rooms) { store.moveHADevice(selected.id, to: $0) }
+          } else {
           Picker("所在房间", selection: Binding(
             get: { store.snapshot.room(for: device) },
             set: { store.send(.move(device, $0)) }
           )) {
-            ForEach(HomeRoom.allCases) { Text($0.name).tag($0) }
+            ForEach(store.rooms) { Text($0.name).tag($0) }
           }.frame(width: 160)
+          }
         }
         Group {
           switch device {
@@ -46,6 +50,8 @@ struct ACControls: View {
   private var mode: String { store.haBinding == nil ? (state.mode == .cold ? "cool" : "heat") : store.homeAssistant.displayMode }
   private var temperatureEnabled: Bool { store.haBinding == nil || store.homeAssistant.snapshot?.supportsTemperature == true }
   private var stageStatus: String {
+    if store.haBinding != nil && store.homeAssistant.state != .online { return store.homeAssistant.state.name }
+    if let snapshot = store.homeAssistant.snapshot, store.haBinding != nil, !snapshot.available { return haModeName(snapshot.mode) }
     guard state.status else { return "待机" }
     switch mode {
     case "cool": return "制冷中"
@@ -56,6 +62,7 @@ struct ACControls: View {
   private func supports(_ mode: String) -> Bool { store.haBinding == nil || store.homeAssistant.snapshot?.modes.contains(mode) == true }
   var body: some View {
     VStack(spacing: 18) {
+      HADeviceSelector(store: store)
       modelStage
       ViewThatFits(in: .horizontal) {
         HStack(alignment: .top, spacing: 16) {
@@ -78,11 +85,17 @@ struct ACControls: View {
                         tone: state.status ? (state.mode == .cold ? .cool : .heat) : nil)
       }
       HStack(spacing: 12) {
-        ACPreview(state: state, room: store.room)
+        ACPreview(state: state, room: store.haBinding == nil ? store.room : nil)
           .frame(maxWidth: .infinity).frame(height: 220)
         ACRemotePreview(store: store).frame(width: 138, height: 250)
       }
-      if let room = store.room { RoomSummary(room: room) }
+      if store.haBinding != nil {
+        if store.homeAssistant.state == .online, let snapshot = store.homeAssistant.snapshot, snapshot.available,
+           let temperature = snapshot.currentTemperature {
+          Label("室温 \(temperature.formatted())\(snapshot.temperatureUnit ?? "") · 空调传感器", systemImage: "thermometer.medium")
+            .font(.caption).foregroundStyle(.secondary)
+        }
+      } else if let room = store.room { RoomSummary(room: room) }
       HStack {
         Label("拖动空调旋转视角", systemImage: "hand.draw")
         Spacer()

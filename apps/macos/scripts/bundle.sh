@@ -2,8 +2,9 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-swift build -c release
-BIN_DIR="$(swift build -c release --show-bin-path)"
+CONFIGURATION="${CONFIGURATION:-release}"
+swift build -c "$CONFIGURATION"
+BIN_DIR="$(swift build -c "$CONFIGURATION" --show-bin-path)"
 APP="$PWD/build/YunHome.app"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN_DIR/YunHome" "$APP/Contents/MacOS/YunHome"
@@ -33,7 +34,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 <plist version="1.0"><dict>
   <key>CFBundleExecutable</key><string>YunHome</string>
   <key>CFBundleIdentifier</key><string>fun.yunle.home</string>
-  <key>CFBundleName</key><string>YunHome</string>
+  <key>CFBundleName</key><string>云之彼端</string>
   <key>CFBundleDisplayName</key><string>云之彼端</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>$VERSION</string>

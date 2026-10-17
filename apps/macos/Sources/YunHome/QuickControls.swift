@@ -51,8 +51,24 @@ struct QuickControls: View {
       }
       Divider()
       VStack(spacing: 13) {
-        ForEach(DeviceKind.allCases) { device in
+        ForEach(store.virtualDevices) { device in
           QuickDeviceRow(store: store, device: device, open: { openDevice(device) })
+        }
+        ForEach(store.haDevices) { device in
+          HStack {
+            Button {
+              store.selectHADevice(device.id); openDevice(.airConditioner)
+            } label: {
+              VStack(alignment: .leading, spacing: 3) {
+                Text(device.label).font(.callout.weight(.medium)).lineLimit(1)
+                Text(store.haStatus(device.id)).font(.caption).foregroundStyle(.secondary)
+              }
+            }.buttonStyle(.plain)
+            Spacer()
+            Toggle(device.label, isOn: Binding(get: { store.isHAActive(device.id) }, set: { _ in store.toggleHADevice(device.id) }))
+              .labelsHidden().toggleStyle(.switch).controlSize(.small)
+              .disabled(store.haConnections[device.id]?.canControl != true)
+          }
         }
         ForEach(store.snapshot.plugins) { instance in
           QuickPluginRow(store: store, instance: instance, open: { openPlugin(instance.id) })
