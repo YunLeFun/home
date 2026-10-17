@@ -59,6 +59,9 @@ The home page uses a renderer-independent 2D/2.5D scene model:
 - The 3D diorama (`components/home/HomeScene3D.vue`, `utils/scene3d/`) edits in place: surfaces that accept the selected device light up, a pointer or touch drag casts a ray onto those surfaces' planes and maps the hit back to world coordinates (`findSurfaceAlongRay`), and the drop goes through the same `createPlacementAtPoint` rules as the 2D scene. A marker previews the drop and turns coral where it is not allowed. Selected devices can be rotated or moved out of the room from a toolbar, or with the arrow keys, `R` and `Delete` on their hotspot.
 - Layout and device snapshots carry an ISO `changedAt` timestamp. Login, reconnect, focus, and online events compare local and cloud timestamps; the newer snapshot wins and is synchronized back using last-write-wins semantics.
 
+- The server render and first paint show a pre-rendered poster of the 3D home (`public/scene/<template>-<day|night>-<width>.webp`, `HomeScenePoster.vue`) until the diorama has drawn its first frame. Browsers without WebGL2, or that lose the WebGL context, keep the poster with a note, and devices are controlled and placed from the device tray. Regenerate the posters with `pnpm scene:posters` against a running dev server after changing the 3D scene.
+- With `prefers-reduced-motion: reduce` the home stays 3D: ambient motion and camera easing stop and frames only render when something changes. The preference is followed live.
+
 The first release includes `cloud-apartment`, `studio`, and `comfort-suite`. A future WebGL renderer can consume the same home and device state without migrating stored placements.
 
 ## YunLe / CloudBase Auth

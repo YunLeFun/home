@@ -44,6 +44,7 @@ const dropValid = shallowRef(true)
 const hotspots = new Map<DeviceKind, HTMLElement>()
 let scene: HomeScene3D | null = null
 let resizeObserver: ResizeObserver | undefined
+let motionQuery: MediaQueryList | undefined
 let visibilityObserver: IntersectionObserver | undefined
 let onScreen = true
 
@@ -259,10 +260,12 @@ onMounted(async () => {
     if (!canvas.value)
       return
     const mobile = window.innerWidth <= 720
+    motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
+    motionQuery.addEventListener('change', syncMotion)
     scene = new HomeScene3D({
       canvas: element,
       mobile,
-      reducedMotion: window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+      reducedMotion: motionQuery.matches,
       onProject: applyAnchors,
     })
     element.addEventListener('webglcontextlost', (event) => {
@@ -307,7 +310,12 @@ onMounted(async () => {
   }
 })
 
+function syncMotion() {
+  scene?.setReducedMotion(Boolean(motionQuery?.matches))
+}
+
 onUnmounted(() => {
+  motionQuery?.removeEventListener('change', syncMotion)
   resizeObserver?.disconnect()
   visibilityObserver?.disconnect()
   scene?.dispose()
@@ -340,7 +348,7 @@ watch(() => props.hidden, syncPaused)
 <template>
   <section
     ref="shell"
-    class="home-scene3d"
+    class="home-scene3d home-sky"
     :class="{ 'is-ready': ready, 'is-editing': editMode, 'is-dragging': draggingId }"
     :data-phase="phase"
     aria-label="云之彼端 3D 家园"
@@ -414,8 +422,6 @@ watch(() => props.hidden, syncPaused)
 
 <style scoped>
 .home-scene3d {
-  --s3-sky-1: #e3eefb;
-  --s3-sky-2: #f7f2ea;
   position: relative;
   overflow: hidden;
   width: min(100%, calc((100dvh - 222px) * 2));
@@ -423,19 +429,12 @@ watch(() => props.hidden, syncPaused)
   aspect-ratio: 2 / 1;
   border: 1px solid var(--brand-line);
   border-radius: var(--ylf-radius-xl);
-  background:
-    radial-gradient(90% 70% at 50% 0%, color-mix(in oklab, var(--s3-sky-1) 80%, white), transparent 70%),
-    linear-gradient(180deg, var(--s3-sky-1), var(--s3-sky-2));
   box-shadow: var(--shadow-lg), inset 0 1px var(--brand-highlight);
   opacity: 0;
   transition: opacity 700ms var(--ease-out), background 1.6s ease;
 }
 
 .home-scene3d.is-ready { opacity: 1; }
-.home-scene3d[data-phase="dawn"] { --s3-sky-1: #fde3d6; --s3-sky-2: #fbf0e4; }
-.home-scene3d[data-phase="dusk"] { --s3-sky-1: #fbd2bd; --s3-sky-2: #f6e3cf; }
-.home-scene3d[data-phase="night"] { --s3-sky-1: #15253f; --s3-sky-2: #22324c; }
-
 .home-scene3d__canvas {
   position: absolute;
   inset: 0;
@@ -644,6 +643,7 @@ watch(() => props.hidden, syncPaused)
 
 @media (prefers-reduced-motion: reduce) {
   .home-scene3d__hotspot[data-selected="true"]::after,
+  .home-scene3d { transition: none; }
   .home-scene3d__hint { animation: none; }
   .toolbar-enter-active, .toolbar-leave-active { transition: none; }
 }

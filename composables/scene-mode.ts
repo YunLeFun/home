@@ -3,6 +3,13 @@ import { computed, onMounted } from 'vue'
 /** How the home scene is drawn: the 3D diorama or the nostalgic 2D plan. */
 export type SceneMode = '3d' | '2d'
 
+/**
+ * What draws the home right now: the 3D diorama, the 2D plan when chosen, or
+ * a pre-rendered poster of the diorama while 3D cannot run (server render,
+ * first paint, no WebGL2, or a lost context).
+ */
+export type SceneRenderer = '3d' | '2d' | 'poster'
+
 const STORAGE_KEY = 'yun-home:scene-mode'
 
 function readPreference(): SceneMode | null {
@@ -25,30 +32,29 @@ function supportsWebGL2() {
 }
 
 /**
- * The scene mode preference. 3D is the default where WebGL2 is available and
- * reduced motion is off; the server and the first client paint draw 2D, then
- * the client switches once it knows what the device supports.
+ * The scene mode preference. 3D is the default, reduced motion included (it
+ * renders on demand then). The server and the first client paint show the
+ * poster; the client starts 3D once it knows WebGL2 is available.
  */
 export function useSceneMode() {
   const preference = useState<SceneMode | null>('scene-mode-preference', () => null)
   const supported = useState('scene-mode-3d-supported', () => false)
-  const reducedMotion = useState('scene-mode-reduced-motion', () => false)
   const resolved = useState('scene-mode-resolved', () => false)
 
   onMounted(() => {
     if (resolved.value)
       return
     supported.value = supportsWebGL2()
-    reducedMotion.value = window.matchMedia('(prefers-reduced-motion: reduce)').matches
     preference.value = readPreference()
     resolved.value = true
   })
 
-  const mode = computed<SceneMode>(() => {
-    if (!resolved.value || !supported.value)
+  const renderer = computed<SceneRenderer>(() => {
+    if (preference.value === '2d')
       return '2d'
-    return preference.value ?? (reducedMotion.value ? '2d' : '3d')
+    return resolved.value && supported.value ? '3d' : 'poster'
   })
+  const mode = computed<SceneMode>(() => renderer.value === '2d' ? '2d' : '3d')
 
   function setMode(next: SceneMode) {
     preference.value = next
@@ -60,10 +66,10 @@ export function useSceneMode() {
     }
   }
 
-  /** Fall back to 2D for this visit, for example after losing the WebGL context. */
+  /** Fall back to the poster for this visit, for example after losing the WebGL context. */
   function disable3d() {
     supported.value = false
   }
 
-  return { mode, supported, resolved, reducedMotion, setMode, disable3d }
+  return { mode, renderer, supported, resolved, setMode, disable3d }
 }

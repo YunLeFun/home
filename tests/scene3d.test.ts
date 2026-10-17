@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { createDefaultHomeState, HOME_TEMPLATES } from '~/constants/home'
 import { SCENE3D_TEMPLATES } from '~/constants/scene3d'
@@ -127,5 +128,14 @@ describe('3D placement', () => {
     const template = HOME_TEMPLATES.studio
     const up: Ray3 = { origin: { x: 0, y: 5, z: 10 }, direction: { x: 0, y: 1, z: 0 } }
     expect(findSurfaceAlongRay(template, 'fan', up)).toBeNull()
+  })
+})
+
+describe('3D scene posters', () => {
+  it.each(templateIds)('ships a day and a night poster of %s in both sizes', (templateId) => {
+    for (const variant of ['day', 'night']) {
+      for (const width of [800, 1600])
+        expect(existsSync(new URL(`../public/scene/${templateId}-${variant}-${width}.webp`, import.meta.url)), `${variant} ${width}`).toBe(true)
+    }
   })
 })
