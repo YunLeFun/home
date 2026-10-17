@@ -168,6 +168,17 @@ interface DeviceInstance {
 - **不可用状态**：SDK 不兼容时置灰并说明原因；被吊销的插件从列表移除，已安装实例标记为不可用。
 - **开发者模式**：设置中开启后，可输入本机地址加载开发中的插件，仅本浏览器可见。
 
+## 原生客户端
+
+macOS 原生客户端（`apps/macos`）与 Web 共用清单和权限模型，运行方式按平台取舍：
+
+- 插件逻辑运行在随 App 打包的 `YunHomePluginHost` 进程中，每个插件一个 JavaScriptCore 虚拟机，无定时器、网络、文件与模块；主进程为每次调用设置 250 ms 超时，超时即结束并重启宿主，连续出错的插件被停用。
+- 插件界面使用 `controls.json` 声明，由 SwiftUI 原生组件渲染，不使用 WebView；场景与列表只读取缓存的展示信息。
+- 宿主能力渲染器（如 `cute-ac-3d`）让插件复用原生三维模型，而插件本身不包含原生代码。
+- 原生代码插件（Apple ExtensionKit，`.appex` 加远程 SwiftUI 视图）需要 Xcode 工程与独立签名分发，且无法与 Web 共享，作为后续可选路线。
+
+`.yunplugin` 由 air-conditioner 仓库的 `packages/home-plugin` 构建：`state.js` 直接打包 core 的 `acReducer`，因此 Web、Widget 与原生端的空调行为一致。
+
 ## 第三方上架流程
 
 1. 开发者用 `create-home-plugin` 开发，并在开发者模式中联调。

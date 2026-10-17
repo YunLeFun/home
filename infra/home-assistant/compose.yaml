@@ -1,0 +1,24 @@
+name: yun-home-ha
+
+services:
+  homeassistant:
+    image: ghcr.io/home-assistant/home-assistant:2026.10.1@sha256:130241f28d01fa80dfa3b44f7d89781c188d8642ecab9024f079f19f9f82baa0
+    restart: unless-stopped
+    stop_grace_period: 60s
+    environment:
+      TZ: Asia/Shanghai
+    volumes:
+      - type: bind
+        source: ${YUN_HOME_HA_DATA:?Run scripts/home-assistant.sh up first}
+        target: /config
+        bind:
+          create_host_path: false
+    # Colima runs Linux in a VM. Publish a loopback port for this Mac;
+    # Linux host networking would not bridge macOS multicast discovery.
+    ports:
+      - "127.0.0.1:8123:8123"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

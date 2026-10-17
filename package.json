@@ -6,6 +6,15 @@
     "node": ">=24.11.0 <25"
   },
   "scripts": {
+    "ha:up": "bash scripts/home-assistant.sh up",
+    "ha:stop": "bash scripts/home-assistant.sh stop",
+    "ha:status": "bash scripts/home-assistant.sh status",
+    "ha:logs": "bash scripts/home-assistant.sh logs",
+    "ha:xiaomi:install": "bash scripts/install-xiaomi-home.sh",
+    "device-kit:test": "swift test",
+    "macos:dev": "swift run --package-path apps/macos YunHome",
+    "macos:test": "swift test --package-path apps/macos",
+    "macos:build": "bash apps/macos/scripts/bundle.sh",
     "build": "nuxt build",
     "audit:prod": "pnpm audit --prod",
     "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm audit:prod",

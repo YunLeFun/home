@@ -10,6 +10,17 @@ on:
       - main
 
 jobs:
+  native-macos:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test shared Home Assistant module
+        run: swift test
+      - name: Test native device state and persistence
+        run: swift test --package-path apps/macos
+      - name: Build native app bundle
+        run: bash apps/macos/scripts/bundle.sh
+
   quality:
     runs-on: ubuntu-latest
     steps:

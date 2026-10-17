@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "plugins": [
+    {
+      "id": "fun.yunle.air-conditioner",
+      "name": "云空调",
+      "description": "便携小空调：冷暖切换、16–31°C 调温与三种声音模式，附带三维空调模型。",
+      "author": "YunYouJun",
+      "category": "climate",
+      "symbol": "air.conditioner.horizontal",
+      "tint": "#5F939E",
+      "version": "0.3.0",
+      "permissions": [],
+      "renderer": "cute-ac-3d",
+      "package": "air-conditioner.yunplugin",
+      "sha256": "61a9677e7abc535a0d01aa68c290eede011110e34823e76b4c6eec0c926fa6df",
+      "verified": true,
+      "homepage": "https://github.com/YunYouJun/air-conditioner/tree/dev/packages/home-plugin"
+    }
+  ]
+}

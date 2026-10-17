@@ -4,6 +4,14 @@
 
 Production domain: `https://home.yunle.fun`
 
+## Native macOS App
+
+`apps/macos` brings the native air-conditioner experience into a unified Home app: room and device navigation, controls for all five virtual devices, a menu-bar panel, a 3D desktop air conditioner, and local persistence. It uses SwiftUI/AppKit with RealityKit to render the original CuteAC USDZ model and builds independently of the web dependencies.
+
+Run `pnpm macos:dev`, test with `pnpm macos:test`, or build `YunHome.app` with `pnpm macos:build` on macOS 14+ with Swift 6. The native air conditioner can bind to Home Assistant, with Bonjour discovery, Keychain credentials, state subscriptions, and confirmed commands. The UI-independent [HomeDeviceKit](packages/home-device-kit/README.md) is exported as a Swift Package from this repository; run `pnpm device-kit:test` for its protocol and loopback integration tests. Native account login, cloud sync, and full scene editing remain outside this version. See [the native app guide](apps/macos/README.md) and [device connection architecture](docs/native-device-connections.md).
+
+To run Home Assistant on this Mac, use `pnpm ha:up` with Colima running, then open <http://127.0.0.1:8123>. The native connection form discovers both local HA containers and LAN Bonjour services. See [local HA setup and network limits](infra/home-assistant/README.md).
+
 ## Development
 
 The project follows the current long-term toolchain: Node.js 24 LTS, pnpm 11, Nuxt 4, Vue 3.5, and TypeScript 6.
