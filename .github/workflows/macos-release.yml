@@ -44,6 +44,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          notes=(--generate-notes)
+          if [ -f "docs/releases/$GITHUB_REF_NAME.md" ]; then
+            notes=(--notes-file "docs/releases/$GITHUB_REF_NAME.md")
+          fi
           gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 \
-            || gh release create "$GITHUB_REF_NAME" --verify-tag --generate-notes --title "云之彼端 macOS ${GITHUB_REF_NAME#macos-v}"
+            || gh release create "$GITHUB_REF_NAME" --verify-tag "${notes[@]}" --title "云之彼端 macOS ${GITHUB_REF_NAME#macos-v}"
           gh release upload "$GITHUB_REF_NAME" --clobber "YunHome-${GITHUB_REF_NAME#macos-v}.zip"
