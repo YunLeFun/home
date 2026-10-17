@@ -308,6 +308,14 @@ function basket(kit: Kit): BuiltFurniture {
   return { object }
 }
 
+/** A chair facing -z, its back on the +z side. */
+function diningChair(kit: Kit) {
+  const chair = group(legs(kit, 0.5, 0.5, 0.44, 0.02, 0.05, PALETTE.ink))
+  chair.add(kit.mesh(kit.roundedBox(0.54, 0.08, 0.5, 0.04), kit.material(PALETTE.fabric, { roughness: 0.95 }), 0, 0.46, 0))
+  chair.add(kit.mesh(kit.roundedBox(0.52, 0.42, 0.07, 0.035), kit.material(PALETTE.fabric, { roughness: 0.95 }), 0, 0.72, 0.24))
+  return chair
+}
+
 function desk(kit: Kit, spec: FurnitureSpec): BuiltFurniture {
   const w = spec.w ?? 3
   const d = spec.d ?? 0.8
@@ -320,12 +328,106 @@ function desk(kit: Kit, spec: FurnitureSpec): BuiltFurniture {
   object.add(kit.mesh(kit.cylinder(0.05, 0.045, 0.14, 14), kit.material(PALETTE.accent, { roughness: 0.45 }), -w / 2 + 0.24, h + 0.07, -0.12))
   object.add(kit.mesh(kit.roundedBox(0.4, 0.04, 0.28, 0.012), kit.material(PALETTE.fabricDeep), -w / 2 + 0.58, h + 0.02, -0.1).rotateY(0.15))
   // A chair tucked in front of the desk.
-  const chair = group(legs(kit, 0.5, 0.5, 0.44, 0.02, 0.05, PALETTE.ink))
-  chair.add(kit.mesh(kit.roundedBox(0.54, 0.08, 0.5, 0.04), kit.material(PALETTE.fabric, { roughness: 0.95 }), 0, 0.46, 0))
-  chair.add(kit.mesh(kit.roundedBox(0.52, 0.42, 0.07, 0.035), kit.material(PALETTE.fabric, { roughness: 0.95 }), 0, 0.72, 0.24))
+  const chair = diningChair(kit)
   chair.position.set(-0.3, 0, d / 2 + 0.3)
   chair.rotation.y = 0.2
   object.add(chair)
+  return { object }
+}
+
+function diningTable(kit: Kit, spec: FurnitureSpec): BuiltFurniture {
+  const w = spec.w ?? 1.2
+  const d = spec.d ?? 0.8
+  const h = spec.h ?? 0.75
+  const object = group(legs(kit, w, d, h - 0.05, 0.035, 0.1))
+  object.add(kit.mesh(kit.roundedBox(w, 0.06, d, 0.03), kit.material(PALETTE.woodLight, { roughness: 0.55 }), 0, h - 0.03, 0))
+  // A fruit bowl in the middle.
+  object.add(kit.mesh(kit.sphere(0.15, 24, 10, Math.PI / 2), kit.material(PALETTE.ceramic, { roughness: 0.35 }), 0, h + 0.15, 0).rotateX(Math.PI))
+  for (const [x, z, color] of [[-0.05, 0.02, PALETTE.sun], [0.06, -0.03, PALETTE.accent], [0.01, 0.07, PALETTE.leafLight]] as const)
+    object.add(kit.mesh(kit.sphere(0.06, 14, 10), kit.material(color, { roughness: 0.6 }), x, h + 0.08, z))
+  // Two chairs on each long side, as on the plan.
+  for (const side of [-1, 1]) {
+    for (const x of [-w / 4, w / 4]) {
+      const chair = diningChair(kit)
+      chair.position.set(x, 0, side * (d / 2 + 0.2))
+      chair.rotation.y = side > 0 ? 0 : Math.PI
+      object.add(chair)
+    }
+  }
+  return { object }
+}
+
+function counter(kit: Kit, spec: FurnitureSpec): BuiltFurniture {
+  const w = spec.w ?? 1.4
+  const d = spec.d ?? 0.62
+  const h = spec.h ?? 0.9
+  const metal = kit.material(PALETTE.metal, { roughness: 0.3, metalness: 0.5 })
+  const object = group(cabinet(kit, w, d - 0.04, h - 0.04, w > 1.2 ? 3 : 2))
+  object.add(kit.mesh(kit.roundedBox(w + 0.04, 0.04, d, 0.015), kit.material(PALETTE.ceramic, { roughness: 0.35 }), 0, h - 0.02, 0))
+  // Tiled splashback against the wall.
+  object.add(kit.mesh(kit.roundedBox(w, 0.5, 0.02, 0.008), kit.material(PALETTE.wallSky, { roughness: 0.4 }), 0, h + 0.25, -d / 2 + 0.01, false))
+  // Sink and tap on the left.
+  const sinkX = -w / 2 + 0.32
+  object.add(kit.mesh(kit.roundedBox(0.44, 0.02, 0.34, 0.008), metal, sinkX, h + 0.001, 0.02, false))
+  object.add(kit.mesh(kit.cylinder(0.015, 0.015, 0.26, 10), metal, sinkX, h + 0.13, -d / 2 + 0.1))
+  object.add(kit.mesh(kit.cylinder(0.012, 0.012, 0.16, 10), metal, sinkX, h + 0.25, -d / 2 + 0.17).rotateX(Math.PI / 2))
+  // Hob with a pot on the right, and a hood above it.
+  const hobX = w / 2 - 0.34
+  object.add(kit.mesh(kit.roundedBox(0.56, 0.02, 0.44, 0.01), kit.material(PALETTE.ink, { roughness: 0.25 }), hobX, h + 0.01, 0, false))
+  for (const x of [-0.13, 0.13])
+    object.add(kit.mesh(kit.torus(0.08, 0.008, Math.PI * 2, 6, 24), metal, hobX + x, h + 0.022, 0, false).rotateX(Math.PI / 2))
+  object.add(kit.mesh(kit.cylinder(0.11, 0.1, 0.14, 20), kit.material(PALETTE.accent, { roughness: 0.4 }), hobX - 0.13, h + 0.09, 0))
+  object.add(kit.mesh(kit.cylinder(0.11, 0.11, 0.015, 20), kit.material(PALETTE.ink, { roughness: 0.4 }), hobX - 0.13, h + 0.165, 0))
+  object.add(kit.mesh(kit.roundedBox(0.62, 0.2, 0.46, 0.04), kit.material(PALETTE.ceramic, { roughness: 0.4 }), hobX, h + 0.72, -d / 2 + 0.23))
+  object.add(kit.mesh(kit.roundedBox(0.24, 0.5, 0.24, 0.03), kit.material(PALETTE.ceramic, { roughness: 0.4 }), hobX, h + 1.07, -d / 2 + 0.12))
+  return { object }
+}
+
+function fridge(kit: Kit, spec: FurnitureSpec): BuiltFurniture {
+  const w = spec.w ?? 0.6
+  const d = spec.d ?? 0.64
+  const h = spec.h ?? 1.8
+  const body = kit.material(PALETTE.rugBorder, { roughness: 0.35 })
+  const metal = kit.material(PALETTE.metal, { roughness: 0.3, metalness: 0.5 })
+  const object = group(kit.mesh(kit.roundedBox(w, h - 0.03, d, 0.06), body, 0, (h - 0.03) / 2 + 0.03, 0))
+  // Freezer below, fridge above, split by a seam.
+  const split = h * 0.38
+  object.add(kit.mesh(kit.roundedBox(w - 0.02, 0.012, 0.01, 0.004), kit.material(PALETTE.fabricDeep), 0, split, d / 2 + 0.002, false))
+  object.add(kit.mesh(kit.roundedBox(0.03, h * 0.3, 0.04, 0.012), metal, -w / 2 + 0.08, split + h * 0.22, d / 2 + 0.02))
+  object.add(kit.mesh(kit.roundedBox(0.03, h * 0.14, 0.04, 0.012), metal, -w / 2 + 0.08, split - h * 0.1, d / 2 + 0.02))
+  // A couple of magnets.
+  for (const [x, y, color] of [[0.08, h * 0.78, PALETTE.sun], [0.14, h * 0.7, PALETTE.accent]] as const)
+    object.add(kit.mesh(kit.cylinder(0.03, 0.03, 0.012, 14), kit.material(color, { roughness: 0.5 }), x, y, d / 2 + 0.006, false).rotateX(Math.PI / 2))
+  return { object }
+}
+
+function vanity(kit: Kit, spec: FurnitureSpec): BuiltFurniture {
+  const w = spec.w ?? 0.7
+  const d = spec.d ?? 0.48
+  const h = spec.h ?? 0.82
+  const ceramic = kit.material(PALETTE.ceramic, { roughness: 0.3 })
+  const metal = kit.material(PALETTE.metal, { roughness: 0.3, metalness: 0.5 })
+  const object = group(cabinet(kit, w, d - 0.04, h - 0.04, 2))
+  object.add(kit.mesh(kit.roundedBox(w + 0.02, 0.04, d, 0.015), ceramic, 0, h - 0.02, 0))
+  object.add(kit.mesh(kit.roundedBox(w * 0.66, 0.1, d * 0.66, 0.045), ceramic, 0, h + 0.05, 0.02))
+  object.add(kit.mesh(kit.cylinder(0.012, 0.012, 0.18, 10), metal, 0, h + 0.09, -d / 2 + 0.06))
+  object.add(kit.mesh(kit.cylinder(0.01, 0.01, 0.1, 10), metal, 0, h + 0.17, -d / 2 + 0.1).rotateX(Math.PI / 2))
+  object.add(kit.mesh(kit.cylinder(0.03, 0.035, 0.12, 14), kit.material(PALETTE.fabricDeep, { roughness: 0.4 }), w / 2 - 0.08, h + 0.06, -d / 2 + 0.08))
+  return { object }
+}
+
+function toilet(kit: Kit): BuiltFurniture {
+  const ceramic = kit.material(PALETTE.ceramic, { roughness: 0.25 })
+  const object = group(kit.mesh(kit.roundedBox(0.26, 0.3, 0.34, 0.08), ceramic, 0, 0.15, 0.02))
+  const bowl = kit.mesh(kit.cylinder(0.19, 0.15, 0.14, 28), ceramic, 0, 0.34, 0.06)
+  bowl.scale.z = 1.25
+  object.add(bowl)
+  const seat = kit.mesh(kit.torus(0.15, 0.035, Math.PI * 2, 10, 32), kit.material(PALETTE.linen, { roughness: 0.4 }), 0, 0.42, 0.06).rotateX(Math.PI / 2)
+  // Scaled before the turn, so local y runs front to back.
+  seat.scale.y = 1.25
+  object.add(seat)
+  object.add(kit.mesh(kit.roundedBox(0.4, 0.36, 0.17, 0.05), ceramic, 0, 0.6, -0.24))
+  object.add(kit.mesh(kit.cylinder(0.035, 0.035, 0.012, 14), kit.material(PALETTE.metal, { roughness: 0.3, metalness: 0.5 }), 0, 0.785, -0.24, false))
   return { object }
 }
 
@@ -465,5 +567,10 @@ export function buildFurniture(kit: Kit, spec: FurnitureSpec, targets: PhaseTarg
     case 'clock': return clock(kit, spec)
     case 'moon-gate': return moonGate(kit, spec)
     case 'window': return windowFrame(kit, spec, targets)
+    case 'counter': return counter(kit, spec)
+    case 'fridge': return fridge(kit, spec)
+    case 'dining-table': return diningTable(kit, spec)
+    case 'vanity': return vanity(kit, spec)
+    case 'toilet': return toilet(kit)
   }
 }

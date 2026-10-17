@@ -2,7 +2,7 @@
 // for browsers without WebGL2. Run against a dev or preview server:
 //
 //   pnpm dev
-//   pnpm scene:posters [--url http://localhost:3000] [--chrome /path/to/chrome]
+//   pnpm scene:posters [--url http://localhost:3000] [--chrome /path/to/chrome] [--template my-home]
 //
 // Needs a Chromium for playwright-core (`pnpm exec playwright-core install
 // chromium`, or pass --chrome) and `cwebp` (`brew install webp`).
@@ -13,8 +13,8 @@ import { join } from 'node:path'
 import { parseArgs } from 'node:util'
 import { chromium } from 'playwright-core'
 
-const { values } = parseArgs({ options: { url: { type: 'string', default: 'http://localhost:3000/' }, chrome: { type: 'string' } } })
-const TEMPLATES = ['cloud-apartment', 'studio', 'comfort-suite']
+const { values } = parseArgs({ options: { url: { type: 'string', default: 'http://localhost:3000/' }, chrome: { type: 'string' }, template: { type: 'string', multiple: true } } })
+const TEMPLATES = values.template ?? ['cloud-apartment', 'studio', 'comfort-suite', 'my-home']
 // Night stands in for dark mode and late hours; day covers the rest.
 const VARIANTS = { day: 'light', night: 'dark' }
 const WIDTHS = [1600, 800]

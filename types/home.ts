@@ -1,6 +1,6 @@
 import type { DeviceKind } from './device'
 
-export type HomeTemplateId = 'cloud-apartment' | 'studio' | 'comfort-suite'
+export type HomeTemplateId = 'cloud-apartment' | 'studio' | 'comfort-suite' | 'my-home'
 export type HomeSurfaceKind = 'wall' | 'floor' | 'tabletop'
 export type DeviceRotation = 0 | 90 | 180 | 270
 
@@ -46,6 +46,8 @@ export interface HomeTemplate {
   width: number
   height: number
   rooms: HomeRoom[]
+  /** Room to open first; the first room when unset. */
+  defaultRoomId?: string
   surfaces: HomeSurface[]
   obstacles: HomeObstacle[]
   robotRoutes: HomeRobotRoute[]

@@ -56,11 +56,11 @@ The home is a 3D diorama (`components/home/HomeScene3D.vue`, `utils/scene3d/`, t
 - Desktop starts with a full-home overview and can focus a room; mobile restores the most recently used room. The device tray follows the active room and shows connected-device counts.
 - Unplaced devices stay in a compact inbox. Edit mode expands the inbox and current-room groups, and provides an explicit room selector for reassignment.
 - Editing happens in the diorama: surfaces that accept the selected device light up, a pointer or touch drag casts a ray onto those surfaces' planes and maps the hit back to the plan (`findSurfaceAlongRay`), and the drop goes through the placement rules in `utils/home.ts` (`createPlacementAtPoint`: snapping, floor obstacles, collisions). A marker previews the drop and turns coral where it is not allowed. Devices can also be dragged in from the tray, or selected there and placed with a tap on a lit surface. Selected devices can be rotated or moved out of the room from a toolbar, or with the arrow keys, `R` and `Delete` on their hotspot.
-- The server render and first paint show a pre-rendered poster of the diorama (`public/scene/<template>-<day|night>-<width>.webp`, `HomeScenePoster.vue`) until it has drawn its first frame. Browsers without WebGL2, or that lose the WebGL context, keep the poster with a note, and devices are controlled and placed from the device tray. Regenerate the posters with `pnpm scene:posters` against a running dev server after changing the 3D scene.
+- The server render and first paint show a pre-rendered poster of the diorama (`public/scene/<template>-<day|night>-<width>.webp`, `HomeScenePoster.vue`) until it has drawn its first frame. Browsers without WebGL2, or that lose the WebGL context, keep the poster with a note, and devices are controlled and placed from the device tray. Regenerate the posters with `pnpm scene:posters` against a running dev server after changing the 3D scene; `--template <id>` limits the export to one template.
 - With `prefers-reduced-motion: reduce`, ambient motion and camera easing stop and frames only render when something changes. The preference is followed live.
 - Layout and device snapshots carry an ISO `changedAt` timestamp. Login, reconnect, focus, and online events compare local and cloud timestamps; the newer snapshot wins and is synchronized back using last-write-wins semantics.
 
-The first release includes `cloud-apartment`, `studio`, and `comfort-suite`.
+Templates: `cloud-apartment`, `studio`, `comfort-suite`, and `my-home` (云端小家), a real two-bedroom flat whose six rooms are unrolled west to east along the back wall at about three quarters of their true widths.
 
 ## YunLe / CloudBase Auth
 
