@@ -753,6 +753,23 @@ export class HomeScene3D {
     this.reframe(false)
   }
 
+  /**
+   * Follow the reduced motion preference: no ambient animation or easing,
+   * and frames only render when something changes.
+   */
+  setReducedMotion(reduced: boolean) {
+    if (reduced === this.options.reducedMotion)
+      return
+    this.options.reducedMotion = reduced
+    if (reduced) {
+      this.pose = { ...this.poseTo }
+      this.poseStartedAt = -Infinity
+      this.applyLighting(this.phaseTo)
+      this.phaseStartedAt = -Infinity
+    }
+    this.invalidate()
+  }
+
   /** Switch between the phone and desktop camera. */
   setMobile(mobile: boolean) {
     if (mobile === this.options.mobile)

@@ -38,9 +38,12 @@ const library = usePluginLibrary()
 // Uninstalled plugins keep their placement and state, but leave the home.
 const placements = computed(() => editor.placements.value.filter(placement => library.isInstalled(placement.deviceId)))
 const sceneMode = useSceneMode()
+const { phase } = useSceneTime()
 const scene3dReady = shallowRef(false)
-const mount3d = computed(() => sceneMode.mode.value === '3d')
-const show2d = computed(() => !mount3d.value || !scene3dReady.value)
+const mount3d = computed(() => sceneMode.renderer.value === '3d')
+const show2d = computed(() => sceneMode.renderer.value === '2d')
+// The poster stands in until 3D is drawn, and stays where 3D cannot run.
+const showPoster = computed(() => !show2d.value && !scene3dReady.value)
 const use3d = computed(() => mount3d.value && scene3dReady.value)
 
 const robotState = computed(() => robot.state.value)
@@ -118,6 +121,8 @@ function handleTrayDragEnd(deviceId: DeviceKind, event: PointerEvent) {
   trayDrag.value = null
   if (point)
     placeDevice(deviceId, point)
+  else if (sceneMode.renderer.value === 'poster')
+    showNotice('在设备卡片上选择房间即可完成摆放')
   else
     showNotice('拖到房间里的高亮区域即可完成摆放')
 }
@@ -176,7 +181,7 @@ function changeSceneMode(mode: '3d' | '2d') {
 function handle3dFailed() {
   sceneMode.disable3d()
   scene3dReady.value = false
-  showNotice('当前设备无法显示 3D，已切换到 2D')
+  showNotice('当前设备无法显示 3D，已换成家园预览')
 }
 
 watch(mount3d, (mounted) => {
@@ -231,7 +236,16 @@ onUnmounted(() => {
         @select-room="selectRoom"
       />
 
-      <div class="home-scene-stack" :data-mode="mount3d ? '3d' : '2d'">
+      <div class="home-scene-stack" :data-mode="sceneMode.renderer.value">
+      <Transition name="poster">
+        <HomeScenePoster
+          v-if="showPoster"
+          :template="editor.template.value"
+          :phase="phase"
+          :active-room-id="overviewMode ? null : editor.activeRoomId.value"
+          :fallback="sceneMode.resolved.value && !mount3d"
+        />
+      </Transition>
       <HomeScene
         v-if="show2d"
         ref="scene2dRef"
@@ -339,6 +353,8 @@ onUnmounted(() => {
 
 .home-scene-stack { display: grid; min-width: 0; }
 .home-scene-stack > * { grid-area: 1 / 1; }
+.poster-leave-active { transition: opacity 700ms var(--ease-out); }
+.poster-leave-to { opacity: 0; }
 .home-stage__control { position: absolute; z-index: 12; top: 50%; right: 42px; transform: translateY(-50%); }
 .home-notice { position: absolute; z-index: 16; bottom: 28px; left: 50%; display: flex; align-items: center; gap: 8px; padding: 10px 16px; border: 1px solid rgba(255, 255, 255, 0.18); border-radius: 999px; background: color-mix(in oklab, var(--brand-primary) 92%, transparent); box-shadow: var(--shadow-md); color: var(--ylf-c-text-on-accent); font-size: 11px; font-weight: 600; transform: translateX(-50%); backdrop-filter: blur(12px); }
 .home-notice::before { width: 6px; height: 6px; border-radius: 50%; background: var(--brand-warm); content: ''; animation: breathe 1.6s ease-in-out infinite; }
@@ -350,6 +366,7 @@ onUnmounted(() => {
 .notice-enter-active { transition: opacity var(--dur-2) ease, transform var(--dur-3) var(--ease-spring); }
 .notice-leave-active { transition: opacity var(--dur-1) ease, transform var(--dur-2) ease; }
 .notice-enter-from, .notice-leave-to { opacity: 0; transform: translate(-50%, 14px) scale(0.92); }
+@media (prefers-reduced-motion: reduce) { .poster-leave-active { transition: none; } }
 @keyframes ghost-in { from { opacity: 0; transform: translate(-50%, -50%) scale(0.6); } }
 @media (min-width: 721px) and (max-height: 850px) { .home-stage { max-height: calc(100vh - 206px); } }
 @media (max-width: 720px) {

@@ -105,3 +105,17 @@ input {
     transition-duration: 0.01ms !important;
   }
 }
+
+// Sky behind the 3D home and its poster, by time of day.
+.home-sky {
+  --sky-1: #e3eefb;
+  --sky-2: #f7f2ea;
+  background:
+    radial-gradient(90% 70% at 50% 0%, color-mix(in oklab, var(--sky-1) 80%, white), transparent 70%),
+    linear-gradient(180deg, var(--sky-1), var(--sky-2));
+  transition: background 1.6s ease;
+
+  &[data-phase="dawn"] { --sky-1: #fde3d6; --sky-2: #fbf0e4; }
+  &[data-phase="dusk"] { --sky-1: #fbd2bd; --sky-2: #f6e3cf; }
+  &[data-phase="night"] { --sky-1: #15253f; --sky-2: #22324c; }
+}
