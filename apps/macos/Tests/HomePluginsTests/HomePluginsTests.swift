@@ -228,7 +228,8 @@ private func lampSource(reduce body: String = "return { on: !state.on }") -> Str
 
   let created = try await client.create(plugin: plugin.id)
   #expect(created.state == .object(["status": .bool(false), "mode": .string("cold"), "temperature": .number(26),
-                                    "sound": .string("normal"), "swing": .bool(false)]))
+                                    "temperatures": .object(["cold": .number(26), "hot": .number(26)]),
+                                    "sound": .string("normal"), "swing": .bool(false), "fan": .string("auto")]))
   #expect(created.presentation == PluginPresentation(active: false, tone: "idle", summary: "待机 · 26°C"))
 
   var state = created.state
@@ -239,6 +240,10 @@ private func lampSource(reduce body: String = "return { on: !state.on }") -> Str
                                            context: try JSONValue.parse(#"{"limits":{"min":17,"max":30,"step":0.5}}"#))
   #expect(state["temperature"] == .number(27) && halfStep.state["temperature"] == .number(27.5))
   #expect(halfStep.presentation == PluginPresentation(active: true, tone: "heat", summary: "制热 · 27.5°C"))
+  // 风速 and per-mode set points: cooling still remembers 26°C.
+  var cooled = try await client.dispatch(plugin: plugin.id, state: state, action: try JSONValue.parse(#"{"type":"fan","fan":"high"}"#)).state
+  cooled = try await client.dispatch(plugin: plugin.id, state: cooled, action: try JSONValue.parse(#"{"type":"mode","mode":"cold"}"#)).state
+  #expect(cooled["fan"] == .string("high") && cooled["temperature"] == .number(26))
 
   await #expect(throws: PluginError.self) {
     try await client.dispatch(plugin: plugin.id, state: state, action: try JSONValue.parse(#"{"type":"update","payload":{}}"#))

@@ -127,6 +127,12 @@ struct ACControls: View {
               .accessibilityLabel("升高温度").help("升高温度")
           }.fixedSize()
         }.disabled(!store.acCanControl)
+        // The virtual unit's fan speed; auto follows the Mac's own fans.
+        if store.haBinding == nil {
+          Picker("风速", selection: Binding(get: { state.fan }, set: { store.send(.ac(.fan($0))) })) {
+            ForEach(ACFanSpeed.allCases, id: \.self) { Text($0.label).tag($0) }
+          }.pickerStyle(.segmented)
+        }
         if store.haBinding != nil && store.homeAssistant.pending {
           HStack { ProgressView().controlSize(.small); Text("等待设备确认…").font(.caption).foregroundStyle(.secondary) }
         }

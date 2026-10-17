@@ -137,7 +137,7 @@
       "permissions": ["sensor:thermal"],
       "renderer": "cute-ac-3d",
       "package": "air-conditioner.yunplugin",
-      "sha256": "fdd99a4f4b32a9fe0eaca1494fe2e963ceec555fcddb801d62525d79fd3ab473",
+      "sha256": "f81539c248c261284483273531b1328d7003da3c6c827ff30647b66cf35946c5",
       "verified": true,
       "homepage": "https://github.com/YunYouJun/air-conditioner/tree/main/packages/home-plugin"
     },

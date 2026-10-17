@@ -261,7 +261,8 @@ struct PluginACStage: View {
   private var acState: ACState {
     ACState(status: state["status"]?.boolValue ?? false,
             mode: state["mode"]?.stringValue == "hot" ? .hot : .cold,
-            temperature: state["temperature"]?.numberValue ?? 26)
+            temperature: state["temperature"]?.numberValue ?? 26,
+            fan: state["fan"]?.stringValue.flatMap(ACFanSpeed.init(rawValue:)) ?? .auto)
   }
   var body: some View {
     ACPreview(state: acState, room: room)

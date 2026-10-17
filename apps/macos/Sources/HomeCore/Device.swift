@@ -118,7 +118,7 @@ public struct TelevisionState: Codable, Equatable {
   }
 }
 
-public enum ACAction { case toggle, temperature(Double), mode(ACMode) }
+public enum ACAction { case toggle, temperature(Double), mode(ACMode), fan(ACFanSpeed) }
 public enum FanAction { case toggle, speed(Int), oscillation, timer(Int?) }
 public enum RobotAction { case start, pause, resume, `return`, dock, mode(RobotMode) }
 public enum WarmerAction { case toggle, level(WarmerLevel), timer(Int?) }

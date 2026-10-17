@@ -36,13 +36,42 @@ import HomeDeviceKit
   home.apply(.ac(.temperature(99)))
   home.apply(.ac(.mode(.hot)))
   home.apply(.ac(.toggle))
-  #expect(home.airConditioner == ACState(status: true, mode: .hot, temperature: 31))
+  // Heating starts from its own set point, not cooling's.
+  #expect(home.airConditioner.status && home.airConditioner.mode == .hot && home.airConditioner.temperature == 26)
   home.apply(.ac(.temperature(-10)))
   #expect(home.airConditioner.temperature == 16)
+  home.apply(.ac(.mode(.cold)))
+  #expect(home.airConditioner.temperature == 31)
+  #expect(home.airConditioner.temperatures == ACModeTemperatures(cold: 31, hot: 16))
+  home.apply(.ac(.fan(.high)))
+  #expect(home.airConditioner.fan == .high && home.airConditioner.windLevel(room: nil) == 3)
   let object = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(home.airConditioner)) as? [String: Any])
-  #expect(object["mode"] as? String == "hot")
+  #expect(object["mode"] as? String == "cold")
   #expect(object["status"] as? Bool == true)
-  #expect(object["temperature"] as? Int == 16)
+  #expect(object["temperature"] as? Int == 31)
+  #expect(object["temperatures"] as? [String: Int] == ["cold": 31, "hot": 16])
+  #expect(object["fan"] as? String == "high")
+}
+
+@MainActor @Test func versionTwoArchiveWithoutFanOrPerModeTemperaturesLoads() throws {
+  let name = "fun.yunle.home.test.\(UUID().uuidString)"
+  let defaults = try #require(UserDefaults(suiteName: name))
+  defer { defaults.removePersistentDomain(forName: name) }
+  // A v2 save written before ACState gained `temperatures` and `fan`.
+  var saved = HomeSnapshot()
+  saved.airConditioner = ACState(status: true, mode: .hot, temperature: 29)
+  var archive = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(saved)) as? [String: Any])
+  archive["airConditioner"] = ["status": true, "mode": "hot", "temperature": 29]
+  #expect(archive["version"] as? Int == 2)
+  defaults.set(try JSONSerialization.data(withJSONObject: archive), forKey: "yun-home:native:v1")
+
+  let store = HomeStore(defaults: defaults)
+  #expect(store.storageMessage == nil)
+  let ac = store.snapshot.airConditioner
+  #expect(ac.status && ac.mode == .hot && ac.temperature == 29)
+  #expect(ac.temperatures == ACModeTemperatures(cold: 29, hot: 29) && ac.fan == .auto)
+  store.send(.ac(.mode(.cold)))
+  #expect(store.snapshot.airConditioner.temperature == 29)
 }
 
 @Test func deviceRulesMatchWebBehavior() {

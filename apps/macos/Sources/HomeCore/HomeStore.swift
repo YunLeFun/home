@@ -131,6 +131,8 @@ public final class HomeStore {
         case .toggle: homeAssistant.request(.power(!homeAssistant.displayPower))
         case .temperature(let temperature): homeAssistant.request(.temperature(temperature))
         case .mode(let mode): homeAssistant.request(.mode(mode == .hot ? "heat" : "cool"))
+        // Fan speed is the virtual unit's only; real devices keep theirs.
+        case .fan: break
         }
         return
       }

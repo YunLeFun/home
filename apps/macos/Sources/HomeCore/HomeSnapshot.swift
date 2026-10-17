@@ -69,8 +69,10 @@ public struct HomeSnapshot: Codable, Equatable {
     case .ac(let action):
       switch action {
       case .toggle: airConditioner.status.toggle()
-      case .temperature(let value): airConditioner.temperature = min(31, max(16, value))
-      case .mode(let value): airConditioner.mode = value
+      // Each mode keeps its own set point, like a real remote.
+      case .temperature(let value): airConditioner.setTemperature(value)
+      case .mode(let value): airConditioner.setMode(value)
+      case .fan(let value): airConditioner.fan = value
       }
     case .fan(let action):
       switch action {
@@ -141,7 +143,9 @@ public struct HomeSnapshot: Codable, Equatable {
   }
 
   public mutating func normalize() {
-    airConditioner.temperature = min(31, max(16, airConditioner.temperature))
+    airConditioner.temperatures.cold = min(31, max(16, airConditioner.temperatures.cold))
+    airConditioner.temperatures.hot = min(31, max(16, airConditioner.temperatures.hot))
+    airConditioner.setTemperature(airConditioner.temperature)
     fan.speed = min(3, max(1, fan.speed))
     television.volume = min(100, max(0, television.volume))
     television.playing = television.power && television.playing

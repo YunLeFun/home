@@ -13,7 +13,7 @@ let package = Package(
     .package(name: "YunHomeConnectivity", path: "../.."),
     // The air conditioner's state, Mac thermal readings, LCD, airflow and model,
     // shared with the standalone CuteAC menu bar app.
-    .package(url: "https://github.com/YunYouJun/air-conditioner.git", revision: "f79cc1895131cbf24e146776bdee7f4e1f52bd13"),
+    .package(url: "https://github.com/YunYouJun/air-conditioner.git", revision: "6c7bf8c794ede8516f665757583c28203ca8f595"),
   ],
   targets: [
     .target(name: "HomePlugins"),

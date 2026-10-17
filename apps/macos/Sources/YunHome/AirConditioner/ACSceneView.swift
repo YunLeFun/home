@@ -125,7 +125,7 @@ class ACSceneContainerView: NSView {
       stopRendering()
     }
     let flow = controller.showsAirflow && active && state.status
-      ? ACAirflowLayer.Flow(mode: state.mode, windLevel: room?.windLevel ?? 1) : nil
+      ? ACAirflowLayer.Flow(mode: state.mode, windLevel: state.windLevel(room: room)) : nil
     if flow != airflowLayer.flow { configureAirflow(flow) }
   }
 
