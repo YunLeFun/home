@@ -28,8 +28,7 @@ struct HomeWindow: View {
         Section("房间") {
           ForEach(HomeRoom.allCases) { room in
             Label(room.name, systemImage: room.symbol)
-              .badge(DeviceKind.allCases.filter { store.snapshot.room(for: $0) == room }.count
-                     + store.snapshot.plugins.filter { $0.room == room }.count)
+              .badge(itemCount(in: room))
               .tag(HomeDestination.room(room))
           }
         }
@@ -123,6 +122,12 @@ struct HomeWindow: View {
           .help("设置（⌘,）")
       }
     }
+  }
+
+  private func itemCount(in room: HomeRoom) -> Int {
+    let devices = DeviceKind.allCases.filter { store.snapshot.room(for: $0) == room }.count
+    let plugins = store.snapshot.plugins.filter { $0.room == room }.count
+    return devices + plugins
   }
 }
 
