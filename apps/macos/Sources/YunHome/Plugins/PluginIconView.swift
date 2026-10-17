@@ -19,6 +19,7 @@ struct PluginIconView: View {
   @Environment(\.colorScheme) private var colorScheme
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
   @State private var activeSince = Date()
+  @State private var spin = PluginIconSpinClock()
 
   private var dark: Bool { colorScheme == .dark }
   private var toneColor: Color { PluginTone.tone(tone)?.fill ?? PluginIconPaint.idle }
@@ -29,7 +30,7 @@ struct PluginIconView: View {
     TimelineView(.animation(paused: !animating)) { timeline in
       PluginIconCanvas(icon: icon, progress: active ? 1 : 0,
                        elapsed: animating ? timeline.date.timeIntervalSince(activeSince) : nil,
-                       speed: max(0.25, speed), tone: toneColor, dark: dark)
+                       spinTime: spin.time(at: timeline.date), tone: toneColor, dark: dark)
     }
     .frame(width: size, height: size)
     .background { tile }
@@ -40,7 +41,14 @@ struct PluginIconView: View {
     .shadow(color: active ? toneColor.opacity(0.45) : shadowColor.opacity(dark ? 0.45 : 0.2),
             radius: active ? 7 : 5, y: active ? 6 : 4)
     .animation(.easeInOut(duration: 0.36), value: active)
-    .onChange(of: active) { _, now in if now { activeSince = .now } }
+    .onChange(of: active) { _, now in
+      if now {
+        activeSince = .now
+        spin = PluginIconSpinClock(start: activeSince, speed: max(0.25, speed))
+      }
+    }
+    .onChange(of: speed) { _, new in spin.change(to: max(0.25, new), at: .now) }
+    .onAppear { spin = PluginIconSpinClock(start: activeSince, speed: max(0.25, speed)) }
     .accessibilityElement()
     .accessibilityHidden(label == nil)
     .accessibilityLabel(label ?? "")
@@ -81,12 +89,13 @@ struct PluginIconView: View {
 
 /// The icon's shapes. `progress` animates between idle (0) and active (1) so
 /// `when` shapes cross-fade; `elapsed` is the time since the device started,
-/// or nil when nothing should move.
+/// or nil when nothing should move; `spinTime` is that time weighted by the
+/// motion speed, so `spin` keeps its angle when the speed changes.
 private struct PluginIconCanvas: View, Animatable {
   let icon: PluginIcon
   var progress: Double
   let elapsed: TimeInterval?
-  let speed: Double
+  let spinTime: TimeInterval
   let tone: Color
   let dark: Bool
 
@@ -122,15 +131,17 @@ private struct PluginIconCanvas: View, Animatable {
 
     var context = parent
     if let motion = shape.motion, let elapsed {
-      let time = elapsed - (shape.delay ?? 0)
-      if time >= 0 {
-        let pose = PluginIconMotion.pose(motion, time: time, speed: speed)
-        let origin = shape.origin.map { CGPoint(x: $0[0], y: $0[1]) } ?? CGPoint(x: 32, y: 32)
-        context.translateBy(x: origin.x, y: origin.y)
-        context.concatenate(pose.transform)
-        context.translateBy(x: -origin.x, y: -origin.y)
-        opacity *= pose.opacity
-      }
+      // Like CSS fill-mode backwards: until its delay passes, a shape holds the
+      // motion's first frame, so a delayed `flow` stays invisible instead of flashing.
+      let delay = shape.delay ?? 0
+      let started = elapsed >= delay
+      let pose = PluginIconMotion.pose(motion, time: started ? elapsed - delay : 0,
+                                       spinTime: started ? max(0, spinTime - delay) : 0)
+      let origin = shape.origin.map { CGPoint(x: $0[0], y: $0[1]) } ?? CGPoint(x: 32, y: 32)
+      context.translateBy(x: origin.x, y: origin.y)
+      context.concatenate(pose.transform)
+      context.translateBy(x: -origin.x, y: -origin.y)
+      opacity *= pose.opacity
     }
     if let transform = shape.transform { context.concatenate(PluginIconCache.shared.transform(transform)) }
 
@@ -212,6 +223,46 @@ private struct PluginIconCanvas: View, Animatable {
   }
 }
 
+/// Speed-weighted time for `spin`. A speed change eases over half a second
+/// and keeps the accumulated angle, so blades speed up or slow down smoothly
+/// instead of jumping, like the web's eased playback rate.
+struct PluginIconSpinClock: Equatable {
+  static let ramp: TimeInterval = 0.5
+
+  private var anchor: Date
+  /// Speed-weighted seconds accumulated at `anchor`
+  private var base: TimeInterval = 0
+  private var from: Double
+  private var to: Double
+
+  init(start: Date = .now, speed: Double = 1) {
+    anchor = start; from = speed; to = speed
+  }
+
+  /// Current speed, mid-ramp if a change is in progress.
+  func speed(at date: Date) -> Double {
+    let t = min(max(date.timeIntervalSince(anchor), 0), Self.ramp)
+    return from + (to - from) * t / Self.ramp
+  }
+
+  /// Speed-weighted seconds since the clock started.
+  func time(at date: Date) -> TimeInterval {
+    let t = max(0, date.timeIntervalSince(anchor))
+    let rampTime = min(t, Self.ramp)
+    // Integral of a linear ramp from `from` to `to`, then the steady speed.
+    let ramped = from * rampTime + (to - from) * rampTime * rampTime / (2 * Self.ramp)
+    return base + ramped + to * max(0, t - Self.ramp)
+  }
+
+  mutating func change(to speed: Double, at date: Date) {
+    guard speed != to else { return }
+    base = time(at: date)
+    from = self.speed(at: date)
+    to = speed
+    anchor = date
+  }
+}
+
 /// The host's six motions, matching the web keyframes.
 enum PluginIconMotion {
   struct Pose {
@@ -219,12 +270,15 @@ enum PluginIconMotion {
     var opacity = 1.0
   }
 
-  static func pose(_ motion: PluginIcon.Motion, time: TimeInterval, speed: Double) -> Pose {
+  /// - Parameters:
+  ///   - time: Seconds since the motion started
+  ///   - spinTime: Speed-weighted seconds, used by `spin` only
+  static func pose(_ motion: PluginIcon.Motion, time: TimeInterval, spinTime: TimeInterval) -> Pose {
     // One cycle eased in and out: 0 → 1 → 0.
     func wave(_ duration: Double) -> Double { (1 - cos(2 * .pi * time / duration)) / 2 }
     switch motion {
     case .spin:
-      let turn = (time * speed / 1.1).truncatingRemainder(dividingBy: 1)
+      let turn = (spinTime / 1.1).truncatingRemainder(dividingBy: 1)
       return Pose(transform: CGAffineTransform(rotationAngle: turn * 2 * .pi))
     case .sway:
       return Pose(transform: CGAffineTransform(rotationAngle: (-14 + 28 * wave(3.2)) * .pi / 180))
@@ -362,11 +416,13 @@ struct PluginAppIcon: View {
   var active = false
   var tone: String?
   var size: CGFloat = 42
+  /// Motion speed multiplier from the plugin's presentation
+  var speed: Double = 1
   var label: String?
 
   var body: some View {
     if let icon {
-      PluginIconView(icon: icon, active: active, tone: tone, size: size, label: label)
+      PluginIconView(icon: icon, active: active, tone: tone, size: size, speed: speed, label: label)
     } else {
       PluginBadge(symbol: symbol, tint: tint, size: size)
     }

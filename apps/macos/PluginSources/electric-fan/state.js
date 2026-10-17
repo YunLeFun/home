@@ -45,10 +45,18 @@
     }
   }
 
+  // Icon spin speed for each fan speed, matching the web plugin.
+  const MOTION_SPEEDS = { 1: 1, 2: 1.6, 3: 2.2 }
+
   function present(value) {
     const state = normalize(value)
     const mode = `${state.speed} 档${state.oscillating ? ' · 摇头' : ''}`
-    return { active: state.power, tone: state.power ? 'active' : 'idle', summary: state.power ? mode : `待机 · ${mode}` }
+    return {
+      active: state.power,
+      tone: state.power ? 'active' : 'idle',
+      summary: state.power ? mode : `待机 · ${mode}`,
+      motionSpeed: MOTION_SPEEDS[state.speed],
+    }
   }
 
   globalThis.plugin = { create, normalize, isAction, reduce, present }

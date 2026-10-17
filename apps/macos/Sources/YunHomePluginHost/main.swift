@@ -70,7 +70,9 @@ func presentation(from value: JSONValue) throws -> PluginPresentation {
         let summary = value["summary"]?.stringValue else {
     throw SandboxError(message: "plugin.present 需要返回 { active, tone, summary }")
   }
-  return PluginPresentation(active: active, tone: tone, summary: String(summary.prefix(80)))
+  // Optional; clamped so a plugin cannot make icons spin absurdly fast.
+  let motionSpeed = value["motionSpeed"]?.numberValue.flatMap { $0.isFinite ? min(4, max(0.25, $0)) : nil }
+  return PluginPresentation(active: active, tone: tone, summary: String(summary.prefix(80)), motionSpeed: motionSpeed)
 }
 
 /// `context` carries host data such as device limits and, for official plugins

@@ -34,9 +34,12 @@ public struct PluginPresentation: Codable, Equatable, Sendable {
   public var active: Bool
   public var tone: String
   public var summary: String
+  /// Speed multiplier for the app icon's motion, e.g. faster fan blades at a
+  /// higher speed; nil means 1
+  public var motionSpeed: Double?
 
-  public init(active: Bool, tone: String, summary: String) {
-    self.active = active; self.tone = tone; self.summary = summary
+  public init(active: Bool, tone: String, summary: String, motionSpeed: Double? = nil) {
+    self.active = active; self.tone = tone; self.summary = summary; self.motionSpeed = motionSpeed
   }
 
   public static let unknown = PluginPresentation(active: false, tone: "idle", summary: "正在加载…")

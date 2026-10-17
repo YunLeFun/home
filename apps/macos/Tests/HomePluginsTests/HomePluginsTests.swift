@@ -214,12 +214,12 @@ private func lampSource(reduce body: String = "return { on: !state.on }") -> Str
   await client.register(plugin: plugin.id, source: plugin.package.stateSource)
 
   let created = try await client.create(plugin: plugin.id)
-  #expect(created.presentation == PluginPresentation(active: false, tone: "idle", summary: "待机 · 1 档"))
+  #expect(created.presentation == PluginPresentation(active: false, tone: "idle", summary: "待机 · 1 档", motionSpeed: 1))
   let fast = try await client.dispatch(plugin: plugin.id, state: created.state, action: try JSONValue.parse(#"{"type":"set-speed","speed":3}"#))
   let swaying = try await client.dispatch(plugin: plugin.id, state: fast.state,
                                           action: try JSONValue.parse(#"{"type":"set-oscillation","oscillating":true}"#))
   #expect(swaying.state == .object(["power": .bool(true), "speed": .number(3), "oscillating": .bool(true)]))
-  #expect(swaying.presentation == PluginPresentation(active: true, tone: "active", summary: "3 档 · 摇头"))
+  #expect(swaying.presentation == PluginPresentation(active: true, tone: "active", summary: "3 档 · 摇头", motionSpeed: 2.2))
   await #expect(throws: PluginError.self) {
     try await client.dispatch(plugin: plugin.id, state: fast.state, action: try JSONValue.parse(#"{"type":"set-speed","speed":4}"#))
   }

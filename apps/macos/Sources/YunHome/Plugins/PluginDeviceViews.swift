@@ -63,7 +63,8 @@ struct PluginInstanceIcon: View {
   var size: CGFloat = 42
   var body: some View {
     PluginAppIcon(icon: store.appIcon(for: instance), symbol: store.symbol(for: instance), tint: store.tint(for: instance),
-                  active: store.isActive(plugin: instance), tone: store.pluginPresentations[instance.id]?.tone, size: size)
+                  active: store.isActive(plugin: instance), tone: store.pluginPresentations[instance.id]?.tone, size: size,
+                  speed: store.pluginPresentations[instance.id]?.motionSpeed ?? 1)
   }
 }
 

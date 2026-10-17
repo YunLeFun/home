@@ -253,10 +253,10 @@
         ]
       },
       "previewTone": "active",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "permissions": [],
       "package": "electric-fan.yunplugin",
-      "sha256": "bbeda673e2f9453c001a23393d1bc9ccf8713f4b057c91aa1dfe69fd6b180dbc",
+      "sha256": "118eaf44439f7c08c8beaae46186af8ed0ee798f80bb895943033406e36600a0",
       "verified": true,
       "homepage": "https://github.com/ElpsyCN/electric-fan"
     }
