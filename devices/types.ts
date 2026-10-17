@@ -66,7 +66,7 @@ export interface DevicePluginManifest<K extends DeviceKind = DeviceKind> {
   icon: string
   /** Detail route; defaults to `/items/<kind>` */
   route: string
-  /** Footprint in SVG world units, used by placement collision checks */
+  /** Footprint in plan units, used by placement collision checks */
   size: { width: number, height: number }
   /** Surface kinds the device may be placed on */
   surfaces: HomeSurfaceKind[]

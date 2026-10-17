@@ -43,26 +43,24 @@ Devices can ship as self-contained plugins under `devices/<kind>/`. A plugin is 
 
 - `manifest`: name, route, footprint, accepted surfaces, accent tones, and integrations (for example Home Assistant `climate`). `HOME_DEVICES` derives its metadata from the manifest.
 - `state`: a framework-independent state machine (`create`, `normalize`, `reduce`, `isAction`, `isActive`, `tone`). `utils/device.ts` delegates every device kind to it, and fails loudly if the plugin is not installed.
-- `components`: lazily imported `glyph`, `quickControl`, and `panel` slots. The scene, quick-control shell, and `/items/[device]` route resolve them through the registry, so each plugin's UI and dependencies load in their own chunk.
+- `components`: lazily imported `glyph`, `quickControl`, and `panel` slots. The quick-control shell and the `/items/[device]` route resolve them through the registry (the glyph is the device's illustration on its detail page), so each plugin's UI and dependencies load in their own chunk.
 
-`plugins/0.device-plugins.ts` installs `BUILTIN_DEVICE_PLUGINS` before any other Nuxt plugin and preloads glyphs for the first render. Every device ships as a plugin: air conditioner, fan, robot vacuum, hand warmer, and television. The air conditioner's `@yunlefun-home/air-conditioner` renderer and Home Assistant binding form only load with its detail panel, and the television's player only loads with its panel; the others use their quick control as the detail panel.
+`plugins/0.device-plugins.ts` installs `BUILTIN_DEVICE_PLUGINS` before any other Nuxt plugin and preloads glyphs for the detail page's first render. Every device ships as a plugin: air conditioner, fan, robot vacuum, hand warmer, and television. The air conditioner's `@yunlefun-home/air-conditioner` renderer and Home Assistant binding form only load with its detail panel, and the television's player only loads with its panel; the others use their quick control as the detail panel.
 
 ## Cloud Home Architecture
 
-The home page uses a renderer-independent 2D/2.5D scene model:
+The home is a 3D diorama (`components/home/HomeScene3D.vue`, `utils/scene3d/`, three.js) drawn from a renderer-independent home model:
 
-- Room templates and device placements are stored in SVG world coordinates and surface-local `u`/`v` coordinates, never screen pixels.
-- Semantic Vue SVG components own the room shell, furniture, vector device glyphs, placement surfaces, snap hints, obstacles, and robot routes. Every visible scene element remains editable in source.
-- HTML/CSS owns pointer and keyboard interactions, room tabs, device-first quick controls, auth, and sync status.
+- Room templates and device placements are stored on a plan: a 1600 × 800 front elevation in which each surface (wall, floor, tabletop) is a polygon, and a placement is a surface plus surface-local `u`/`v` coordinates, never screen pixels. `utils/scene3d/projection.ts` maps the plan into the diorama.
+- HTML/CSS owns device hotspots and labels, room tabs, device-first quick controls, auth, and sync status. The diorama renders on demand and pauses while nothing moves or it is off screen.
 - Desktop starts with a full-home overview and can focus a room; mobile restores the most recently used room. The device tray follows the active room and shows connected-device counts.
-- Unplaced devices stay in a compact inbox. Edit mode expands the inbox and current-room groups, supports desktop drag or mobile select-then-place, and provides an explicit room selector for reassignment.
-- The 3D diorama (`components/home/HomeScene3D.vue`, `utils/scene3d/`) edits in place: surfaces that accept the selected device light up, a pointer or touch drag casts a ray onto those surfaces' planes and maps the hit back to world coordinates (`findSurfaceAlongRay`), and the drop goes through the same `createPlacementAtPoint` rules as the 2D scene. A marker previews the drop and turns coral where it is not allowed. Selected devices can be rotated or moved out of the room from a toolbar, or with the arrow keys, `R` and `Delete` on their hotspot.
+- Unplaced devices stay in a compact inbox. Edit mode expands the inbox and current-room groups, and provides an explicit room selector for reassignment.
+- Editing happens in the diorama: surfaces that accept the selected device light up, a pointer or touch drag casts a ray onto those surfaces' planes and maps the hit back to the plan (`findSurfaceAlongRay`), and the drop goes through the placement rules in `utils/home.ts` (`createPlacementAtPoint`: snapping, floor obstacles, collisions). A marker previews the drop and turns coral where it is not allowed. Devices can also be dragged in from the tray, or selected there and placed with a tap on a lit surface. Selected devices can be rotated or moved out of the room from a toolbar, or with the arrow keys, `R` and `Delete` on their hotspot.
+- The server render and first paint show a pre-rendered poster of the diorama (`public/scene/<template>-<day|night>-<width>.webp`, `HomeScenePoster.vue`) until it has drawn its first frame. Browsers without WebGL2, or that lose the WebGL context, keep the poster with a note, and devices are controlled and placed from the device tray. Regenerate the posters with `pnpm scene:posters` against a running dev server after changing the 3D scene.
+- With `prefers-reduced-motion: reduce`, ambient motion and camera easing stop and frames only render when something changes. The preference is followed live.
 - Layout and device snapshots carry an ISO `changedAt` timestamp. Login, reconnect, focus, and online events compare local and cloud timestamps; the newer snapshot wins and is synchronized back using last-write-wins semantics.
 
-- The server render and first paint show a pre-rendered poster of the 3D home (`public/scene/<template>-<day|night>-<width>.webp`, `HomeScenePoster.vue`) until the diorama has drawn its first frame. Browsers without WebGL2, or that lose the WebGL context, keep the poster with a note, and devices are controlled and placed from the device tray. Regenerate the posters with `pnpm scene:posters` against a running dev server after changing the 3D scene.
-- With `prefers-reduced-motion: reduce` the home stays 3D: ambient motion and camera easing stop and frames only render when something changes. The preference is followed live.
-
-The first release includes `cloud-apartment`, `studio`, and `comfort-suite`. A future WebGL renderer can consume the same home and device state without migrating stored placements.
+The first release includes `cloud-apartment`, `studio`, and `comfort-suite`.
 
 ## YunLe / CloudBase Auth
 

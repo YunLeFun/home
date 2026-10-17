@@ -5,7 +5,7 @@ export default defineNuxtPlugin({
   enforce: 'pre',
   async setup() {
     installBuiltinDevicePlugins()
-    // Glyphs render in the scene on first paint; warm them before hydration.
+    // Glyphs render on the device detail page's first paint; warm them before hydration.
     await preloadDevicePluginComponents('glyph')
   },
 })

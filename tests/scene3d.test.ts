@@ -69,7 +69,7 @@ function rayTo(target: Vec3): Ray3 {
 }
 
 describe('3D placement', () => {
-  it.each(templateIds)('maps every surface of %s back to the 2D point it came from', (templateId) => {
+  it.each(templateIds)('maps every surface of %s back to the plan point it came from', (templateId) => {
     const template = HOME_TEMPLATES[templateId]
     const { tabletops } = SCENE3D_TEMPLATES[templateId]
     for (const surface of template.surfaces) {

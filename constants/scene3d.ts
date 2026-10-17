@@ -41,7 +41,7 @@ export interface FurnitureSpec {
   light?: boolean
 }
 
-/** Back wall tint of each room, matching the 2D room shells. */
+/** Back wall tint of each room, by room. */
 export type RoomAccent = 'warm' | 'sky' | 'clay'
 
 export interface Scene3DTemplate {
@@ -50,7 +50,7 @@ export interface Scene3DTemplate {
   furniture: FurnitureSpec[]
 }
 
-// Positions are derived from the 2D art so both views keep the same layout.
+// Positions follow the template plans, so furniture lines up with the placement surfaces.
 export const SCENE3D_TEMPLATES: Record<HomeTemplateId, Scene3DTemplate> = {
   'cloud-apartment': {
     rooms: { 'living-room': 'warm', 'bedroom': 'sky', 'utility-room': 'clay' },
