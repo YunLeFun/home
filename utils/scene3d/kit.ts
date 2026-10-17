@@ -45,6 +45,12 @@ export const TONE_COLORS = {
   active: '#4fbf7a',
 } as const
 
+/** Colours of the placement overlay: drop surfaces and the drop marker. */
+export const EDIT_COLORS = {
+  surface: '#2563eb',
+  invalid: '#ff6b4a',
+} as const
+
 interface MaterialOptions {
   roughness?: number
   metalness?: number

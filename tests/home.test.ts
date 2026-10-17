@@ -23,6 +23,25 @@ describe('cloud home projection', () => {
     expect(local.v).toBeCloseTo(0.75, 5)
   })
 
+  it('lets devices go on every tabletop, even above floor obstacles', () => {
+    for (const home of Object.values(HOME_TEMPLATES)) {
+      for (const surface of home.surfaces.filter(item => item.kind === 'tabletop')) {
+        const placement = createPlacementAtPoint(home, 'hand-warmer', surfacePointToWorld(surface, 0.5, 0.5), [])
+        expect(placement?.surfaceId, surface.id).toBe(surface.id)
+      }
+    }
+  })
+
+  it('inverts slanted floor surfaces too', () => {
+    for (const surface of Object.values(HOME_TEMPLATES).flatMap(item => item.surfaces)) {
+      for (const [u, v] of [[0, 0], [0.1, 0.9], [0.5, 0.5], [1, 1]] as const) {
+        const local = worldPointToSurface(surface, surfacePointToWorld(surface, u, v))
+        expect(local.u, surface.id).toBeCloseTo(u, 5)
+        expect(local.v, surface.id).toBeCloseTo(v, 5)
+      }
+    }
+  })
+
   it('keeps placements independent from viewport scaling', () => {
     const state = createDefaultHomeState('cloud-apartment', '2026-07-15T00:00:00.000Z')
     const placement = state.placements.find(item => item.deviceId === 'air-conditioner')!

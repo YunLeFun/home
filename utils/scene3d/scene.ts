@@ -1,14 +1,15 @@
 import * as THREE from 'three'
 import type { ScenePhase } from '~/composables/scene-time'
-import type { DeviceKind, DevicePlacement, HomePoint, HomeTemplate } from '~/types'
+import type { DeviceKind, DevicePlacement, HomePoint, HomeSurface, HomeSurfaceKind, HomeTemplate } from '~/types'
 import type { DeviceModel, DeviceVisual } from './devices'
 import type { PhaseTargets, SceneLamp } from './furniture'
+import type { Ray3, Vec3 } from './projection'
 import { SCENE3D_TEMPLATES } from '~/constants/scene3d'
-import { getPointAlongRoute, getRobotRoute } from '~/utils/home'
+import { createPlacementAtPoint, getPointAlongRoute, getRobotRoute } from '~/utils/home'
 import { buildDevice, buildRobotDock } from './devices'
 import { buildFurniture } from './furniture'
-import { Kit, PALETTE, TONE_COLORS } from './kit'
-import { projectFloorPoint, projectPlacement, roomAtWorldX, roomExtent, SCENE3D, worldX } from './projection'
+import { EDIT_COLORS, Kit, PALETTE, TONE_COLORS } from './kit'
+import { findSurfaceAlongRay, projectFloorPoint, projectPlacement, roomAtWorldX, roomExtent, SCENE3D, surfaceCorners, worldX } from './projection'
 
 /** A device hotspot projected to canvas pixels. */
 export interface ScreenAnchor {
@@ -59,12 +60,39 @@ interface CameraPose {
   shift: number
 }
 
+/** A device being dragged to a new spot. */
+interface DeviceDrag {
+  deviceId: DeviceKind
+  /** Where the pointer meets the surface, in 2D scene pixels. */
+  point: HomePoint | null
+  /** The placement a drop would make, or null when the spot is not allowed. */
+  placement: DevicePlacement | null
+  /** Where the pointer meets the surface, in diorama space. */
+  position: Vec3 | null
+  surfaceKind: HomeSurfaceKind | null
+}
+
+interface SurfaceOverlay {
+  surface: HomeSurface
+  object: THREE.Group
+  fill: THREE.MeshBasicMaterial
+  edge: THREE.MeshBasicMaterial
+}
+
 interface DeviceEntry {
   model: DeviceModel
   holder: THREE.Group
   scale: number
   lift: number
   heading: number
+}
+
+function isShown(object: THREE.Object3D) {
+  for (let node: THREE.Object3D | null = object; node; node = node.parent) {
+    if (!node.visible)
+      return false
+  }
+  return true
 }
 
 function easeOutQuart(progress: number) {
@@ -129,6 +157,13 @@ export class HomeScene3D {
   private dock: THREE.Object3D
   private route: THREE.Line | null = null
   private raycaster = new THREE.Raycaster()
+  /** Placement overlay; kept out of picking. */
+  private editRoot = new THREE.Group()
+  private surfaceOverlays: SurfaceOverlay[] = []
+  private marker: THREE.Group
+  private markerMaterials: THREE.MeshBasicMaterial[]
+  private editing = false
+  private drag: DeviceDrag | null = null
   private options: HomeScene3DOptions
   private basePitch: number
 
@@ -178,7 +213,8 @@ export class HomeScene3D {
     Object.assign(this.sun.shadow.camera, { left: -10, right: 10, top: 7, bottom: -6, near: 1, far: 40 })
     this.sun.shadow.bias = -0.0004
     this.sun.shadow.normalBias = 0.025
-    this.scene.add(this.hemi, this.sun, this.sun.target, this.templateRoot, this.deviceRoot)
+    this.scene.add(this.hemi, this.sun, this.sun.target, this.templateRoot, this.deviceRoot, this.editRoot)
+    this.editRoot.visible = false
 
     const beam = new THREE.MeshBasicMaterial({
       color: '#fff6dc',
@@ -197,6 +233,17 @@ export class HomeScene3D {
     this.dock = buildRobotDock(this.deviceKit)
     this.dock.visible = false
     this.deviceRoot.add(this.dock)
+    this.markerMaterials = [0.9, 0.2].map(opacity => this.deviceKit.track(new THREE.MeshBasicMaterial({ color: EDIT_COLORS.surface, transparent: true, opacity, depthTest: false, depthWrite: false, side: THREE.DoubleSide })))
+    this.marker = new THREE.Group()
+    this.marker.add(
+      new THREE.Mesh(this.deviceKit.custom('marker-ring', () => new THREE.RingGeometry(0.22, 0.28, 48)), this.markerMaterials[0]!),
+      new THREE.Mesh(this.deviceKit.custom('marker-disc', () => new THREE.CircleGeometry(0.22, 48)), this.markerMaterials[1]!),
+    )
+    this.marker.traverse((child) => {
+      child.renderOrder = 10
+    })
+    this.marker.visible = false
+    this.editRoot.add(this.marker)
     this.applyLighting(this.phaseTo)
   }
 
@@ -290,6 +337,7 @@ export class HomeScene3D {
     if (this.template?.id === template.id)
       return
     this.template = template
+    this.drag = null
     this.templateRoot.clear()
     this.templateKit.dispose()
     this.templateKit = new Kit()
@@ -310,6 +358,7 @@ export class HomeScene3D {
     for (const tick of this.ticks)
       tick(0)
     this.applyLighting(this.current)
+    this.buildSurfaceOverlays(template)
     this.updateRoute()
     this.setPlacements(this.placements)
     this.reframe(true)
@@ -390,29 +439,185 @@ export class HomeScene3D {
   /** Move devices to their placements. */
   setPlacements(placements: DevicePlacement[]) {
     this.placements = placements
+    if (!this.template)
+      return
+    this.layoutDevices()
+    this.updateRoute()
+    this.invalidate()
+  }
+
+  private layoutDevices() {
     const template = this.template
     if (!template)
       return
     const tabletops = SCENE3D_TEMPLATES[template.id].tabletops
+    const drag = this.drag
     const placed = new Set<DeviceKind>()
-    for (const placement of placements) {
-      const projected = projectPlacement(template, placement, tabletops)
-      if (!projected)
-        continue
-      const entry = this.entry(placement.deviceId)
-      placed.add(placement.deviceId)
+    const put = (kind: DeviceKind, position: Vec3, surfaceKind: HomeSurfaceKind, rotation: number) => {
+      const entry = this.entry(kind)
+      placed.add(kind)
       entry.holder.visible = true
-      entry.holder.position.set(projected.position.x, projected.position.y, projected.position.z)
-      const heading = projected.surfaceKind === 'wall' ? 0 : -THREE.MathUtils.degToRad(placement.rotation)
+      entry.holder.position.set(position.x, position.y, position.z)
+      const heading = surfaceKind === 'wall' ? 0 : -THREE.MathUtils.degToRad(rotation)
       entry.heading = heading
       entry.holder.rotation.y = heading
-      entry.holder.userData.base = projected.position
+      entry.holder.userData.base = position
+    }
+    for (const placement of this.placements) {
+      if (placement.deviceId === drag?.deviceId && (drag.placement || drag.position))
+        continue
+      const projected = projectPlacement(template, placement, tabletops)
+      if (projected)
+        put(placement.deviceId, projected.position, projected.surfaceKind, placement.rotation)
+    }
+    this.marker.visible = false
+    if (drag) {
+      const rotation = this.placements.find(item => item.deviceId === drag.deviceId)?.rotation ?? 0
+      const projected = drag.placement && projectPlacement(template, drag.placement, tabletops)
+      const position = projected?.position ?? (drag.position && this.clampToDiorama(drag.position))
+      const surfaceKind = projected?.surfaceKind ?? drag.surfaceKind
+      if (position && surfaceKind) {
+        put(drag.deviceId, position, surfaceKind, rotation)
+        this.showMarker(position, surfaceKind, Boolean(projected))
+      }
     }
     for (const [kind, entry] of this.devices) {
       if (!placed.has(kind))
         entry.holder.visible = false
     }
-    this.updateRoute()
+  }
+
+  private clampToDiorama(position: Vec3): Vec3 {
+    const width = this.template?.width ?? 1600
+    return {
+      x: THREE.MathUtils.clamp(position.x, worldX(0, width), worldX(width, width)),
+      y: THREE.MathUtils.clamp(position.y, 0, SCENE3D.height),
+      z: THREE.MathUtils.clamp(position.z, 0, SCENE3D.depth),
+    }
+  }
+
+  // Placement ----------------------------------------------------------------
+
+  private buildSurfaceOverlays(template: HomeTemplate) {
+    for (const overlay of this.surfaceOverlays)
+      this.editRoot.remove(overlay.object)
+    const tabletops = SCENE3D_TEMPLATES[template.id].tabletops
+    const kit = this.templateKit
+    this.surfaceOverlays = template.surfaces.map((surface) => {
+      // Lift each overlay just clear of what it lies on: wall, rug or tabletop.
+      const lift = surface.kind === 'wall' ? { y: 0, z: 0.014 - SCENE3D.wallOffset } : { y: surface.kind === 'floor' ? 0.032 : 0.008, z: 0 }
+      const corners = surfaceCorners(surface, template.width, tabletops[surface.id])
+        .map(corner => new THREE.Vector3(corner.x, corner.y + lift.y, corner.z + lift.z))
+      const [a, b, c, d] = corners as [THREE.Vector3, THREE.Vector3, THREE.Vector3, THREE.Vector3]
+      // A solid border band reads better than a 1 px WebGL line at any size.
+      const at = (u: number, v: number) => a.clone().lerp(b, u).lerp(d.clone().lerp(c, u), v)
+      const iu = 0.05 / a.distanceTo(b)
+      const iv = 0.05 / a.distanceTo(d)
+      const inner = [at(iu, iv), at(1 - iu, iv), at(1 - iu, 1 - iv), at(iu, 1 - iv)]
+      const band = corners.flatMap((corner, index) => {
+        const next = (index + 1) % 4
+        return [corner, corners[next]!, inner[next]!, corner, inner[next]!, inner[index]!]
+      })
+      const material = (opacity: number) => kit.track(new THREE.MeshBasicMaterial({ color: EDIT_COLORS.surface, transparent: true, opacity, depthWrite: false, side: THREE.DoubleSide }))
+      const fill = material(0.1)
+      const edge = material(0.5)
+      const area = new THREE.Mesh(kit.custom(`surface:${surface.id}`, () => new THREE.BufferGeometry().setFromPoints([0, 1, 2, 0, 2, 3].map(index => inner[index]!))), fill)
+      const outline = new THREE.Mesh(kit.custom(`surface-edge:${surface.id}`, () => new THREE.BufferGeometry().setFromPoints(band)), edge)
+      const object = new THREE.Group()
+      object.add(area, outline)
+      object.renderOrder = 2
+      this.editRoot.add(object)
+      return { surface, object, fill, edge }
+    })
+    this.styleSurfaceOverlays(0)
+  }
+
+  /** Light the surfaces the selected (or dragged) device can go on. */
+  private styleSurfaceOverlays(time: number) {
+    const focus = this.drag?.deviceId ?? this.selected
+    const pulse = focus && !this.options.reducedMotion ? (Math.sin(time * 3.6) + 1) / 2 : 0
+    for (const overlay of this.surfaceOverlays) {
+      overlay.object.visible = !focus || overlay.surface.accepts.includes(focus)
+      overlay.fill.opacity = focus ? 0.16 + pulse * 0.14 : 0.1
+      overlay.edge.opacity = focus ? 0.9 : 0.5
+    }
+  }
+
+  private showMarker(position: Vec3, surfaceKind: HomeSurfaceKind, valid: boolean) {
+    const wall = surfaceKind === 'wall'
+    this.marker.visible = true
+    this.marker.position.set(position.x, position.y + (wall ? 0 : 0.036), wall ? 0.02 : position.z)
+    this.marker.rotation.set(wall ? 0 : -Math.PI / 2, 0, 0)
+    for (const material of this.markerMaterials)
+      material.color.set(valid ? EDIT_COLORS.surface : EDIT_COLORS.invalid)
+  }
+
+  /** Show where devices can go, for editing the layout. */
+  setEditing(editing: boolean) {
+    if (editing === this.editing)
+      return
+    this.editing = editing
+    this.editRoot.visible = editing
+    if (!editing)
+      this.endDrag()
+    this.styleSurfaceOverlays(performance.now() / 1000)
+    this.invalidate()
+  }
+
+  private rayAt(x: number, y: number): Ray3 {
+    this.camera.updateMatrixWorld()
+    this.raycaster.setFromCamera(new THREE.Vector2(x / this.width * 2 - 1, -(y / this.height) * 2 + 1), this.camera)
+    const { origin, direction } = this.raycaster.ray
+    return { origin: { x: origin.x, y: origin.y, z: origin.z }, direction: { x: direction.x, y: direction.y, z: direction.z } }
+  }
+
+  /**
+   * The 2D scene point under a point of the canvas, on a surface that accepts
+   * the device. Feed it to the placement rules to place the device there.
+   *
+   * @param deviceId - Device being placed
+   * @param x - Canvas x in CSS pixels
+   * @param y - Canvas y in CSS pixels
+   * @returns The point in 2D scene pixels, or null when no surface is under the pointer
+   */
+  surfacePointAt(deviceId: DeviceKind, x: number, y: number): HomePoint | null {
+    const template = this.template
+    if (!template)
+      return null
+    return findSurfaceAlongRay(template, deviceId, this.rayAt(x, y), SCENE3D_TEMPLATES[template.id].tabletops)?.point ?? null
+  }
+
+  /**
+   * Preview a device dragged to a point of the canvas: it moves to where a
+   * drop would put it, or follows the pointer with a warning marker when the
+   * spot is not allowed.
+   *
+   * @param deviceId - Device being dragged
+   * @param x - Canvas x in CSS pixels
+   * @param y - Canvas y in CSS pixels
+   * @returns The 2D scene point and whether a drop there would place the device
+   */
+  dragDevice(deviceId: DeviceKind, x: number, y: number): { point: HomePoint | null, valid: boolean } {
+    const template = this.template
+    if (!template)
+      return { point: null, valid: false }
+    const hit = findSurfaceAlongRay(template, deviceId, this.rayAt(x, y), SCENE3D_TEMPLATES[template.id].tabletops)
+    const rotation = this.placements.find(item => item.deviceId === deviceId)?.rotation ?? 0
+    const placement = hit ? createPlacementAtPoint(template, deviceId, hit.point, this.placements, rotation) : null
+    this.drag = { deviceId, point: hit?.point ?? null, placement, position: hit?.position ?? null, surfaceKind: hit?.surface.kind ?? null }
+    this.layoutDevices()
+    this.styleSurfaceOverlays(performance.now() / 1000)
+    this.invalidate()
+    return { point: this.drag.point, valid: Boolean(placement) }
+  }
+
+  /** End a drag preview and put the device back on its placement. */
+  endDrag() {
+    if (!this.drag)
+      return
+    this.drag = null
+    this.layoutDevices()
+    this.styleSurfaceOverlays(performance.now() / 1000)
     this.invalidate()
   }
 
@@ -473,7 +678,7 @@ export class HomeScene3D {
     if (!entry || !template || !entry.holder.visible)
       return false
     const base = entry.holder.userData.base as { x: number, y: number, z: number } | undefined
-    if (!this.robot.cleaning || !base) {
+    if (!this.robot.cleaning || !base || this.drag?.deviceId === 'robot-vacuum') {
       if (base)
         entry.holder.position.set(base.x, base.y, base.z)
       entry.holder.rotation.y = entry.heading
@@ -531,6 +736,7 @@ export class HomeScene3D {
   setSelection(selected: DeviceKind | null, hovered: DeviceKind | null = this.hovered) {
     this.selected = selected
     this.hovered = hovered
+    this.styleSurfaceOverlays(performance.now() / 1000)
     this.invalidate()
   }
 
@@ -681,13 +887,16 @@ export class HomeScene3D {
     let busy = this.stepCamera(now, dt)
     busy = this.stepPhase(now) || busy
     busy = this.stepDevices(dt, time) || busy
-    const ambient = !this.options.reducedMotion && this.ticks.length > 0
+    const pulsing = this.editing && Boolean(this.drag ?? this.selected)
+    const ambient = !this.options.reducedMotion && (this.ticks.length > 0 || pulsing)
     // Ambient motion alone runs at a calmer 30 fps.
     if (busy || !ambient || now - this.lastRender > 32) {
       if (ambient) {
         for (const tick of this.ticks)
           tick(time)
       }
+      if (this.editing)
+        this.styleSurfaceOverlays(time)
       this.renderer.render(this.scene, this.camera)
       this.lastRender = now
       this.project()
@@ -730,7 +939,8 @@ export class HomeScene3D {
   pick(x: number, y: number): { deviceId: DeviceKind | null, roomId: string | null } {
     const pointer = new THREE.Vector2(x / this.width * 2 - 1, -(y / this.height) * 2 + 1)
     this.raycaster.setFromCamera(pointer, this.camera)
-    const hit = this.raycaster.intersectObjects([this.deviceRoot, this.templateRoot], true)[0]
+    // Raycasting ignores visibility; skip devices hidden because they are not placed.
+    const hit = this.raycaster.intersectObjects([this.deviceRoot, this.templateRoot], true).find(item => isShown(item.object))
     if (!hit || !this.template)
       return { deviceId: null, roomId: null }
     let object: THREE.Object3D | null = hit.object

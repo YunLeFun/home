@@ -56,6 +56,7 @@ The home page uses a renderer-independent 2D/2.5D scene model:
 - HTML/CSS owns pointer and keyboard interactions, room tabs, device-first quick controls, auth, and sync status.
 - Desktop starts with a full-home overview and can focus a room; mobile restores the most recently used room. The device tray follows the active room and shows connected-device counts.
 - Unplaced devices stay in a compact inbox. Edit mode expands the inbox and current-room groups, supports desktop drag or mobile select-then-place, and provides an explicit room selector for reassignment.
+- The 3D diorama (`components/home/HomeScene3D.vue`, `utils/scene3d/`) edits in place: surfaces that accept the selected device light up, a pointer or touch drag casts a ray onto those surfaces' planes and maps the hit back to world coordinates (`findSurfaceAlongRay`), and the drop goes through the same `createPlacementAtPoint` rules as the 2D scene. A marker previews the drop and turns coral where it is not allowed. Selected devices can be rotated or moved out of the room from a toolbar, or with the arrow keys, `R` and `Delete` on their hotspot.
 - Layout and device snapshots carry an ISO `changedAt` timestamp. Login, reconnect, focus, and online events compare local and cloud timestamps; the newer snapshot wins and is synchronized back using last-write-wins semantics.
 
 The first release includes `cloud-apartment`, `studio`, and `comfort-suite`. A future WebGL renderer can consume the same home and device state without migrating stored placements.
