@@ -12,6 +12,8 @@ public struct HAEntity: Codable, Equatable, Sendable {
 
 public struct HAClimateSnapshot: Equatable, Identifiable, Sendable {
   public let entity: HAEntity
+  public let systemTemperatureUnit: String?
+  public var temperatureUnit: String? { entity.attributes["temperature_unit"]?.string ?? systemTemperatureUnit }
   public var id: String { entity.entity_id }
   public var name: String { entity.attributes["friendly_name"]?.string ?? id }
   public var mode: String { entity.state }
@@ -28,11 +30,15 @@ public struct HAClimateSnapshot: Equatable, Identifiable, Sendable {
     return value.isFinite && value >= 0 && value < Double(Int.max) && (Int(value) & 1) != 0
   }
   public var unsupportedReason: String? {
-    if entity.attributes["temperature_unit"]?.string != "°C" { return "目前仅支持摄氏度空调实体。" }
+    if temperatureUnit == nil { return "无法确认温标，请检查 Home Assistant 的单位设置后重新连接。" }
+    if temperatureUnit != "°C" { return "目前仅支持摄氏度空调实体。" }
     if !modes.contains("off") || !modes.contains(where: { ["cool", "heat"].contains($0) }) { return "需要支持关闭，以及制冷或制热模式的空调实体。" }
     return nil
   }
-  public init(_ entity: HAEntity) { self.entity = entity }
+  public init(_ entity: HAEntity, systemTemperatureUnit: String? = nil) {
+    self.entity = entity
+    self.systemTemperatureUnit = systemTemperatureUnit
+  }
   public func clamp(_ value: Double) -> Double {
     let snapped = ((value - minimum) / step).rounded() * step + minimum
     return (min(maximum, max(minimum, snapped)) * 10_000).rounded() / 10_000

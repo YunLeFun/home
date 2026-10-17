@@ -24,6 +24,9 @@ public enum HAConnectionState: Equatable, Sendable {
   public private(set) var entities: [HAClimateSnapshot] = []
   public private(set) var error: String?
   public private(set) var snapshot: HAClimateSnapshot?
+  public private(set) var entityRooms: [String: String] = [:]
+  public private(set) var roomLookupFailed = false
+  private var systemTemperatureUnit: String?
   private var active: ClimateIntent?
   private var queued: ClimateIntent?
   private var draftMode: String?
@@ -54,6 +57,8 @@ public enum HAConnectionState: Equatable, Sendable {
     self.debounce = debounce
     self.reconnectDelay = reconnectDelay
     self.client.onStateEvent = { [weak self] in self?.receiveEvent($0) }
+    // Invalidate cached units before accepting states after a unit-system change.
+    self.client.onConfigurationChanged = { [weak self] in self?.lostConnection(.disconnected) }
     self.client.onDisconnect = { [weak self] in self?.lostConnection($0) }
   }
 
@@ -200,9 +205,16 @@ public enum HAConnectionState: Equatable, Sendable {
     buffering = true
     buffered.removeAll()
     _ = try await client.request("subscribe_events", fields: ["event_type": .string("state_changed")])
+    _ = try await client.request("subscribe_events", fields: ["event_type": .string("core_config_updated")])
+    // Older HA versions expose the converted unit only through get_config.
+    // Never guess Celsius from the numeric range of a device.
+    let config = try await client.request("get_config")
+    guard generation == current else { throw CancellationError() }
+    systemTemperatureUnit = config["unit_system"]["temperature"].string
     let states = try await client.request("get_states").decode([HAEntity].self)
     guard generation == current else { throw CancellationError() }
-    entities = states.filter { $0.entity_id.hasPrefix("climate.") }.map(HAClimateSnapshot.init)
+    entities = states.filter { $0.entity_id.hasPrefix("climate.") }
+      .map { HAClimateSnapshot($0, systemTemperatureUnit: systemTemperatureUnit) }
     buffering = false
     for (id, entity) in buffered { apply(entity, id: id) }
     buffered.removeAll()
@@ -215,6 +227,24 @@ public enum HAConnectionState: Equatable, Sendable {
     error = binding != nil && snapshot == nil ? HAError.entityMissing.localizedDescription : nil
   }
 
+  /// Optional metadata for a binding form. Lack of registry permissions must
+  /// not prevent state reads or manual room assignment.
+  public func loadRooms() async {
+    let current = generation
+    do {
+      let areas = try await client.request("config/area_registry/list")
+      let devices = try await client.request("config/device_registry/list")
+      let entities = try await client.request("config/entity_registry/list")
+      guard generation == current else { return }
+      entityRooms = haEntityRooms(areas: areas, devices: devices, entities: entities)
+      roomLookupFailed = false
+    } catch {
+      guard generation == current else { return }
+      entityRooms = [:]
+      roomLookupFailed = true
+    }
+  }
+
   private func receiveEvent(_ data: HAValue) {
     guard let id = data["entity_id"].string, id.hasPrefix("climate.") else { return }
     let entity = try? data["new_state"].decode(HAEntity.self)
@@ -223,7 +253,7 @@ public enum HAConnectionState: Equatable, Sendable {
   }
   private func apply(_ entity: HAEntity?, id: String) {
     if let entity {
-      let snapshot = HAClimateSnapshot(entity)
+      let snapshot = HAClimateSnapshot(entity, systemTemperatureUnit: systemTemperatureUnit)
       if let previous = entities.first(where: { $0.id == id }), previous.reportedAt > snapshot.reportedAt { return }
       entities.removeAll { $0.id == id }
       entities.append(snapshot)

@@ -39,6 +39,7 @@ import Foundation
 /// HTTP redirects or sends an Authorization header to another origin.
 @MainActor public final class HomeAssistantClient {
   public var onStateEvent: ((HAValue) -> Void)?
+  public var onConfigurationChanged: (() -> Void)?
   public var onDisconnect: ((HAError) -> Void)?
   public private(set) var connected = false
   private let factory: (URL) -> any HAWebSocket
@@ -180,6 +181,7 @@ import Foundation
     case "event":
       guard connected else { throw HAError.protocolError }
       if value["event"]["event_type"].string == "state_changed" { onStateEvent?(value["event"]["data"]) }
+      if value["event"]["event_type"].string == "core_config_updated" { onConfigurationChanged?() }
     default: throw HAError.protocolError
     }
   }
