@@ -11,6 +11,15 @@ overrides:
   vue: 3.5.44
   vue-router: 5.4.0
 
+# Advisories with no patched release that only reach build tooling: nuxt ->
+# nitropack -> listhen (self-signed dev certificates) and -> globby (build-time
+# file matching). Neither ships in .output or handles user input. Remove each
+# entry once a fixed version is released and nitropack picks it up.
+auditConfig:
+  ignoreGhsas:
+    - GHSA-86w9-cpqp-85rv # node-forge <=1.4.0, RSA PKCS#1 v1.5 signature verification
+    - GHSA-vfj7-8cjw-p6xm # braces <=3.0.3, deeply nested pattern DoS
+
 allowBuilds:
   '@parcel/watcher': true
   core-js-pure: false
