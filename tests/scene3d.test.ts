@@ -4,8 +4,8 @@ import { createDefaultHomeState, HOME_TEMPLATES } from '~/constants/home'
 import { SCENE3D_TEMPLATES } from '~/constants/scene3d'
 import type { HomeTemplateId } from '~/types'
 import type { Ray3, Vec3 } from '~/utils/scene3d/projection'
-import { createPlacementAtPoint, placementToWorld, worldPointToSurface } from '~/utils/home'
-import { findSurfaceAlongRay, floorDepth, projectPlacement, projectSurfacePoint, roomAtWorldX, roomExtent, SCENE3D, unprojectSurfacePoint, wallHeight, worldX } from '~/utils/scene3d/projection'
+import { createPlacementAtPoint, hasPlacementCollision, placementToWorld, worldPointToSurface } from '~/utils/home'
+import { findSurfaceAlongRay, floorDepth, isPlan, PLAN3D, planX, planZ, projectFloorPoint, projectPlacement, projectSurfacePoint, roomAt, roomBounds, SCENE3D, surfaceFrame, unprojectSurfacePoint, wallHeight, worldX } from '~/utils/scene3d/projection'
 
 const templateIds = Object.keys(HOME_TEMPLATES) as HomeTemplateId[]
 
@@ -27,12 +27,15 @@ describe('3D scene projection', () => {
       const projected = projectPlacement(template, placement, tabletops)
       expect(projected, placement.deviceId).not.toBeNull()
       const { position, surfaceKind } = projected!
-      const extent = roomExtent(template, placement.roomId)
-      expect(position.x).toBeGreaterThanOrEqual(extent.x0)
-      expect(position.x).toBeLessThanOrEqual(extent.x1)
-      expect(roomAtWorldX(template, position.x)).toBe(placement.roomId)
+      const bounds = roomBounds(template, placement.roomId)
+      expect(position.x).toBeGreaterThanOrEqual(bounds.x0)
+      expect(position.x).toBeLessThanOrEqual(bounds.x1)
+      expect(position.z).toBeGreaterThanOrEqual(bounds.z0)
+      expect(position.z).toBeLessThanOrEqual(bounds.z1)
+      expect(roomAt(template, position)).toBe(placement.roomId)
       if (surfaceKind === 'wall') {
-        expect(position.z).toBe(SCENE3D.wallOffset)
+        if (!isPlan(template))
+          expect(position.z).toBe(SCENE3D.wallOffset)
         expect(position.y).toBeGreaterThan(0.5)
       }
       if (surfaceKind === 'floor')
@@ -49,8 +52,10 @@ describe('3D scene projection', () => {
     const tabletopIds = template.surfaces.filter(surface => surface.kind === 'tabletop').map(surface => surface.id)
     expect(Object.keys(spec.tabletops).sort()).toEqual(tabletopIds.sort())
     for (const item of spec.furniture) {
-      expect(roomAtWorldX(template, item.x), item.id).toBe(item.roomId)
-      expect(item.z ?? 0).toBeLessThanOrEqual(SCENE3D.depth)
+      const position = { x: item.x, y: item.y ?? 0, z: item.z ?? 0 }
+      expect(roomAt(template, position), item.id).toBe(item.roomId)
+      if (!isPlan(template))
+        expect(position.z).toBeLessThanOrEqual(SCENE3D.depth)
     }
   })
 
@@ -74,8 +79,8 @@ describe('3D placement', () => {
     const { tabletops } = SCENE3D_TEMPLATES[templateId]
     for (const surface of template.surfaces) {
       for (const [u, v] of [[0.25, 0.3], [0.5, 0.5], [0.8, 0.7]] as const) {
-        const position = projectSurfacePoint(surface, u, v, template.width, tabletops[surface.id])
-        const point = unprojectSurfacePoint(surface, position, template.width, tabletops[surface.id])
+        const position = projectSurfacePoint(template, surface, u, v, tabletops[surface.id])
+        const point = unprojectSurfacePoint(template, surface, position, tabletops[surface.id])
         const local = worldPointToSurface(surface, point)
         expect(local.u, surface.id).toBeCloseTo(u, 5)
         expect(local.v, surface.id).toBeCloseTo(v, 5)
@@ -98,7 +103,7 @@ describe('3D placement', () => {
   it('places a dragged device exactly under the pointer', () => {
     const template = HOME_TEMPLATES.studio
     const surface = template.surfaces.find(item => item.id === 'studio-floor')!
-    const target = projectSurfacePoint(surface, 0.9, 0.85, template.width)
+    const target = projectSurfacePoint(template, surface, 0.9, 0.85)
     const hit = findSurfaceAlongRay(template, 'fan', rayTo(target))!
     const placement = createPlacementAtPoint(template, 'fan', hit.point, [])!
     expect(placement.u).toBeCloseTo(0.9, 5)
@@ -120,7 +125,7 @@ describe('3D placement', () => {
     const template = HOME_TEMPLATES['cloud-apartment']
     const { tabletops } = SCENE3D_TEMPLATES['cloud-apartment']
     const surface = template.surfaces.find(item => item.id === 'utility-table')!
-    const target = projectSurfacePoint(surface, 0.5, 0.5, template.width, tabletops[surface.id])
+    const target = projectSurfacePoint(template, surface, 0.5, 0.5, tabletops[surface.id])
     expect(findSurfaceAlongRay(template, 'hand-warmer', rayTo(target), tabletops)?.surface.id).toBe('utility-table')
   })
 
@@ -128,6 +133,74 @@ describe('3D placement', () => {
     const template = HOME_TEMPLATES.studio
     const up: Ray3 = { origin: { x: 0, y: 5, z: 10 }, direction: { x: 0, y: 1, z: 0 } }
     expect(findSurfaceAlongRay(template, 'fan', up)).toBeNull()
+  })
+})
+
+describe('3D floor plan', () => {
+  const template = HOME_TEMPLATES['my-home']
+  const { tabletops } = SCENE3D_TEMPLATES['my-home']
+
+  it('lays the plan out at true scale around the centre', () => {
+    expect(isPlan(template)).toBe(true)
+    expect(planX(template.width / 2, template.width)).toBe(0)
+    const home = roomBounds(template, null)
+    // The living room is about 4.15 m wide, north of the balcony; the kitchen 2.4 m deep.
+    const living = roomBounds(template, 'home-living')
+    expect(living.x1 - living.x0).toBeCloseTo(4.15)
+    expect(living.z1).toBeCloseTo(roomBounds(template, 'home-balcony').z0)
+    const kitchen = roomBounds(template, 'home-kitchen')
+    expect(kitchen.z1 - kitchen.z0).toBeCloseTo(2.4)
+    expect(projectFloorPoint(template, { x: 0, y: 0 })).toEqual({ x: home.x0, y: 0, z: home.z0 })
+  })
+
+  it('stands every wall surface where its run is, facing its room', () => {
+    for (const surface of template.surfaces.filter(item => item.kind === 'wall')) {
+      const room = template.rooms.find(item => item.id === surface.roomId)!
+      const { normal } = surfaceFrame(template, surface)
+      const centre = { x: planX(room.x + room.width / 2, template.width), z: planZ(room.y + room.height / 2, template.height) }
+      const point = projectSurfacePoint(template, surface, 0.5, 0.5)
+      expect((centre.x - point.x) * normal.x + (centre.z - point.z) * normal.z, surface.id).toBeGreaterThan(0)
+      const [from, to] = surface.run!
+      // Just off the wall's centre line, at a height below the top.
+      const distance = Math.abs((point.x - planX(from.x, template.width)) * (to.y - from.y) - (point.z - planZ(from.y, template.height)) * (to.x - from.x)) / Math.hypot(to.x - from.x, to.y - from.y)
+      expect(distance, surface.id).toBeCloseTo(PLAN3D.wall / 2 + SCENE3D.wallOffset, 5)
+      expect(point.y).toBeLessThan(PLAN3D.height)
+    }
+  })
+
+  it('ignores walls a ray meets from behind', () => {
+    const surface = template.surfaces.find(item => item.id === 'home-living-wall')!
+    const target = projectSurfacePoint(template, surface, 0.5, 0.5)
+    // From the bedroom side, east of the wall.
+    const origin = { x: target.x + 4, y: target.y + 1, z: target.z }
+    const direction = { x: -4, y: -1, z: 0 }
+    const length = Math.hypot(direction.x, direction.y)
+    const hit = findSurfaceAlongRay(template, 'television', { origin, direction: { x: direction.x / length, y: direction.y / length, z: 0 } }, tabletops)
+    expect(hit?.surface.id).not.toBe('home-living-wall')
+  })
+
+  it('snaps a wall drop only along the wall it was dropped on', () => {
+    const living = template.surfaces.find(item => item.id === 'home-living-wall')!
+    const bedroom = template.surfaces.find(item => item.id === 'home-bedroom-b-wall')!
+    // The same sheet point lies on both walls.
+    const point = { x: 100, y: 100 }
+    expect(createPlacementAtPoint(template, 'television', point, [], 0, living.id)?.surfaceId).toBe(living.id)
+    expect(createPlacementAtPoint(template, 'television', point, [], 0, bedroom.id)?.surfaceId).toBe(bedroom.id)
+  })
+
+  it('does not collide devices on different sheets', () => {
+    // The fan on the floor sits at the same plan point as the hand warmer's tabletop.
+    const warmer = { deviceId: 'hand-warmer' as const, roomId: 'home-living', surfaceId: 'home-living-table', u: 0.5, v: 0.5, rotation: 0 as const }
+    const fan = { deviceId: 'fan' as const, roomId: 'home-living', surfaceId: 'home-living-floor', u: 166 / 391, v: 397 / 541, rotation: 0 as const }
+    expect(placementToWorld(template, fan)!.x).toBeCloseTo(placementToWorld(template, warmer)!.x)
+    expect(hasPlacementCollision(template, fan, [warmer])).toBe(false)
+  })
+
+  it('keeps robot routes on the floor of their room', () => {
+    for (const route of template.robotRoutes) {
+      for (const point of route.points)
+        expect(roomAt(template, projectFloorPoint(template, point)), route.roomId).toBe(route.roomId)
+    }
   })
 })
 

@@ -95,6 +95,21 @@ export function worldPointToSurface(surface: HomeSurface, point: HomePoint) {
   }
 }
 
+/**
+ * The sheet a surface is drawn on. Points on different sheets are not
+ * comparable, so snapping and collisions stay within one sheet.
+ *
+ * @param template - Home template
+ * @param surface - The surface
+ * @returns A key shared by the surfaces on the same sheet
+ */
+export function surfaceSheet(template: HomeTemplate, surface: HomeSurface) {
+  if (template.layout !== 'plan')
+    return 'elevation'
+  // Floors share the floor plan; tabletops sit above it and walls stand on their own.
+  return surface.kind === 'floor' ? 'floor' : surface.id
+}
+
 export function placementToWorld(template: HomeTemplate, placement: DevicePlacement): HomePoint | null {
   if (!placement.surfaceId)
     return null
@@ -113,9 +128,21 @@ function isBlocked(template: HomeTemplate, roomId: string, point: HomePoint) {
   return template.obstacles.some(obstacle => obstacle.roomId === roomId && pointInPolygon(point, obstacle.polygon))
 }
 
-export function findSurfaceAtPoint(template: HomeTemplate, deviceId: DeviceKind, point: HomePoint, snapDistance = 72) {
+/**
+ * Find the surface a device dropped at a point would go on.
+ *
+ * @param template - Home template
+ * @param deviceId - Device being placed
+ * @param point - Point on a sheet
+ * @param snapDistance - How far off a surface the point may be and still snap to it
+ * @param surfaceId - Surface whose sheet the point is on; every sheet when unset
+ * @returns The surface, the point's surface coordinates and the snapped point, or null
+ */
+export function findSurfaceAtPoint(template: HomeTemplate, deviceId: DeviceKind, point: HomePoint, snapDistance = 72, surfaceId?: string) {
+  const onSurface = surfaceId ? template.surfaces.find(surface => surface.id === surfaceId) : undefined
+  const sheet = onSurface && surfaceSheet(template, onSurface)
   const candidates = template.surfaces
-    .filter(surface => surface.accepts.includes(deviceId))
+    .filter(surface => surface.accepts.includes(deviceId) && (!sheet || surfaceSheet(template, surface) === sheet))
     .map(surface => ({
       surface,
       distance: pointInPolygon(point, surface.polygon) ? 0 : distanceToBounds(point, surface),
@@ -133,15 +160,21 @@ export function findSurfaceAtPoint(template: HomeTemplate, deviceId: DeviceKind,
   return null
 }
 
+function sheetOf(template: HomeTemplate, placement: DevicePlacement) {
+  const surface = template.surfaces.find(item => item.id === placement.surfaceId)
+  return surface ? surfaceSheet(template, surface) : null
+}
+
 export function hasPlacementCollision(template: HomeTemplate, placement: DevicePlacement, placements: DevicePlacement[]) {
   const point = placementToWorld(template, placement)
   if (!point)
     return false
+  const sheet = sheetOf(template, placement)
 
   const size = HOME_DEVICES[placement.deviceId]
   const radius = Math.min(size.width, size.height) * 0.34
   return placements.some((other) => {
-    if (other.deviceId === placement.deviceId || other.roomId !== placement.roomId)
+    if (other.deviceId === placement.deviceId || other.roomId !== placement.roomId || sheetOf(template, other) !== sheet)
       return false
     const otherPoint = placementToWorld(template, other)
     if (!otherPoint)
@@ -158,8 +191,9 @@ export function createPlacementAtPoint(
   point: HomePoint,
   placements: DevicePlacement[],
   rotation: DevicePlacement['rotation'] = 0,
+  surfaceId?: string,
 ) {
-  const match = findSurfaceAtPoint(template, deviceId, point)
+  const match = findSurfaceAtPoint(template, deviceId, point, undefined, surfaceId)
   if (!match)
     return null
 
@@ -207,6 +241,7 @@ export function createPlacementInRoom(
         surfacePointToWorld(surface, candidate.u, candidate.v),
         placements,
         rotation,
+        surface.id,
       )
       if (placement?.roomId === roomId)
         return placement

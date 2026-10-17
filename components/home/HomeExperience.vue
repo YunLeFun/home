@@ -3,13 +3,13 @@ import { computed, onMounted, onUnmounted, shallowRef, watch } from 'vue'
 import HomeDeviceGlyph from './HomeDeviceGlyph.vue'
 import HomeRoomTabs from './HomeRoomTabs.vue'
 import type { DeviceTone } from '~/devices/types'
-import type { DeviceKind, HomePoint, HomeTemplateId } from '~/types'
+import type { DeviceKind, HomeTemplateId, SurfaceTarget } from '~/types'
 import type { DeviceVisual } from '~/utils/scene3d/devices'
 import { HOME_DEVICES, HOME_DEVICE_ORDER } from '~/constants/home'
 import { getDeviceMotionSpeed, getDeviceTone, isDeviceRunning } from '~/utils/device'
 
 interface Scene3dApi {
-  getWorldPoint: (clientX: number, clientY: number, deviceId: DeviceKind) => HomePoint | null
+  getWorldPoint: (clientX: number, clientY: number, deviceId: DeviceKind) => SurfaceTarget | null
   previewDrop: (deviceId: DeviceKind, clientX: number, clientY: number) => void
   endDrag: () => void
 }
@@ -88,8 +88,8 @@ function selectDevice(deviceId: DeviceKind) {
   }
 }
 
-function placeDevice(deviceId: DeviceKind, point: HomePoint) {
-  const placed = editor.placeDevice(deviceId, point)
+function placeDevice(deviceId: DeviceKind, target: SurfaceTarget) {
+  const placed = editor.placeDevice(deviceId, target)
   showNotice(placed ? `${HOME_DEVICES[deviceId].name}已吸附到合适位置` : '这里不能摆放，设备已回到原位')
 }
 
@@ -108,11 +108,11 @@ function handleTrayDragMove(deviceId: DeviceKind, event: PointerEvent) {
 }
 
 function handleTrayDragEnd(deviceId: DeviceKind, event: PointerEvent) {
-  const point = use3d.value ? scene3dRef.value?.getWorldPoint(event.clientX, event.clientY, deviceId) : null
+  const target = use3d.value ? scene3dRef.value?.getWorldPoint(event.clientX, event.clientY, deviceId) : null
   scene3dRef.value?.endDrag()
   trayDrag.value = null
-  if (point)
-    placeDevice(deviceId, point)
+  if (target)
+    placeDevice(deviceId, target)
   else if (!use3d.value)
     showNotice('在设备卡片上选择房间即可完成摆放')
   else

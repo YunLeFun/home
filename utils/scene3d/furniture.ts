@@ -155,10 +155,10 @@ function floorLamp(kit: Kit): BuiltFurniture {
   return { object, lamp: { light, shade: material, intensity: 2.6 } }
 }
 
-function pendant(kit: Kit, spec: FurnitureSpec): BuiltFurniture {
+function pendant(kit: Kit, spec: FurnitureSpec, ceiling: number): BuiltFurniture {
   const y = spec.y ?? 1.6
   const object = group()
-  const cord = SCENE3D.height - y
+  const cord = ceiling - y
   object.add(kit.mesh(kit.cylinder(0.006, 0.006, cord, 6), kit.material(PALETTE.ink), 0, cord / 2, 0, false))
   const shade = kit.ownMaterial(PALETTE.sun, { roughness: 0.6, emissive: '#ffcf8a', emissiveIntensity: 0, side: THREE.DoubleSide })
   const dome = kit.mesh(kit.sphere(0.2, 28, 12, Math.PI / 2), shade, 0, -0.12, 0)
@@ -167,7 +167,7 @@ function pendant(kit: Kit, spec: FurnitureSpec): BuiltFurniture {
   const light = lampLight(2.4, 4.4)
   light.position.set(0, -0.3, 0)
   object.add(light)
-  // The group's origin is the bulb; the cord rises to the top of the wall.
+  // The group's origin is the bulb; the cord rises to the ceiling.
   return { object, lamp: { light, shade, intensity: 2.4 } }
 }
 
@@ -431,6 +431,21 @@ function toilet(kit: Kit): BuiltFurniture {
   return { object }
 }
 
+/** The deep sill of a bay window, with a cushion to sit on; its back is the wall. */
+function baySeat(kit: Kit, spec: FurnitureSpec): BuiltFurniture {
+  const w = spec.w ?? 1.8
+  const d = spec.d ?? 0.5
+  const h = spec.h ?? 0.45
+  const object = group(kit.mesh(kit.roundedBox(w, h, d, 0.03), kit.material(PALETTE.ceramic, { roughness: 0.45 }), 0, h / 2, 0))
+  object.add(kit.mesh(kit.roundedBox(w - 0.12, 0.08, d - 0.08, 0.04), kit.material(PALETTE.fabric, { roughness: 0.95 }), 0, h + 0.04, 0.02))
+  for (const [x, color, turn] of [[-w / 2 + 0.3, PALETTE.duvet, 0.2], [-w / 2 + 0.62, PALETTE.accent, -0.15]] as const) {
+    const pillow = kit.mesh(kit.roundedBox(0.34, 0.3, 0.12, 0.06), kit.material(color, { roughness: 0.95 }), x, h + 0.22, -d / 2 + 0.14)
+    pillow.rotation.set(-0.2, 0, turn)
+    object.add(pillow)
+  }
+  return { object }
+}
+
 function clock(kit: Kit, spec: FurnitureSpec): BuiltFurniture {
   const r = (spec.w ?? 0.6) / 2
   const face = kit.mesh(kit.cylinder(r, r, 0.04, 40), kit.material(PALETTE.ceramic, { roughness: 0.5 }), 0, 0, 0.02)
@@ -546,9 +561,10 @@ function windowFrame(kit: Kit, spec: FurnitureSpec, targets: PhaseTargets): Buil
  * @param kit - Resource kit of the diorama
  * @param spec - Furniture spec
  * @param targets - Phase-tinted materials shared across windows
+ * @param ceiling - Height of the ceiling, for hanging lamps
  * @returns The furniture object and its lamp or ambient motion
  */
-export function buildFurniture(kit: Kit, spec: FurnitureSpec, targets: PhaseTargets): BuiltFurniture {
+export function buildFurniture(kit: Kit, spec: FurnitureSpec, targets: PhaseTargets, ceiling: number = SCENE3D.height): BuiltFurniture {
   switch (spec.kind) {
     case 'sofa': return sofa(kit, spec)
     case 'coffee-table': return coffeeTable(kit, spec)
@@ -556,7 +572,7 @@ export function buildFurniture(kit: Kit, spec: FurnitureSpec, targets: PhaseTarg
     case 'nightstand': return nightstand(kit, spec)
     case 'table-lamp': return tableLamp(kit)
     case 'floor-lamp': return floorLamp(kit)
-    case 'pendant': return pendant(kit, spec)
+    case 'pendant': return pendant(kit, spec, ceiling)
     case 'plant': return plant(kit, spec)
     case 'rug': return rug(kit, spec)
     case 'bed': return bed(kit, spec)
@@ -572,5 +588,6 @@ export function buildFurniture(kit: Kit, spec: FurnitureSpec, targets: PhaseTarg
     case 'dining-table': return diningTable(kit, spec)
     case 'vanity': return vanity(kit, spec)
     case 'toilet': return toilet(kit)
+    case 'bay-seat': return baySeat(kit, spec)
   }
 }

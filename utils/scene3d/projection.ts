@@ -4,11 +4,18 @@ import { clamp, getPolygonBounds, pointInPolygon, surfacePointToWorld } from '~/
 /**
  * Mapping from the home plan to the 3D diorama.
  *
- * Templates and placements are laid out on a plan: a 1600 × 800 front
- * elevation with the back wall above a floor line at y = 570 and the floor
- * below it in perspective. The diorama keeps the same layout: x runs along the
- * back wall, wall heights come from how far above the floor line a point sits,
- * and floor depth from how far below it. One unit is roughly 1 m.
+ * Elevation templates are laid out on a 1600 × 800 front elevation with the
+ * back wall above a floor line at y = 570 and the floor below it in
+ * perspective. The diorama keeps the same layout: x runs along the back wall,
+ * wall heights come from how far above the floor line a point sits, and floor
+ * depth from how far below it. One unit is roughly 1 m.
+ *
+ * Plan templates are a top-down floor plan in centimetres, north up: plan x
+ * runs east and plan y south, towards the viewer. Walls stand where the plan
+ * draws them.
+ *
+ * Either way each surface maps from its sheet to the diorama by a flat
+ * {@link SurfaceFrame}, which placement, picking and drawing all share.
  */
 export const SCENE3D = {
   /** World units per plan unit along the back wall. */
@@ -27,6 +34,20 @@ export const SCENE3D = {
   wallOffset: 0.04,
 } as const
 
+/** Floor plan templates: centimetres on the plan, metres in the diorama. */
+export const PLAN3D = {
+  /** World units per plan unit. */
+  scale: 0.01,
+  /** Height of the full walls, up to the ceiling. */
+  height: 2.6,
+  /** Height of the walls cut away so the camera sees into the rooms. */
+  cutHeight: 0.9,
+  /** Thickness of the walls; plans draw their centre lines. */
+  wall: 0.12,
+  /** Wall sheets measure down from the top of a full wall, in plan units. */
+  wallTop: 260,
+} as const
+
 /** A point in diorama space: x along the wall, y up, z out of the wall. */
 export interface Vec3 {
   x: number
@@ -34,11 +55,14 @@ export interface Vec3 {
   z: number
 }
 
-/** Where a tabletop surface sits in 3D: its height and depth range. */
+/**
+ * Where a tabletop surface sits in 3D: its height and, on an elevation, its
+ * depth range. Plans draw the tabletop's footprint, so they need no depth.
+ */
 export interface TabletopSpec {
   height: number
-  z0: number
-  z1: number
+  z0?: number
+  z1?: number
 }
 
 /**
@@ -74,48 +98,142 @@ export function floorDepth(y: number) {
 }
 
 /**
- * Project a point on the floor of the plan.
+ * World x of a plan template's x coordinate, centred on the scene.
  *
- * @param point - Plan point on a floor surface
+ * @param x - Plan x, in centimetres from the west edge
  * @param width - Width of the plan
- * @returns The point on the diorama floor
+ * @returns World x
  */
-export function projectFloorPoint(point: HomePoint, width = 1600): Vec3 {
-  return { x: worldX(point.x, width), y: 0, z: floorDepth(point.y) }
+export function planX(x: number, width: number) {
+  return (x - width / 2) * PLAN3D.scale
 }
 
 /**
- * Project a point on the back wall of the plan.
+ * World z of a plan template's y coordinate, centred on the scene.
  *
- * @param point - Plan point on a wall surface
- * @param width - Width of the plan
- * @returns The point just in front of the diorama wall
+ * @param y - Plan y, in centimetres from the north edge
+ * @param height - Depth of the plan
+ * @returns World z, growing towards the viewer
  */
-export function projectWallPoint(point: HomePoint, width = 1600): Vec3 {
-  return { x: worldX(point.x, width), y: wallHeight(point.y), z: SCENE3D.wallOffset }
+export function planZ(y: number, height: number) {
+  return (y - height / 2) * PLAN3D.scale
+}
+
+/**
+ * Whether a template is a floor plan rather than an elevation.
+ *
+ * @param template - Home template
+ * @returns True for floor plans
+ */
+export function isPlan(template: HomeTemplate) {
+  return template.layout === 'plan'
+}
+
+/**
+ * Project a point on the floor of the plan, such as a robot route.
+ *
+ * @param template - Home template
+ * @param point - Plan point on the floor
+ * @returns The point on the diorama floor
+ */
+export function projectFloorPoint(template: HomeTemplate, point: HomePoint): Vec3 {
+  if (isPlan(template))
+    return { x: planX(point.x, template.width), y: 0, z: planZ(point.y, template.height) }
+  return { x: worldX(point.x, template.width), y: 0, z: floorDepth(point.y) }
+}
+
+/**
+ * How a surface's sheet lies in the diorama: a sheet point (x, y) lands at
+ * origin + x · axisX + y · axisY. The axes are perpendicular, and the normal
+ * points out of the surface, into the room or up.
+ */
+export interface SurfaceFrame {
+  origin: Vec3
+  axisX: Vec3
+  axisY: Vec3
+  normal: Vec3
+}
+
+const vec = (x: number, y: number, z: number): Vec3 => ({ x, y, z })
+const dot = (a: Vec3, b: Vec3) => a.x * b.x + a.y * b.y + a.z * b.z
+
+function elevationFrame(template: HomeTemplate, surface: HomeSurface, tabletop?: TabletopSpec): SurfaceFrame {
+  const left = worldX(0, template.width)
+  const axisX = vec(SCENE3D.scaleX, 0, 0)
+  if (surface.kind === 'wall')
+    return { origin: vec(left, SCENE3D.floorLine * SCENE3D.scaleY, SCENE3D.wallOffset), axisX, axisY: vec(0, -SCENE3D.scaleY, 0), normal: vec(0, 0, 1) }
+  if (surface.kind === 'floor') {
+    const k = SCENE3D.depth / (SCENE3D.floorFront - SCENE3D.floorLine)
+    return { origin: vec(left, 0, -SCENE3D.floorLine * k), axisX, axisY: vec(0, 0, k), normal: vec(0, 1, 0) }
+  }
+  // Tabletops have no depth on an elevation: their rows spread over the furniture's depth.
+  const spec = tabletop ?? { height: wallHeight(surface.polygon[0].y) }
+  const z0 = spec.z0 ?? 0.1
+  const z1 = spec.z1 ?? 0.6
+  const bounds = getPolygonBounds(surface.polygon)
+  const k = (z1 - z0) / Math.max(1e-6, bounds.maxY - bounds.minY)
+  return { origin: vec(left, spec.height, z0 - bounds.minY * k), axisX, axisY: vec(0, 0, k), normal: vec(0, 1, 0) }
+}
+
+function planFrame(template: HomeTemplate, surface: HomeSurface, tabletop?: TabletopSpec): SurfaceFrame {
+  const { scale } = PLAN3D
+  const corner = (point: HomePoint, y = 0) => vec(planX(point.x, template.width), y, planZ(point.y, template.height))
+  if (surface.kind !== 'wall' || !surface.run) {
+    const height = surface.kind === 'tabletop' ? tabletop?.height ?? 0.5 : 0
+    return { origin: corner({ x: 0, y: 0 }, height), axisX: vec(scale, 0, 0), axisY: vec(0, 0, scale), normal: vec(0, 1, 0) }
+  }
+  const [from, to] = surface.run
+  const length = Math.max(1e-6, Math.hypot(to.x - from.x, to.y - from.y))
+  const along = { x: (to.x - from.x) / length, y: (to.y - from.y) / length }
+  // The wall faces its room.
+  const room = template.rooms.find(item => item.id === surface.roomId)
+  const middle = { x: (from.x + to.x) / 2, y: (from.y + to.y) / 2 }
+  const towards = room ? { x: room.x + room.width / 2 - middle.x, y: room.y + room.height / 2 - middle.y } : { x: 0, y: 1 }
+  const side = -along.y * towards.x + along.x * towards.y >= 0 ? 1 : -1
+  const normal = vec(-along.y * side, 0, along.x * side)
+  const offset = PLAN3D.wall / 2 + SCENE3D.wallOffset
+  const start = corner(from, PLAN3D.height)
+  return {
+    origin: vec(start.x + normal.x * offset, start.y, start.z + normal.z * offset),
+    axisX: vec(along.x * scale, 0, along.y * scale),
+    axisY: vec(0, -scale, 0),
+    normal,
+  }
+}
+
+/**
+ * How a surface's sheet lies in the diorama.
+ *
+ * @param template - Home template the surface belongs to
+ * @param surface - The surface
+ * @param tabletop - 3D placement of the surface when it is a tabletop
+ * @returns The surface's frame
+ */
+export function surfaceFrame(template: HomeTemplate, surface: HomeSurface, tabletop?: TabletopSpec): SurfaceFrame {
+  return isPlan(template) ? planFrame(template, surface, tabletop) : elevationFrame(template, surface, tabletop)
+}
+
+function onFrame(frame: SurfaceFrame, point: HomePoint): Vec3 {
+  const { origin, axisX, axisY } = frame
+  return vec(
+    origin.x + axisX.x * point.x + axisY.x * point.y,
+    origin.y + axisX.y * point.x + axisY.y * point.y,
+    origin.z + axisX.z * point.x + axisY.z * point.y,
+  )
 }
 
 /**
  * Project a point given in surface coordinates.
  *
- * Tabletops have no depth on the plan, so their height and depth range come
- * from the furniture they belong to.
- *
+ * @param template - Home template the surface belongs to
  * @param surface - The surface the point lies on
  * @param u - Position across the surface, 0 to 1
  * @param v - Position down the surface, 0 to 1
- * @param width - Width of the plan
  * @param tabletop - 3D placement of the surface when it is a tabletop
  * @returns The point in diorama space
  */
-export function projectSurfacePoint(surface: HomeSurface, u: number, v: number, width = 1600, tabletop?: TabletopSpec): Vec3 {
-  const point = surfacePointToWorld(surface, u, v)
-  if (surface.kind === 'wall')
-    return projectWallPoint(point, width)
-  if (surface.kind === 'floor')
-    return projectFloorPoint(point, width)
-  const spec = tabletopFor(surface, tabletop)
-  return { x: worldX(point.x, width), y: spec.height, z: spec.z0 + (spec.z1 - spec.z0) * v }
+export function projectSurfacePoint(template: HomeTemplate, surface: HomeSurface, u: number, v: number, tabletop?: TabletopSpec): Vec3 {
+  return onFrame(surfaceFrame(template, surface, tabletop), surfacePointToWorld(surface, u, v))
 }
 
 /** A device placement resolved to diorama space. */
@@ -123,6 +241,8 @@ export interface ProjectedPlacement {
   placement: DevicePlacement
   surfaceKind: HomeSurfaceKind
   position: Vec3
+  /** Out of the surface: the way a wall device faces. */
+  normal: Vec3
 }
 
 /**
@@ -137,87 +257,90 @@ export function projectPlacement(template: HomeTemplate, placement: DevicePlacem
   const surface = template.surfaces.find(item => item.id === placement.surfaceId)
   if (!surface)
     return null
+  const frame = surfaceFrame(template, surface, tabletops[surface.id])
   return {
     placement,
     surfaceKind: surface.kind,
-    position: projectSurfacePoint(surface, placement.u, placement.v, template.width, tabletops[surface.id]),
+    position: onFrame(frame, surfacePointToWorld(surface, placement.u, placement.v)),
+    normal: frame.normal,
   }
 }
 
+/** An area of the diorama floor, in world x and z. */
+export interface FloorBounds {
+  x0: number
+  x1: number
+  z0: number
+  z1: number
+}
+
 /**
- * Horizontal extent of a room in the diorama.
+ * The floor area of a room in the diorama.
  *
  * @param template - Home template
  * @param roomId - Room to measure, or null for the whole home
- * @returns The room's left and right edges in world x
+ * @returns The room's west, east, north and south edges in world x and z
  */
-export function roomExtent(template: HomeTemplate, roomId: string | null): { x0: number, x1: number } {
+export function roomBounds(template: HomeTemplate, roomId: string | null): FloorBounds {
   const room = roomId ? template.rooms.find(item => item.id === roomId) : undefined
-  if (!room)
-    return { x0: worldX(0, template.width), x1: worldX(template.width, template.width) }
-  return { x0: worldX(room.x, template.width), x1: worldX(room.x + room.width, template.width) }
+  if (isPlan(template)) {
+    const area = room ?? { x: 0, y: 0, width: template.width, height: template.height }
+    return {
+      x0: planX(area.x, template.width),
+      x1: planX(area.x + area.width, template.width),
+      z0: planZ(area.y, template.height),
+      z1: planZ(area.y + area.height, template.height),
+    }
+  }
+  const x0 = room ? room.x : 0
+  const x1 = room ? room.x + room.width : template.width
+  return { x0: worldX(x0, template.width), x1: worldX(x1, template.width), z0: 0, z1: SCENE3D.depth }
 }
 
 /**
- * Find the room containing a world x coordinate.
+ * Find the room a point of the diorama falls in.
  *
  * @param template - Home template
- * @param x - World x
- * @returns The id of the room, or null outside the home
+ * @param position - Point in diorama space
+ * @returns The id of the room, or null outside every room
  */
-export function roomAtWorldX(template: HomeTemplate, x: number): string | null {
-  const px = x / SCENE3D.scaleX + template.width / 2
-  return template.rooms.find(room => px >= room.x && px <= room.x + room.width)?.id ?? null
+export function roomAt(template: HomeTemplate, position: Vec3): string | null {
+  if (isPlan(template)) {
+    const x = position.x / PLAN3D.scale + template.width / 2
+    const y = position.z / PLAN3D.scale + template.height / 2
+    return template.rooms.find(room => x >= room.x && x <= room.x + room.width && y >= room.y && y <= room.y + room.height)?.id ?? null
+  }
+  const x = position.x / SCENE3D.scaleX + template.width / 2
+  return template.rooms.find(room => x >= room.x && x <= room.x + room.width)?.id ?? null
 }
 
 /**
- * Plan x coordinate of a world x, the inverse of {@link worldX}.
- *
- * @param x - World x
- * @param width - Width of the plan
- * @returns Plan x
- */
-export function sceneX(x: number, width = 1600) {
-  return x / SCENE3D.scaleX + width / 2
-}
-
-function tabletopFor(surface: HomeSurface, tabletop?: TabletopSpec): TabletopSpec {
-  return tabletop ?? { height: wallHeight(surface.polygon[0].y), z0: 0.1, z1: 0.6 }
-}
-
-/**
- * The plan point of a diorama point on a surface's plane, the inverse of
+ * The sheet point of a diorama point on a surface's plane, the inverse of
  * {@link projectSurfacePoint}. Points off the surface are not clamped, so the
  * placement rules can still snap them or turn them down.
  *
+ * @param template - Home template the surface belongs to
  * @param surface - Surface whose plane the point lies on
  * @param position - Point in diorama space
- * @param width - Width of the plan
  * @param tabletop - 3D placement of the surface when it is a tabletop
- * @returns The point on the plan
+ * @returns The point on the surface's sheet
  */
-export function unprojectSurfacePoint(surface: HomeSurface, position: Vec3, width = 1600, tabletop?: TabletopSpec): HomePoint {
-  const x = sceneX(position.x, width)
-  if (surface.kind === 'wall')
-    return { x, y: SCENE3D.floorLine - position.y / SCENE3D.scaleY }
-  if (surface.kind === 'floor')
-    return { x, y: SCENE3D.floorLine + position.z / SCENE3D.depth * (SCENE3D.floorFront - SCENE3D.floorLine) }
-  const spec = tabletopFor(surface, tabletop)
-  const bounds = getPolygonBounds(surface.polygon)
-  const v = (position.z - spec.z0) / (spec.z1 - spec.z0)
-  return { x, y: bounds.minY + v * (bounds.maxY - bounds.minY) }
+export function unprojectSurfacePoint(template: HomeTemplate, surface: HomeSurface, position: Vec3, tabletop?: TabletopSpec): HomePoint {
+  const { origin, axisX, axisY } = surfaceFrame(template, surface, tabletop)
+  const offset = vec(position.x - origin.x, position.y - origin.y, position.z - origin.z)
+  return { x: dot(offset, axisX) / dot(axisX, axisX), y: dot(offset, axisY) / dot(axisY, axisY) }
 }
 
 /**
  * Corners of a surface in diorama space, for drawing it.
  *
+ * @param template - Home template the surface belongs to
  * @param surface - The surface
- * @param width - Width of the plan
  * @param tabletop - 3D placement of the surface when it is a tabletop
  * @returns Top left, top right, bottom right and bottom left corners
  */
-export function surfaceCorners(surface: HomeSurface, width = 1600, tabletop?: TabletopSpec): Vec3[] {
-  return ([[0, 0], [1, 0], [1, 1], [0, 1]] as const).map(([u, v]) => projectSurfacePoint(surface, u, v, width, tabletop))
+export function surfaceCorners(template: HomeTemplate, surface: HomeSurface, tabletop?: TabletopSpec): Vec3[] {
+  return ([[0, 0], [1, 0], [1, 1], [0, 1]] as const).map(([u, v]) => projectSurfacePoint(template, surface, u, v, tabletop))
 }
 
 /** A ray in diorama space, such as one cast from the camera through the pointer. */
@@ -229,18 +352,18 @@ export interface Ray3 {
 /**
  * Where a ray meets the plane a surface lies on.
  *
+ * @param template - Home template the surface belongs to
  * @param surface - The surface
  * @param ray - The ray
  * @param tabletop - 3D placement of the surface when it is a tabletop
  * @returns The hit and its distance along the ray, or null when the ray misses the plane
  */
-export function intersectSurfacePlane(surface: HomeSurface, ray: Ray3, tabletop?: TabletopSpec): { position: Vec3, distance: number } | null {
-  const vertical = surface.kind === 'wall'
-  const level = surface.kind === 'wall' ? SCENE3D.wallOffset : surface.kind === 'floor' ? 0 : tabletopFor(surface, tabletop).height
-  const along = vertical ? ray.direction.z : ray.direction.y
+export function intersectSurfacePlane(template: HomeTemplate, surface: HomeSurface, ray: Ray3, tabletop?: TabletopSpec): { position: Vec3, distance: number } | null {
+  const { origin, normal } = surfaceFrame(template, surface, tabletop)
+  const along = dot(ray.direction, normal)
   if (Math.abs(along) < 1e-6)
     return null
-  const distance = (level - (vertical ? ray.origin.z : ray.origin.y)) / along
+  const distance = dot(vec(origin.x - ray.origin.x, origin.y - ray.origin.y, origin.z - ray.origin.z), normal) / along
   if (distance <= 0)
     return null
   return {
@@ -253,10 +376,10 @@ export function intersectSurfacePlane(surface: HomeSurface, ray: Ray3, tabletop?
   }
 }
 
-/** A surface a ray points at, with the matching plan point. */
+/** A surface a ray points at, with the matching sheet point. */
 export interface SurfaceRayHit {
   surface: HomeSurface
-  /** Point on the plan, for the placement rules. */
+  /** Point on the surface's sheet, for the placement rules. */
   point: HomePoint
   /** Where the ray meets the surface's plane. */
   position: Vec3
@@ -268,7 +391,8 @@ export interface SurfaceRayHit {
  * Only surfaces that accept the device count. The ray is met with each
  * surface's plane rather than the furniture in front of it, so a sofa does
  * not hide the floor. A surface the ray lands inside wins; otherwise the
- * closest one, which the placement rules may still snap to.
+ * closest one, which the placement rules may still snap to. On a plan, a
+ * wall the ray meets from behind does not count.
  *
  * @param template - Home template
  * @param deviceId - Device being placed
@@ -281,10 +405,13 @@ export function findSurfaceAlongRay(template: HomeTemplate, deviceId: DeviceKind
   for (const surface of template.surfaces) {
     if (!surface.accepts.includes(deviceId))
       continue
-    const hit = intersectSurfacePlane(surface, ray, tabletops[surface.id])
+    const tabletop = tabletops[surface.id]
+    if (isPlan(template) && dot(ray.direction, surfaceFrame(template, surface, tabletop).normal) > 0)
+      continue
+    const hit = intersectSurfacePlane(template, surface, ray, tabletop)
     if (!hit)
       continue
-    const point = unprojectSurfacePoint(surface, hit.position, template.width, tabletops[surface.id])
+    const point = unprojectSurfacePoint(template, surface, hit.position, tabletop)
     const bounds = getPolygonBounds(surface.polygon)
     const gap = pointInPolygon(point, surface.polygon)
       ? 0
