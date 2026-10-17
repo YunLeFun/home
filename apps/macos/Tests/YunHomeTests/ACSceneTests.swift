@@ -65,7 +65,9 @@ struct ACSceneTests {
     let offset = controller.camera.position - target
     #expect(controller.camera.position != start)
     #expect(abs(simd_length(offset) - originalRadius) < 0.0001)
-    #expect(abs(asin(offset.y / originalRadius)) <= 25 * .pi / 180 + 0.0001)
+    // #expect type-checks each side alone, so an untyped right side becomes Double.
+    let maxPitch: Float = 25 * .pi / 180 + 0.0001
+    #expect(abs(asin(offset.y / originalRadius)) <= maxPitch)
     controller.zoom(delta: -10_000)
     #expect(abs(simd_length(controller.camera.position - target) - 1.9) < 0.0001)
     controller.zoom(delta: 10_000)
