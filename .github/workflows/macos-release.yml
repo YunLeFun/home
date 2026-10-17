@@ -37,6 +37,9 @@ jobs:
       - name: Bundle
         run: bash apps/macos/scripts/bundle.sh
 
+      - name: Verify relocated app launch
+        run: python3 apps/macos/scripts/verify-bundle.py
+
       - name: Zip
         run: ditto -c -k --keepParent apps/macos/build/YunHome.app "YunHome-${GITHUB_REF_NAME#macos-v}.zip"
 

@@ -43,6 +43,8 @@ open apps/macos/build/YunHome.app
 
 ## 发布与更新
 
+打包显式使用 Xcode 构建后端，让 SwiftPM 资源从 App 的 `Contents/Resources` 加载。运行 `python3 apps/macos/scripts/verify-bundle.py` 可验证安装包：脚本复制 App 到独立目录、临时隐藏 `.build`、以隔离演示模式启动，确认首页与市场截图生成并恢复构建缓存。请在其他构建和测试结束后运行；CI 和发布流程均包含此检查。
+
 - **版本号**：`apps/macos/VERSION`，`scripts/bundle.sh` 把它写进 `CFBundleShortVersionString`。
 - **发布**：改好 `VERSION` 后推送 `macos-v<版本>` 标签（例如 `macos-v0.2.0`），[macOS Release 工作流](../../.github/workflows/macos-release.yml)会测试、打包，把 `YunHome-<版本>.zip` 上传到同名 GitHub Release。下载的应用只有 ad-hoc 签名：第一次打开时到“系统设置 → 隐私与安全性”点“仍要打开”，或执行 `xattr -dr com.apple.quarantine YunHome.app`。
 - **检查更新**：每天最多查询一次 GitHub Releases 中 `macos-v*` 的最新稳定版（来自 air-conditioner 仓库的 `ReleaseCheck`，与 CuteAC 共用；API 被限流时改读 `releases/latest` 页面）。有新版本时，菜单栏右键菜单出现“下载新版本”，设置的“软件更新”里可以关闭自动检查或手动检查，应用菜单里也有“检查更新…”。只读取公开的发布信息；`--demo`、`--capture` 和 `swift run` 不检查。

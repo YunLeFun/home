@@ -3,8 +3,11 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 CONFIGURATION="${CONFIGURATION:-release}"
-swift build -c "$CONFIGURATION"
-BIN_DIR="$(swift build -c "$CONFIGURATION" --show-bin-path)"
+# The native SwiftPM backend looks for resources at the .app root or in the
+# build directory. Xcode's accessor also searches Contents/Resources, so the
+# signed app works after it is moved away from the build machine.
+swift build --build-system xcode -c "$CONFIGURATION"
+BIN_DIR="$(swift build --build-system xcode -c "$CONFIGURATION" --show-bin-path)"
 APP="$PWD/build/YunHome.app"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN_DIR/YunHome" "$APP/Contents/MacOS/YunHome"
@@ -52,4 +55,5 @@ PLIST
 # Sign the helper first so the outer signature seals it.
 codesign --force --sign - "$APP/Contents/MacOS/YunHomePluginHost"
 codesign --force --deep --sign - "$APP"
+codesign --verify --deep --strict "$APP"
 printf 'Built %s\n' "$APP"
