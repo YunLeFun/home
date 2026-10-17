@@ -55,15 +55,14 @@ interface DevicePluginManifest {
   description: string
   author: { name: string, url?: string }
   category: 'climate' | 'cleaning' | 'media' | 'comfort' | 'sensor' | 'fun'
-  icon: string
+  /** 插件自行设计的应用图标，见下文“插件图标” */
+  appIcon: DevicePluginIcon
   screenshots: string[]
   /** 场景尺寸（SVG 世界坐标）与可摆放面 */
   size: { width: number, height: number }
   surfaces: ('wall' | 'floor' | 'tabletop')[]
   /** 申请的权限，安装时展示并由用户确认 */
   permissions: PluginPermission[]
-  /** 第三方插件的场景图形：静态 SVG，按展示状态切换 */
-  glyph?: { idle: string, active: string, animation?: 'spin' | 'pulse' | 'airflow' | 'glow' }
   /** 第三方插件：托管地址与产物哈希，仅由审核流水线写入 */
   entry?: { url: string, integrity: string }
 }
@@ -75,6 +74,27 @@ type PluginPermission =
   | `network:${string}` // 访问指定 HTTPS 源
   | `home-assistant:${string}` // 代理调用用户为该实例绑定的某类 HA 实体，如 home-assistant:climate
 ```
+
+## 插件图标
+
+每个插件自己设计应用图标，市场、设备托盘、快捷控制都用它展示。图标是声明式矢量数据（`devices/icon.ts`），不是 SVG 文本：
+
+```ts
+export const fanIcon = definePluginIcon({
+  background: ['#e0f7ec', '#a7dfc3'], // 底板渐变，可另给 backgroundDark
+  shapes: [
+    { type: 'circle', cx: 32, cy: 25, r: 17, fill: 'surface' },
+    { type: 'group', motion: 'spin', origin: [32, 25], children: [/* 扇叶 */] },
+    { type: 'path', d: 'M21 40q-2 3.5 0 7', stroke: 'tone', when: 'active', motion: 'flow' },
+  ],
+})
+```
+
+- 画布 64 × 64；图形只有 `group`、`path`、`circle`、`ellipse`、`rect`、`line`、`polyline`、`polygon`，属性白名单固定。
+- 颜色只接受十六进制与宿主色板：`tone`、`tone-soft` 跟随设备状态（制冷、制热、暖光…），`surface`、`ink` 跟随深浅色。
+- `when: 'active' | 'idle'` 按运行状态显隐；`motion` 只能选宿主动效 `spin`、`sway`、`pulse`、`float`、`blink`、`flow`，设备运行时播放，并遵循“减少动态效果”。
+- `normalizePluginIcon()` 校验并清洗第三方图标：丢弃未知图形与属性、`url()`、脚本、事件与外部引用，限制图形数量（80）、嵌套（4 层）与路径长度。因为宿主只用固定元素渲染数据，第三方图标无法注入标记。
+- 原生客户端可按同一份数据用 SwiftUI `Path` 绘制，与 Web 一致。
 
 清单由 SDK 的 `validateManifest()` 校验：一方插件在构建与测试时校验，第三方插件在注册仓库 CI 与 Home 加载目录时各校验一次。
 
@@ -134,10 +154,10 @@ Home 为每个 iframe 创建 `MessageChannel`，握手后所有消息只走该�
 
 ### 场景表现
 
-场景和托盘里会同时出现很多设备，不能给每台都开 iframe。第三方插件的场景图形使用清单中的静态 SVG：
+场景和托盘里会同时出现很多设备，不能给每台都开 iframe。第三方插件在托盘、市场与快捷控制中使用清单里的 `appIcon`：
 
-- 宿主按白名单清洗 SVG：去掉 `script`、`foreignObject`、事件属性、外部引用和 `style` 中的 `url()`。
-- `device.setPresentation` 上报的 `active` 与 `tone` 决定显示 `idle` 或 `active` 版本，以及宿主提供的动画（旋转、脉冲、气流、光晕），与一方插件的动效语言一致。
+- 图标经 `normalizePluginIcon()` 清洗后由宿主渲染，不执行插件代码。
+- `device.setPresentation` 上报的 `active` 与 `tone` 决定图标的显隐分支、色调与宿主动效，与一方插件的动效语言一致。
 - 只有打开快捷控制或详情页时才创建 iframe，关闭即销毁。
 
 ## 安装与设备实例
@@ -160,7 +180,9 @@ interface DeviceInstance {
 
 ## 插件市场
 
-入口在顶栏，路由 `/market`。
+界面上称为“家电市场”，入口在顶栏，路由 `/market`。
+
+**已实现（一方插件）**：云家电套装（空调、风扇、电视、扫地机器人、暖手宝）默认已安装；可单独卸载与重新安装，卸载只让设备离开家园，状态与摆放保留，重新安装回到原位。安装记录目前保存在本机浏览器，接入 `home_installed_plugins` 后随账号同步。详情页可切换待机与运行（制冷、制热）预览图标动效。空调来自 YunYouJun/air-conditioner，风扇来自 ElpsyCN/electric-fan，清单 `id` 与原生目录一致（`fun.yunle.air-conditioner`、`cn.elpsy.electric-fan`）。
 
 - **列表**：分类筛选与搜索；卡片展示插件图形（一方插件加载其 glyph，第三方插件渲染清洗后的 SVG）、名称、作者、信任标识与“已安装”状态。
 - **详情抽屉**：截图、说明、版本与更新记录、集成能力、申请的权限（用通俗中文逐条说明）、开发者信息和举报入口。

@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, shallowRef } from 'vue'
+import { computed, onMounted, onUnmounted, shallowRef, watch } from 'vue'
 import HomeDeviceGlyph from './HomeDeviceGlyph.vue'
 import HomeRoomTabs from './HomeRoomTabs.vue'
 import type { DeviceTone } from '~/devices/types'
 import type { DeviceKind, HomePoint, HomeTemplateId } from '~/types'
+import type { DeviceVisual } from '~/utils/scene3d/devices'
 import { HOME_DEVICES, HOME_DEVICE_ORDER } from '~/constants/home'
 import { getDeviceTone, isDeviceRunning } from '~/utils/device'
 
@@ -26,14 +27,36 @@ const notice = shallowRef<string | null>(null)
 const overviewMode = shallowRef(false)
 let noticeTimer: ReturnType<typeof setTimeout> | undefined
 
+const library = usePluginLibrary()
+// Uninstalled plugins keep their placement and state, but leave the home.
+const placements = computed(() => editor.placements.value.filter(placement => library.isInstalled(placement.deviceId)))
+const sceneMode = useSceneMode()
+const scene3dReady = shallowRef(false)
+// 3D stays mounted while editing in 2D so returning is instant.
+const mount3d = computed(() => sceneMode.mode.value === '3d')
+const show3d = computed(() => mount3d.value && !editor.editMode.value)
+const show2d = computed(() => !show3d.value || !scene3dReady.value)
+
 const robotState = computed(() => robot.state.value)
 const currentRoom = computed(() => editor.template.value.rooms.find(room => room.id === editor.activeRoomId.value) ?? editor.template.value.rooms[0])
 const trayRoomId = computed(() => overviewMode.value ? null : editor.activeRoomId.value)
 const trayRoomName = computed(() => overviewMode.value ? '全屋设备' : currentRoom.value?.name ?? '我的设备')
-const activeDevices = computed<DeviceKind[]>(() => HOME_DEVICE_ORDER.filter(kind => isDeviceRunning(kind, deviceStates[kind].state.value)))
+const activeDevices = computed<DeviceKind[]>(() => library.installed.value.filter(kind => isDeviceRunning(kind, deviceStates[kind].state.value)))
 const deviceTones = computed(() => Object.fromEntries(
   HOME_DEVICE_ORDER.map(kind => [kind, getDeviceTone(kind, deviceStates[kind].state.value)]),
 ) as Record<DeviceKind, DeviceTone>)
+const deviceVisuals = computed(() => {
+  const fan = deviceStates.fan.state.value
+  const ac = deviceStates['air-conditioner']
+  const visuals = Object.fromEntries(HOME_DEVICE_ORDER.map(kind => [kind, {
+    active: activeDevices.value.includes(kind),
+    tone: deviceTones.value[kind],
+  }])) as Record<DeviceKind, DeviceVisual>
+  visuals.fan = { ...visuals.fan, speed: fan.speed, oscillating: fan.oscillating }
+  const temperature = ac.targetTemperature.value
+  visuals['air-conditioner'] = { ...visuals['air-conditioner'], display: temperature === null ? '' : `${temperature}°` }
+  return visuals
+})
 
 function showNotice(message: string) {
   notice.value = message
@@ -102,11 +125,13 @@ function toggleEditMode() {
   editor.editMode.value = !editor.editMode.value
   if (!editor.editMode.value)
     editor.selectedDeviceId.value = null
+  else if (mount3d.value)
+    showNotice('在平面图中摆放设备，完成后回到 3D')
 }
 
 function requestEditMode() {
   editor.editMode.value = true
-  const unplaced = editor.placements.value.find(placement => !placement.surfaceId)
+  const unplaced = placements.value.find(placement => !placement.surfaceId)
   if (unplaced)
     editor.selectedDeviceId.value = unplaced.deviceId
   showNotice(unplaced ? '选择房间即可自动安置，也可以拖到高亮区域' : '选择设备后，可直接在场景中拖动调整')
@@ -121,6 +146,26 @@ function moveDeviceToRoom(deviceId: DeviceKind, roomId: string) {
   overviewMode.value = false
   showNotice(`${HOME_DEVICES[deviceId].name}已移动到${currentRoom.value?.shortName ?? '目标房间'}`)
 }
+
+function changeSceneMode(mode: '3d' | '2d') {
+  sceneMode.setMode(mode)
+  if (mode === '3d' && editor.editMode.value) {
+    editor.editMode.value = false
+    editor.selectedDeviceId.value = null
+  }
+  showNotice(mode === '3d' ? '已切换到 3D 家园，拖动可旋转视角' : '已切换到怀旧 2D 平面')
+}
+
+function handle3dFailed() {
+  sceneMode.disable3d()
+  scene3dReady.value = false
+  showNotice('当前设备无法显示 3D，已切换到 2D')
+}
+
+watch(mount3d, (mounted) => {
+  if (!mounted)
+    scene3dReady.value = false
+})
 
 function handleViewportResize() {
   if (window.innerWidth <= 720)
@@ -150,7 +195,10 @@ onUnmounted(() => {
       :edit-mode="editor.editMode.value"
       :can-undo="editor.canUndo.value"
       :can-redo="editor.canRedo.value"
+      :scene-mode="sceneMode.mode.value"
+      :scene-mode-supported="sceneMode.supported.value"
       @change-template="changeTemplate"
+      @change-scene-mode="changeSceneMode"
       @toggle-edit="toggleEditMode"
       @undo="editor.undo"
       @redo="editor.redo"
@@ -159,17 +207,19 @@ onUnmounted(() => {
     <main class="home-stage">
       <HomeRoomTabs
         :rooms="editor.template.value.rooms"
-        :placements="editor.placements.value"
+        :placements="placements"
         :active-room-id="editor.activeRoomId.value"
         :overview="overviewMode"
         @select-overview="selectOverview"
         @select-room="selectRoom"
       />
 
+      <div class="home-scene-stack" :data-mode="show3d ? '3d' : '2d'">
       <HomeScene
+        v-if="show2d"
         ref="sceneRef"
         :template="editor.template.value"
-        :placements="editor.placements.value"
+        :placements="placements"
         :selected-device-id="editor.selectedDeviceId.value"
         :active-room-id="editor.activeRoomId.value"
         :overview-mode="overviewMode"
@@ -185,6 +235,28 @@ onUnmounted(() => {
         @remove="editor.removeDevice"
         @room-select="selectRoom"
       />
+      <ClientOnly>
+        <HomeScene3D
+          v-if="mount3d"
+          v-show="show3d"
+          :template="editor.template.value"
+          :placements="placements"
+          :selected-device-id="editor.selectedDeviceId.value"
+          :active-room-id="editor.activeRoomId.value"
+          :overview-mode="overviewMode"
+          :active-devices="activeDevices"
+          :visuals="deviceVisuals"
+          :robot-progress="robot.visualProgress.value"
+          :robot-cleaning="robotState.status === 'cleaning'"
+          :hidden="!show3d"
+          :inset-right="editor.selectedDeviceId.value ? 380 : 0"
+          @select="selectDevice"
+          @room-select="selectRoom"
+          @ready="scene3dReady = true"
+          @failed="handle3dFailed"
+        />
+      </ClientOnly>
+      </div>
 
       <Transition name="control-panel">
         <div v-if="editor.selectedDeviceId.value && !editor.editMode.value" class="home-stage__control">
@@ -200,7 +272,7 @@ onUnmounted(() => {
     </main>
 
     <HomeDeviceTray
-      :placements="editor.placements.value"
+      :placements="placements"
       :selected-device-id="editor.selectedDeviceId.value"
       :rooms="editor.template.value.rooms"
       :active-room-id="trayRoomId"
@@ -208,6 +280,7 @@ onUnmounted(() => {
       :edit-mode="editor.editMode.value"
       :active-devices="activeDevices"
       :device-tones="deviceTones"
+      :device-ids="library.installed.value"
       @select="selectDevice"
       @drag-start="handleTrayDragStart"
       @drag-move="handleTrayDragMove"
@@ -240,6 +313,8 @@ onUnmounted(() => {
 .home-ambient span:nth-child(2) { top: -12vmax; right: -14vmax; background: var(--ambient-b); animation-duration: 34s; animation-delay: -9s; }
 .home-ambient span:nth-child(3) { bottom: -24vmax; left: 30%; background: var(--ambient-c); animation-duration: 40s; animation-delay: -17s; }
 
+.home-scene-stack { display: grid; min-width: 0; }
+.home-scene-stack > * { grid-area: 1 / 1; }
 .home-stage__control { position: absolute; z-index: 12; top: 50%; right: 42px; transform: translateY(-50%); }
 .home-notice { position: absolute; z-index: 16; bottom: 28px; left: 50%; display: flex; align-items: center; gap: 8px; padding: 10px 16px; border: 1px solid rgba(255, 255, 255, 0.18); border-radius: 999px; background: color-mix(in oklab, var(--brand-primary) 92%, transparent); box-shadow: var(--shadow-md); color: var(--ylf-c-text-on-accent); font-size: 11px; font-weight: 600; transform: translateX(-50%); backdrop-filter: blur(12px); }
 .home-notice::before { width: 6px; height: 6px; border-radius: 50%; background: var(--brand-warm); content: ''; animation: breathe 1.6s ease-in-out infinite; }

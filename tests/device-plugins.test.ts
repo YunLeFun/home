@@ -48,6 +48,7 @@ describe('device plugin registry', () => {
       name: manifest.name,
       description: manifest.description,
       icon: manifest.icon,
+      appIcon: manifest.appIcon,
       route: manifest.route,
       width: manifest.size.width,
       height: manifest.size.height,

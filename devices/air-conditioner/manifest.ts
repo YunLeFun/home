@@ -1,10 +1,16 @@
 import type { DevicePluginManifest } from '../types'
+import { airConditionerIcon } from './icon'
 
 export const airConditionerManifest: DevicePluginManifest<'air-conditioner'> = {
+  id: 'fun.yunle.air-conditioner',
   kind: 'air-conditioner',
   version: '1.0.0',
   name: '云端空调',
   description: '冷暖静音控制',
+  author: { name: 'YunYouJun', url: 'https://github.com/YunYouJun' },
+  category: 'climate',
+  homepage: 'https://github.com/YunYouJun/air-conditioner',
+  appIcon: airConditionerIcon,
   icon: 'i-carbon-snowflake',
   route: '/items/air-conditioner',
   size: { width: 190, height: 88 },

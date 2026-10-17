@@ -1,3 +1,4 @@
+import type { DevicePluginIcon } from '~/devices/icon'
 import type { DevicePluginManifest } from '~/devices/types'
 import type { DeviceKind, HomeTemplate, HomeTemplateId, VirtualHomeState } from '~/types'
 import { airConditionerManifest } from '~/devices/air-conditioner/manifest'
@@ -11,6 +12,7 @@ export interface HomeDeviceDefinition {
   name: string
   description: string
   icon: string
+  appIcon: DevicePluginIcon
   route: string
   width: number
   height: number
@@ -22,6 +24,7 @@ function fromManifest<K extends DeviceKind>(manifest: DevicePluginManifest<K>): 
     name: manifest.name,
     description: manifest.description,
     icon: manifest.icon,
+    appIcon: manifest.appIcon,
     route: manifest.route,
     ...manifest.size,
   }

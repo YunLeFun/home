@@ -1,4 +1,5 @@
 import type { Component } from 'vue'
+import type { DevicePluginIcon } from './icon'
 import type { AcCapabilities, DeviceActionByKind, DeviceKind, DeviceStateByKind, HomeSurfaceKind } from '~/types'
 
 /**
@@ -30,13 +31,24 @@ export interface DeviceIntegrationManifest {
   description: string
 }
 
+/** Market category of a device plugin. */
+export type DevicePluginCategory = 'climate' | 'cleaning' | 'media' | 'comfort' | 'sensor' | 'fun'
+
 /** Static, serializable description of a device plugin. */
 export interface DevicePluginManifest<K extends DeviceKind = DeviceKind> {
+  /** Reverse-domain plugin id, shared with the native app's catalog */
+  id: string
   kind: K
   /** Semver of the plugin contract implementation */
   version: string
   name: string
   description: string
+  author: { name: string, url?: string }
+  category: DevicePluginCategory
+  /** Source repository of the plugin */
+  homepage?: string
+  /** App icon the plugin designs itself; see `devices/icon.ts` */
+  appIcon: DevicePluginIcon
   /** UnoCSS icon class used where a glyph is too large */
   icon: string
   /** Detail route; defaults to `/items/<kind>` */

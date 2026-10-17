@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import type { DeviceKind } from '~/types'
 import { computed } from 'vue'
-import HomeDeviceGlyph from './HomeDeviceGlyph.vue'
 import { HOME_DEVICES } from '~/constants/home'
 import { resolveDevicePluginComponent } from '~/devices/registry'
 import { getDeviceTone, isDeviceRunning } from '~/utils/device'
@@ -48,7 +47,7 @@ const syncLabel = computed(() => {
     <header class="quick-control__header">
       <div class="quick-control__device">
         <span class="quick-control__thumb" :class="{ 'is-running': running }">
-          <HomeDeviceGlyph :device-id="deviceId" :active="running" :tone="tone" :title="definition.name" />
+          <PluginIcon :icon="definition.appIcon" :size="50" :active="running" :tone="tone" />
         </span>
         <span><small>{{ standalone ? '设备控制' : '快捷控制' }}</small><strong>{{ definition.name }}</strong></span>
       </div>
@@ -109,10 +108,9 @@ const syncLabel = computed(() => {
 .quick-control__device > span:last-child { display: grid; gap: 2px; }
 .quick-control__device small { color: var(--brand-faint); font-size: 9px; font-weight: 650; letter-spacing: 0.1em; }
 .quick-control__device strong { font-size: 15px; letter-spacing: -0.01em; }
-.quick-control__thumb { display: grid; place-items: center; width: 50px; height: 50px; border-radius: 16px; background: linear-gradient(145deg, var(--brand-glass-strong), var(--brand-glass-sunken)); box-shadow: inset 0 1px 0 var(--brand-highlight); }
+.quick-control__thumb { display: grid; place-items: center; width: 50px; height: 50px; border-radius: 27%; }
 .quick-control:not(.is-standalone) .quick-control__thumb { view-transition-name: device-hero; }
 .quick-control__thumb.is-running { animation: float-y 3.2s ease-in-out infinite; }
-.quick-control__thumb :deep(.device-glyph) { width: 84%; height: 84%; }
 .quick-control__body { display: grid; gap: 14px; }
 .body-swap-enter-active, .body-swap-leave-active { transition: opacity var(--dur-2) var(--ease-out), transform var(--dur-2) var(--ease-out); }
 .body-swap-enter-from { opacity: 0; transform: translateY(8px); }

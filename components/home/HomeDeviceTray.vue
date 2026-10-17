@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed, shallowRef } from 'vue'
-import HomeDeviceGlyph from './HomeDeviceGlyph.vue'
 import type { DeviceTone } from '~/devices/types'
 import type { DeviceKind, DevicePlacement, HomeRoom } from '~/types'
 import { HOME_DEVICES, HOME_DEVICE_ORDER } from '~/constants/home'
@@ -14,6 +13,8 @@ const props = defineProps<{
   editMode: boolean
   activeDevices: DeviceKind[]
   deviceTones?: Partial<Record<DeviceKind, DeviceTone>>
+  /** Installed devices, in tray order */
+  deviceIds?: DeviceKind[]
 }>()
 
 const emit = defineEmits<{
@@ -27,7 +28,7 @@ const emit = defineEmits<{
 
 const dragging = shallowRef<DeviceKind | null>(null)
 const roomNameById = computed(() => Object.fromEntries(props.rooms.map(room => [room.id, room.name])))
-const devices = computed(() => HOME_DEVICE_ORDER.map((deviceId) => {
+const devices = computed(() => (props.deviceIds ?? HOME_DEVICE_ORDER).map((deviceId) => {
   const placement = props.placements.find(item => item.deviceId === deviceId)
   return {
     ...HOME_DEVICES[deviceId],
@@ -122,7 +123,7 @@ function onRoomChange(deviceId: DeviceKind, event: Event) {
               @pointerup="onPointerUp(device.id, $event)"
               @pointercancel="onPointerUp(device.id, $event)"
             >
-              <span class="device-tray__image"><HomeDeviceGlyph :device-id="device.id" :active="device.active" :tone="device.tone" :title="device.name" /></span>
+              <span class="device-tray__image"><PluginIcon :icon="device.appIcon" :size="48" :active="device.active" :tone="device.tone" /></span>
               <span class="device-tray__copy"><strong>{{ device.name }}</strong><small>{{ deviceSubtitle(device) }}</small></span>
               <span class="device-tray__badge" :class="device.active ? 'i-carbon-play-filled-alt' : device.placed ? 'i-carbon-checkmark-filled' : 'i-carbon-add-alt'" />
             </button>
@@ -205,9 +206,8 @@ function onRoomChange(deviceId: DeviceKind, event: Event) {
 /* Light sweep across running devices */
 .device-tray__item.is-active::after { position: absolute; inset: 0; background: linear-gradient(100deg, transparent 35%, color-mix(in oklab, var(--item-tone) 18%, transparent) 50%, transparent 65%); content: ''; animation: tray-sheen 3.6s var(--ease-in-out) infinite; pointer-events: none; }
 .device-tray__item.is-dragging { transform: scale(0.95); }
-.device-tray__image { display: grid; place-items: center; overflow: hidden; width: 48px; height: 48px; border-radius: 14px; background: linear-gradient(145deg, var(--brand-glass-strong), var(--brand-glass-sunken)); box-shadow: inset 0 1px 0 var(--brand-highlight); transition: transform var(--dur-3) var(--ease-spring); }
+.device-tray__image { display: grid; place-items: center; width: 48px; height: 48px; transition: transform var(--dur-3) var(--ease-spring); }
 .device-tray__item:hover .device-tray__image { transform: rotate(-4deg) scale(1.06); }
-.device-tray__image :deep(.device-glyph) { width: 86%; height: 86%; }
 .device-tray__copy { display: grid; min-width: 0; gap: 3px; }
 .device-tray__copy strong { overflow: hidden; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 .device-tray__copy small { overflow: hidden; color: var(--brand-muted); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
@@ -258,6 +258,7 @@ function onRoomChange(deviceId: DeviceKind, event: Event) {
   .device-tray__card { flex-basis: 160px; }
   .device-tray__item { grid-template-columns: 44px 1fr; height: 60px; padding: 6px 8px; }
   .device-tray__image { width: 42px; height: 42px; }
+  .device-tray__image .plugin-icon { --pi-size: 42px !important; }
   .device-tray__badge { display: none; }
   .device-tray__room-select { right: 5px; bottom: 4px; }
   .device-tray__empty { justify-content: flex-start; }
