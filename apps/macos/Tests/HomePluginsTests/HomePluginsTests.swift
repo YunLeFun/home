@@ -158,6 +158,56 @@ private func lampSource(reduce body: String = "return { on: !state.on }") -> Str
   #expect(!thirdParty.grants(PluginPermission.thermal) && thirdParty.grants("storage"))
 }
 
+@Test func comparesPluginVersions() {
+  #expect(PluginVersion.compare("0.3.0", "0.3.1") == .orderedAscending)
+  #expect(PluginVersion.compare("0.10.0", "0.9.9") == .orderedDescending)
+  #expect(PluginVersion.compare("1.0", "1.0.0") == .orderedSame)
+  #expect(PluginVersion.compare("0.4.0-beta.1", "0.4.0") == .orderedAscending)
+}
+
+@Test func offersCatalogUpdatesOnlyForChangedMarketPackages() throws {
+  let root = try temporaryDirectory()
+  defer { try? FileManager.default.removeItem(at: root) }
+  func archive(version: String, permissions: String = "[]", summary: String = "已开灯") throws -> URL {
+    let manifest = validManifest
+      .replacingOccurrences(of: #""version":"1.0.0""#, with: #""version":"\#(version)""#)
+      .replacingOccurrences(of: #""permissions":[]"#, with: #""permissions":\#(permissions)"#)
+    return try makeArchive(["manifest.json": manifest, "controls.json": validControls,
+                            "state.js": lampSource().replacingOccurrences(of: "已开灯", with: summary)],
+                           in: try temporaryDirectory())
+  }
+  func entry(for archive: URL, version: String) throws -> PluginCatalogEntry {
+    PluginCatalogEntry(id: "com.example.lamp", name: "台灯", description: "", author: "Example", category: "comfort",
+                       symbol: "lamp.desk", version: version, package: archive.lastPathComponent,
+                       sha256: try PluginPackage.sha256(of: archive), verified: true)
+  }
+  let installer = PluginInstaller(root: root)
+  let v1 = try archive(version: "1.0.0")
+  let installed = try installer.install(archive: v1, expectedSHA256: try PluginPackage.sha256(of: v1))
+
+  // The same package is not an update.
+  #expect(try installer.availableUpdate(for: installed, entry: entry(for: v1, version: "1.0.0"), archive: v1) == nil)
+
+  // A rebuilt package is, even under the same version; no new permission means no consent.
+  let rebuilt = try archive(version: "1.0.0", summary: "灯亮了")
+  let silent = try #require(try installer.availableUpdate(for: installed, entry: entry(for: rebuilt, version: "1.0.0"), archive: rebuilt))
+  #expect(!silent.needsConsent && silent.package.stateSource.contains("灯亮了"))
+
+  // New permissions need consent.
+  let wider = try archive(version: "1.1.0", permissions: #"["storage"]"#)
+  let consent = try #require(try installer.availableUpdate(for: installed, entry: entry(for: wider, version: "1.1.0"), archive: wider))
+  #expect(consent.needsConsent && consent.addedPermissions == ["storage"] && consent.version == "1.1.0")
+
+  // Older packages, tampered archives and file installs are never offered.
+  let older = try archive(version: "0.9.0", summary: "旧版")
+  #expect(try installer.availableUpdate(for: installed, entry: entry(for: older, version: "0.9.0"), archive: older) == nil)
+  var tampered = try entry(for: wider, version: "1.1.0")
+  tampered.sha256 = String(repeating: "0", count: 64)
+  #expect(throws: PluginError.integrityMismatch) { try installer.availableUpdate(for: installed, entry: tampered, archive: wider) }
+  let sideloaded = try PluginInstaller(root: root.appendingPathComponent("file")).install(archive: v1)
+  #expect(try installer.availableUpdate(for: sideloaded, entry: entry(for: wider, version: "1.1.0"), archive: wider) == nil)
+}
+
 @Test func fileInstallsAreMarkedUnverified() throws {
   let root = try temporaryDirectory()
   defer { try? FileManager.default.removeItem(at: root) }

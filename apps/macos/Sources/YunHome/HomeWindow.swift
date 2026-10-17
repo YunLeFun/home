@@ -1,3 +1,4 @@
+import ReleaseCheck
 import SwiftUI
 import HomeCore
 
@@ -266,12 +267,42 @@ struct HomeSettings: View {
           .font(.callout).foregroundStyle(.secondary)
         Link("打开 Home 网页版", destination: URL(string: "https://home.yunle.fun")!)
       }
+      Section("软件更新") { UpdateSettings(updates: HomeUpdates.monitor) }
       Section("关于") {
-        LabeledContent("云之彼端 · Yun Home", value: "0.1.0")
+        LabeledContent("云之彼端 · Yun Home", value: AppVersion.current ?? "开发版本")
         Text("从一台小空调，到一个随时可以回来的家。")
-        Link("空调模型与原生实现来源", destination: URL(string: "https://github.com/YunYouJun/air-conditioner/tree/dev/apps/macos")!)
+        Link("空调模型与原生实现来源", destination: URL(string: "https://github.com/YunYouJun/air-conditioner/tree/main/apps/macos")!)
       }
     }.formStyle(.grouped).navigationTitle("设置")
+  }
+}
+
+/// Automatic daily check, a manual check and the download link when newer.
+struct UpdateSettings: View {
+  @ObservedObject var updates: UpdateMonitor
+  var body: some View {
+    Toggle("自动检查更新", isOn: Binding(get: { updates.automaticChecks }, set: { updates.automaticChecks = $0 }))
+    HStack {
+      Text(statusText).foregroundStyle(.secondary)
+      Spacer()
+      if let release = updates.available {
+        Button("下载 v\(release.version)") { HomeUpdates.open(release) }.homeProminent()
+      } else {
+        Button("检查更新") { Task { await updates.check() } }.disabled(updates.status == .checking)
+      }
+    }
+    Text("每天最多查询一次 GitHub Releases，只读取公开的版本信息。下载后解压并替换旧的 YunHome.app，家园存档不受影响。")
+      .font(.caption).foregroundStyle(.secondary)
+  }
+
+  private var statusText: String {
+    switch updates.status {
+    case .checking: "正在检查…"
+    case .upToDate: "已是最新版本"
+    case .available(let release): "有新版本 v\(release.version)"
+    case .failed(let reason): reason
+    case .idle: "当前版本 v\(AppVersion.current ?? "开发版本")"
+    }
   }
 }
 

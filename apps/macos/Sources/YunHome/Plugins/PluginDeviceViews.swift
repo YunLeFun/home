@@ -132,6 +132,44 @@ struct PluginDeviceDetail: View {
   let instanceID: String
   var onRemoved: () -> Void = {}
   @State private var confirmingRemoval = false
+  @State private var updating = false
+  @State private var updateError: String?
+
+  /// A catalog update that asks for new permissions waits here for consent.
+  private func updateCard(_ update: PluginUpdate) -> some View {
+    HomeCard {
+      VStack(alignment: .leading, spacing: 10) {
+        Label("有新版本 v\(update.version)", systemImage: "arrow.down.circle").font(.headline)
+        Text("新版本需要额外的权限：").font(.callout).foregroundStyle(.secondary)
+        ForEach(update.addedPermissions, id: \.self) { permission in
+          Label(PluginPermission.describe(permission), systemImage: "key").font(.callout)
+        }
+        if let updateError {
+          Label(updateError, systemImage: "exclamationmark.triangle").font(.caption).foregroundStyle(.orange)
+        }
+        HStack {
+          Spacer()
+          Button {
+            Task {
+              updating = true
+              defer { updating = false }
+              guard let directory = BundledPluginCatalog.directory else { return }
+              do {
+                try await store.applyPluginUpdate(update.id, from: directory)
+                updateError = nil
+              } catch {
+                updateError = error.localizedDescription
+              }
+            }
+          } label: {
+            if updating { ProgressView().controlSize(.small) } else { Text("允许并更新") }
+          }
+          .homeProminent()
+          .disabled(updating)
+        }
+      }
+    }
+  }
 
   var body: some View {
     if let instance = store.snapshot.plugin(instanceID) {
@@ -171,6 +209,7 @@ struct PluginDeviceDetail: View {
           if let error = store.pluginErrors[instance.id] {
             Label(error, systemImage: "exclamationmark.triangle").font(.caption).foregroundStyle(.orange)
           }
+          if let update = store.pluginUpdates[plugin.id] { updateCard(update) }
           PluginProvenance(plugin: plugin)
           Button("卸载插件…", systemImage: "trash", role: .destructive) { confirmingRemoval = true }
             .controlSize(.small)

@@ -31,7 +31,14 @@ open apps/macos/build/YunHome.app
 
 本版不包含原生账号登录、CloudBase 同步、完整房屋布局编辑或 WidgetKit。原生存档与浏览器存档独立。当前真实设备适配只支持一个 HA 地址下的一台空调；实际型号与家庭网络仍需验收。
 
-构建结果为本机临时签名应用，尚未进行 Developer ID 签名、公证或发布。
+构建结果为本机临时签名应用，尚未进行 Developer ID 签名和公证。
+
+## 发布与更新
+
+- **版本号**：`apps/macos/VERSION`，`scripts/bundle.sh` 把它写进 `CFBundleShortVersionString`。
+- **发布**：改好 `VERSION` 后推送 `macos-v<版本>` 标签（例如 `macos-v0.2.0`），[macOS Release 工作流](../../.github/workflows/macos-release.yml)会测试、打包，把 `YunHome-<版本>.zip` 上传到同名 GitHub Release。下载的应用只有 ad-hoc 签名：第一次打开时到“系统设置 → 隐私与安全性”点“仍要打开”，或执行 `xattr -dr com.apple.quarantine YunHome.app`。
+- **检查更新**：每天最多查询一次 GitHub Releases 中 `macos-v*` 的最新稳定版（来自 air-conditioner 仓库的 `ReleaseCheck`，与 CuteAC 共用；API 被限流时改读 `releases/latest` 页面）。有新版本时，菜单栏右键菜单出现“下载新版本”，设置的“软件更新”里可以关闭自动检查或手动检查，应用菜单里也有“检查更新…”。只读取公开的发布信息；`--demo`、`--capture` 和 `swift run` 不检查。
+- **插件更新**：精选插件随 App 打包，所以 App 升级后启动时会把已安装的市场插件和内置 `catalog.json` 比较。判断依据是包内容，不是版本号：同版本重新构建的包也算更新，旧版本不会覆盖新版本，从文件安装的插件不会被市场包替换。没有新增权限的更新直接安装；新增权限的（例如空调插件新增 `sensor:thermal`）会在插件详情页显示“有新版本”和要新增的权限，用户点“允许并更新”后才安装，家电市场的卡片上也会标“有更新”。设备和状态保留，只替换插件文件。
 
 ## 设备插件
 

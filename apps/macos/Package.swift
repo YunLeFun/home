@@ -13,7 +13,7 @@ let package = Package(
     .package(name: "YunHomeConnectivity", path: "../.."),
     // The air conditioner's state, Mac thermal readings, LCD, airflow and model,
     // shared with the standalone CuteAC menu bar app.
-    .package(url: "https://github.com/YunYouJun/air-conditioner.git", revision: "2835aa9b89eab00a94bf85be2522256e6947c547"),
+    .package(url: "https://github.com/YunYouJun/air-conditioner.git", revision: "f79cc1895131cbf24e146776bdee7f4e1f52bd13"),
   ],
   targets: [
     .target(name: "HomePlugins"),
@@ -26,7 +26,8 @@ let package = Package(
     .executableTarget(
       name: "YunHome",
       dependencies: ["HomeCore", "HomePlugins", .product(name: "HomeDeviceKit", package: "YunHomeConnectivity"),
-                     .product(name: "CuteACKit", package: "air-conditioner")],
+                     .product(name: "CuteACKit", package: "air-conditioner"),
+                     .product(name: "ReleaseCheck", package: "air-conditioner")],
       resources: [.copy("Resources/ACRemote.usdz"), .copy("Resources/AirConditioner-LICENSE.txt"), .copy("Resources/Plugins")]
     ),
     .testTarget(name: "HomePluginsTests", dependencies: ["HomePlugins", "YunHomePluginHost"], resources: [.copy("Fixtures")]),

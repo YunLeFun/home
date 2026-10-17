@@ -39,7 +39,8 @@ struct PluginMarketView: View {
         HomeSectionHeading(title: "精选插件", detail: "\(entries.count) 个")
         LazyVGrid(columns: [GridItem(.adaptive(minimum: 260), spacing: 16)], spacing: 16) {
           ForEach(entries) { entry in
-            PluginMarketCard(entry: entry, installed: store.installedPlugins[entry.id] != nil) { selection = entry }
+            PluginMarketCard(entry: entry, installed: store.installedPlugins[entry.id] != nil,
+                             updateAvailable: store.pluginUpdates[entry.id] != nil) { selection = entry }
           }
         }
 
@@ -94,6 +95,7 @@ struct PluginMarketView: View {
 struct PluginMarketCard: View {
   let entry: PluginCatalogEntry
   let installed: Bool
+  var updateAvailable = false
   let select: () -> Void
   @State private var hovered = false
   private var tint: Color { Color(pluginHex: entry.tint) ?? HomeTheme.brand }
@@ -109,7 +111,9 @@ struct PluginMarketCard: View {
               .scaleEffect(hovered ? 1.06 : 1)
               .rotationEffect(.degrees(hovered ? -4 : 0))
             Spacer()
-            if installed {
+            if updateAvailable {
+              Label("有更新", systemImage: "arrow.down.circle.fill").font(.caption.weight(.medium)).foregroundStyle(HomeTheme.brand)
+            } else if installed {
               Label("已安装", systemImage: "checkmark.circle.fill").font(.caption.weight(.medium)).foregroundStyle(HomeTone.running.text)
             }
           }
@@ -137,7 +141,7 @@ struct PluginMarketCard: View {
     .offset(y: hovered ? -2 : 0)
     .onHover { hovered = $0 }
     .animation(.spring(duration: 0.3, bounce: 0.35), value: hovered)
-    .accessibilityLabel("\(entry.name)，\(installed ? "已安装" : "未安装")")
+    .accessibilityLabel("\(entry.name)，\(updateAvailable ? "有更新" : installed ? "已安装" : "未安装")")
   }
 }
 

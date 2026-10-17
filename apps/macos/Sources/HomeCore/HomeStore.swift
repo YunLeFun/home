@@ -34,6 +34,8 @@ public final class HomeStore {
   /// The Mac seen as the room, fed by the app's `ThermalMonitor` while
   /// something shows it. Only plugins granted `sensor:thermal` receive it.
   public private(set) var room: RoomReading?
+  /// Catalog updates that add permissions and so wait for the user, by plugin id.
+  public private(set) var pluginUpdates: [String: PluginUpdate] = [:]
   @ObservationIgnored private let pluginInstaller: PluginInstaller
   @ObservationIgnored private let pluginHost: PluginHostClient
   @ObservationIgnored private var pluginQueues: [String: Task<Void, Never>] = [:]
@@ -185,6 +187,40 @@ public final class HomeStore {
     try await activate(try pluginInstaller.install(archive: file))
   }
 
+  /// Compare installed market plugins with the bundled catalog. Updates that
+  /// ask for no new permission are applied right away; the rest are listed in
+  /// `pluginUpdates` until `applyPluginUpdate` is called. Device state is kept:
+  /// the new package only replaces the plugin's files, then re-presents.
+  public func checkPluginUpdates(catalog: [PluginCatalogEntry], directory: URL) async {
+    for entry in catalog {
+      guard let installed = installedPlugins[entry.id] else { continue }
+      let archive = directory.appendingPathComponent(entry.package)
+      guard let update = try? pluginInstaller.availableUpdate(for: installed, entry: entry, archive: archive) else {
+        pluginUpdates[entry.id] = nil
+        continue
+      }
+      if update.needsConsent {
+        pluginUpdates[entry.id] = update
+      } else {
+        try? await apply(update, from: directory)
+      }
+    }
+  }
+
+  /// Install a pending update the user accepted, including its new permissions.
+  public func applyPluginUpdate(_ id: String, from directory: URL) async throws {
+    guard let update = pluginUpdates[id] else { return }
+    try await apply(update, from: directory)
+  }
+
+  private func apply(_ update: PluginUpdate, from directory: URL) async throws {
+    let plugin = try pluginInstaller.install(archive: directory.appendingPathComponent(update.entry.package),
+                                             expectedSHA256: update.entry.sha256)
+    pluginUpdates[plugin.id] = nil
+    // Re-registers the new script and re-presents existing devices with it.
+    _ = try await activate(plugin)
+  }
+
   /// Remove a plugin, its devices and its files.
   public func uninstall(plugin id: String) async {
     let removed = snapshot.plugins.filter { $0.pluginId == id }.map(\.id)
@@ -196,6 +232,7 @@ public final class HomeStore {
       pluginQueues[instance] = nil
     }
     installedPlugins[id] = nil
+    pluginUpdates[id] = nil
     try? pluginInstaller.uninstall(id: id)
     await pluginHost.unregister(plugin: id)
     snapshot.changedAt = Date()

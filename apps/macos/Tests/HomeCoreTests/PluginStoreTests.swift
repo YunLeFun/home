@@ -20,6 +20,69 @@ private func catalogEntry() throws -> PluginCatalogEntry {
                      package: fixture.lastPathComponent, sha256: try PluginPackage.sha256(of: fixture), verified: true)
 }
 
+/// The air conditioner fixture rebuilt with an older manifest, standing in
+/// for what users installed before `sensor:thermal` existed.
+private func olderAirConditioner(in directory: URL) throws -> URL {
+  let staging = directory.appendingPathComponent("staging", isDirectory: true)
+  try FileManager.default.createDirectory(at: staging, withIntermediateDirectories: true)
+  try run("/usr/bin/unzip", ["-q", fixture.path, "-d", staging.path])
+  let manifestURL = staging.appendingPathComponent("manifest.json")
+  let manifest = try String(contentsOf: manifestURL, encoding: .utf8)
+    .replacingOccurrences(of: #""sensor:thermal""#, with: "")
+  try manifest.write(to: manifestURL, atomically: true, encoding: .utf8)
+  let archive = directory.appendingPathComponent("old.yunplugin")
+  try run("/usr/bin/zip", ["-q", "-j", archive.path] + ["manifest.json", "state.js", "controls.json"].map { staging.appendingPathComponent($0).path })
+  return archive
+}
+
+private func run(_ executable: String, _ arguments: [String]) throws {
+  let process = Process()
+  process.executableURL = URL(fileURLWithPath: executable)
+  process.arguments = arguments
+  try process.run()
+  process.waitUntilExit()
+}
+
+@MainActor @Test func catalogUpdatesKeepDevicesAndAskForNewPermissions() async throws {
+  let name = "fun.yunle.home.test.\(UUID().uuidString)"
+  let defaults = try #require(UserDefaults(suiteName: name))
+  let root = FileManager.default.temporaryDirectory.appendingPathComponent("plugins-\(UUID().uuidString)")
+  let work = FileManager.default.temporaryDirectory.appendingPathComponent("catalog-\(UUID().uuidString)")
+  try FileManager.default.createDirectory(at: work, withIntermediateDirectories: true)
+  defer {
+    defaults.removePersistentDomain(forName: name)
+    try? FileManager.default.removeItem(at: root)
+    try? FileManager.default.removeItem(at: work)
+  }
+  let old = try olderAirConditioner(in: work)
+  var oldEntry = try catalogEntry()
+  oldEntry.package = old.lastPathComponent
+  oldEntry.sha256 = try PluginPackage.sha256(of: old)
+
+  let store = HomeStore(defaults: defaults, pluginRoot: root, pluginHostExecutable: hostExecutable)
+  let instance = try await store.install(oldEntry, from: work)
+  store.send(plugin: instance.id, action: .object(["type": .string("toggleStatus")]))
+  await store.settle(plugin: instance.id)
+  #expect(store.installedPlugin(for: instance)?.grants(PluginPermission.thermal) == false)
+
+  // The current fixture adds sensor:thermal, so it waits for consent.
+  let directory = fixture.deletingLastPathComponent()
+  await store.checkPluginUpdates(catalog: [try catalogEntry()], directory: directory)
+  #expect(store.pluginUpdates[instance.pluginId]?.addedPermissions == [PluginPermission.thermal])
+  #expect(store.installedPlugin(for: instance)?.manifest.permissions.isEmpty == true)
+
+  try await store.applyPluginUpdate(instance.pluginId, from: directory)
+  #expect(store.pluginUpdates.isEmpty)
+  #expect(store.installedPlugin(for: instance)?.grants(PluginPermission.thermal) == true)
+  // The device and its state survive the update.
+  #expect(store.snapshot.plugins.map(\.id) == [instance.id])
+  #expect(store.snapshot.plugin(instance.id)?.state["status"] == .bool(true))
+
+  // Up to date now: nothing more to offer.
+  await store.checkPluginUpdates(catalog: [try catalogEntry()], directory: directory)
+  #expect(store.pluginUpdates.isEmpty)
+}
+
 @MainActor @Test func versionOneArchivesGainAnEmptyPluginList() throws {
   var legacy = try JSONSerialization.jsonObject(with: JSONEncoder().encode(HomeSnapshot())) as! [String: Any]
   legacy["version"] = 1

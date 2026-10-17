@@ -2,6 +2,7 @@ import AppKit
 import Combine
 import CuteACKit
 import Observation
+import ReleaseCheck
 import SwiftUI
 import HomeCore
 
@@ -55,6 +56,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSPo
     if captureDirectory != nil { thermal.pin(.demo) }
     thermalReading = thermal.$reading.sink { [weak self] reading in self?.store.updateRoom(reading) }
     observeThermalActivity()
+    // The catalog ships with the app, so a new app version may carry newer
+    // plugin packages; silent ones apply now, the rest show in plugin details.
+    if let directory = BundledPluginCatalog.directory {
+      Task { await store.checkPluginUpdates(catalog: BundledPluginCatalog.entries, directory: directory) }
+    }
+    // App releases: at most once a day; demo and capture runs stay offline.
+    if captureDirectory == nil && !CommandLine.arguments.contains("--demo") {
+      Task { await HomeUpdates.monitor.checkIfDue() }
+    }
     NotificationCenter.default.addObserver(self, selector: #selector(didWake), name: NSApplication.didBecomeActiveNotification, object: nil)
     NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(didWake), name: NSWorkspace.didWakeNotification, object: nil)
     if let captureDirectory {
@@ -208,9 +218,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSPo
     item("桌面遥控器", #selector(toggleDesktopRemote), checked: store.showDesktopRemote)
     item("配件始终置顶", #selector(toggleDesktopLevel), checked: store.desktopAlwaysOnTop)
     menu.addItem(.separator())
+    if let release = HomeUpdates.monitor.available {
+      item("下载新版本 v\(release.version)…", #selector(downloadUpdate))
+    }
     item("设置…", #selector(showSettings), key: ",")
     item("退出云之彼端", #selector(quit), key: "q")
     return menu
+  }
+
+  @objc private func checkForUpdates() { HomeUpdates.checkAndReport() }
+  @objc private func downloadUpdate() {
+    if let release = HomeUpdates.monitor.available { HomeUpdates.open(release) }
   }
 
   @objc private func toggleMainWindow() { setMainWindowVisible(!presentation.isMainWindowVisible) }
@@ -292,6 +310,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSPo
     let applicationItem = NSMenuItem()
     let applicationMenu = NSMenu()
     applicationMenu.addItem(withTitle: "关于云之彼端", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "").target = NSApp
+    applicationMenu.addItem(withTitle: "检查更新…", action: #selector(checkForUpdates), keyEquivalent: "").target = self
     applicationMenu.addItem(.separator())
     applicationMenu.addItem(withTitle: "打开云之彼端", action: #selector(showHome), keyEquivalent: "0").target = self
     applicationMenu.addItem(withTitle: "设置…", action: #selector(showSettings), keyEquivalent: ",").target = self
