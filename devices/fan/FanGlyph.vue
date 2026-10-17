@@ -61,8 +61,9 @@ withDefaults(defineProps<{
 
 .fan-glyph.is-active .fan-glyph__blades {
   animation: fan-glyph-spin 1.15s linear infinite;
-  transform-box: fill-box;
-  transform-origin: center;
+  /* Spin around the hub, not the blade group's lopsided bounding box. */
+  transform-box: view-box;
+  transform-origin: 60px 43px;
 }
 
 @keyframes fan-glyph-spin {

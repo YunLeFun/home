@@ -42,6 +42,9 @@ importers:
       '@yunlefun/sso':
         specifier: ^0.6.2
         version: 0.6.2
+      '@yunlefun/ui':
+        specifier: ^0.0.7
+        version: 0.0.7(sass@1.105.1)
       home-assistant-js-websocket:
         specifier: ^9.7.1
         version: 9.7.1
@@ -2724,6 +2727,14 @@ packages:
 
   '@yunlefun/sso@0.6.2':
     resolution: {integrity: sha512-53XQA8uGpotYEo3ewgiP+osF/aZFfV24aNGK2vXXn4GYRnHdSS7/7M6WaGXiwO2VqBVJvRrHHbWIxgtuTctfiQ==}
+
+  '@yunlefun/ui@0.0.7':
+    resolution: {integrity: sha512-YWV04EDTA5LS0Tr4ervVBEEgotCZC7n71hiG84zRToc/HL8o35ie2VeR13mP1qjJnqFvgA8QWN8m5/y5Ax1ZEw==}
+    peerDependencies:
+      sass: ^1.101.0
+    peerDependenciesMeta:
+      sass:
+        optional: true
 
   abbrev@3.0.1:
     resolution: {integrity: sha512-AO2ac6pjRB3SJmGJo+v5/aK6Omggp6fsLrs6wN9bd35ulu4cCwaAU9+7ZhXjeqHVkaHThLuzH0nZr0YpCDhygg==}
@@ -9489,6 +9500,10 @@ snapshots:
   '@yunlefun/sso@0.6.2':
     dependencies:
       jose: 6.2.12
+
+  '@yunlefun/ui@0.0.7(sass@1.105.1)':
+    optionalDependencies:
+      sass: 1.105.1
 
   abbrev@3.0.1: {}
 

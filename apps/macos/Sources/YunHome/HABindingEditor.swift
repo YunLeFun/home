@@ -20,7 +20,7 @@ struct HABindingEditor: View {
   var body: some View {
     VStack(alignment: .leading, spacing: 18) {
       HStack {
-        Image(systemName: "house.and.flag").font(.title).foregroundStyle(HomeTheme.moss)
+        Image(systemName: "house.and.flag").font(.title).foregroundStyle(HomeTheme.brand)
         VStack(alignment: .leading, spacing: 4) {
           Text("连接真实空调").font(.title2.weight(.semibold))
           Text("先在 Home Assistant 中接入空调，再选择对应实体。")
@@ -69,7 +69,7 @@ struct HABindingEditor: View {
         Button("测试连接", systemImage: "bolt.horizontal.circle") { testConnection() }
           .disabled(busy || token.isEmpty || address.isEmpty)
         if busy { ProgressView().controlSize(.small); Text("正在读取设备…").font(.caption) }
-        if tested { Label("连接成功", systemImage: "checkmark.circle").foregroundStyle(HomeTheme.moss) }
+        if tested { Label("连接成功", systemImage: "checkmark.circle").foregroundStyle(HomeTone.running.text) }
       }
       if tested {
         if candidate.entities.isEmpty {
@@ -107,11 +107,11 @@ struct HABindingEditor: View {
             token = ""
             dismiss()
           } catch { errorMessage = (error as? HAError ?? .credentialStore).localizedDescription }
-        }.buttonStyle(.borderedProminent).keyboardShortcut(.defaultAction)
+        }.homeProminent().keyboardShortcut(.defaultAction)
           .disabled(!tested || selected.isEmpty || busy || candidate.state != .online)
       }
     }
-    .padding(26).frame(width: 580).tint(HomeTheme.moss)
+    .padding(26).frame(width: 580).tint(HomeTheme.brand)
     .onAppear { if let binding = store.haBinding { address = binding.endpoint.baseURL.absoluteString } }
     .onChange(of: address) { _, _ in invalidateTest() }
     .onChange(of: token) { _, _ in invalidateTest() }

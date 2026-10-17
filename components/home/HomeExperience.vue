@@ -241,7 +241,7 @@ onUnmounted(() => {
 .home-ambient span:nth-child(3) { bottom: -24vmax; left: 30%; background: var(--ambient-c); animation-duration: 40s; animation-delay: -17s; }
 
 .home-stage__control { position: absolute; z-index: 12; top: 50%; right: 42px; transform: translateY(-50%); }
-.home-notice { position: absolute; z-index: 16; bottom: 28px; left: 50%; display: flex; align-items: center; gap: 8px; padding: 10px 16px; border: 1px solid rgba(255, 255, 255, 0.18); border-radius: 999px; background: color-mix(in oklab, var(--brand-primary) 88%, transparent); box-shadow: var(--shadow-md); color: white; font-size: 11px; font-weight: 600; transform: translateX(-50%); backdrop-filter: blur(12px); }
+.home-notice { position: absolute; z-index: 16; bottom: 28px; left: 50%; display: flex; align-items: center; gap: 8px; padding: 10px 16px; border: 1px solid rgba(255, 255, 255, 0.18); border-radius: 999px; background: color-mix(in oklab, var(--brand-primary) 92%, transparent); box-shadow: var(--shadow-md); color: var(--ylf-c-text-on-accent); font-size: 11px; font-weight: 600; transform: translateX(-50%); backdrop-filter: blur(12px); }
 .home-notice::before { width: 6px; height: 6px; border-radius: 50%; background: var(--brand-warm); content: ''; animation: breathe 1.6s ease-in-out infinite; }
 .device-drag-ghost { position: fixed; z-index: 100; display: grid; place-items: center; width: 92px; height: 92px; border: 1px solid var(--brand-line-strong); border-radius: 50%; background: var(--brand-glass-strong); box-shadow: var(--shadow-lg); pointer-events: none; transform: translate(-50%, -50%) rotate(-4deg) scale(1.04); backdrop-filter: blur(12px); animation: ghost-in var(--dur-2) var(--ease-spring); }
 .device-drag-ghost :deep(.device-glyph) { width: 76%; height: 76%; }

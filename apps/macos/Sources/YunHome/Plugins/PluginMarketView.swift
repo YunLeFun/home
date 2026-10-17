@@ -95,7 +95,7 @@ struct PluginMarketCard: View {
   let installed: Bool
   let select: () -> Void
   @State private var hovered = false
-  private var tint: Color { Color(pluginHex: entry.tint) ?? HomeTheme.moss }
+  private var tint: Color { Color(pluginHex: entry.tint) ?? HomeTheme.brand }
 
   var body: some View {
     Button(action: select) {
@@ -107,14 +107,14 @@ struct PluginMarketCard: View {
               .rotationEffect(.degrees(hovered ? -4 : 0))
             Spacer()
             if installed {
-              Label("已安装", systemImage: "checkmark.circle.fill").font(.caption.weight(.medium)).foregroundStyle(HomeTheme.moss)
+              Label("已安装", systemImage: "checkmark.circle.fill").font(.caption.weight(.medium)).foregroundStyle(HomeTone.running.text)
             }
           }
           VStack(alignment: .leading, spacing: 5) {
             HStack(spacing: 5) {
               Text(entry.name).font(.headline)
               if entry.verified {
-                Image(systemName: "checkmark.seal.fill").font(.caption).foregroundStyle(.blue).help("已认证")
+                Image(systemName: "checkmark.seal.fill").font(.caption).foregroundStyle(HomeTheme.brand).help("已认证")
               }
             }
             Text(entry.description).font(.subheadline).foregroundStyle(.secondary).lineLimit(2, reservesSpace: true)
@@ -147,7 +147,7 @@ struct PluginMarketDetail: View {
   @State private var installing = false
   @State private var error: String?
   private var installedInstance: PluginInstance? { store.snapshot.plugins.first { $0.pluginId == entry.id } }
-  private var tint: Color { Color(pluginHex: entry.tint) ?? HomeTheme.moss }
+  private var tint: Color { Color(pluginHex: entry.tint) ?? HomeTheme.brand }
 
   var body: some View {
     VStack(alignment: .leading, spacing: 20) {
@@ -157,7 +157,7 @@ struct PluginMarketDetail: View {
         VStack(alignment: .leading, spacing: 5) {
           HStack(spacing: 6) {
             Text(entry.name).font(.title2.weight(.semibold))
-            if entry.verified { Image(systemName: "checkmark.seal.fill").foregroundStyle(.blue) }
+            if entry.verified { Image(systemName: "checkmark.seal.fill").foregroundStyle(HomeTheme.brand) }
           }
           Text("\(entry.author) · v\(entry.version) · \(entry.category)").font(.callout).foregroundStyle(.secondary)
         }
@@ -189,12 +189,12 @@ struct PluginMarketDetail: View {
         Spacer()
         Button("关闭") { dismiss() }.keyboardShortcut(.cancelAction)
         if let installedInstance {
-          Button("打开设备") { open(installedInstance.id) }.buttonStyle(.borderedProminent).keyboardShortcut(.defaultAction)
+          Button("打开设备") { open(installedInstance.id) }.homeProminent().keyboardShortcut(.defaultAction)
         } else {
           Button { confirming = true } label: {
             if installing { ProgressView().controlSize(.small).frame(width: 40) } else { Text("安装") }
           }
-          .buttonStyle(.borderedProminent).keyboardShortcut(.defaultAction).disabled(installing)
+          .homeProminent().keyboardShortcut(.defaultAction).disabled(installing)
         }
       }
     }

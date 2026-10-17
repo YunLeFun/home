@@ -38,6 +38,7 @@
     "@yunlefun-home/air-conditioner": "^0.3.0",
     "@yunlefun-home/air-conditioner-core": "^0.3.0",
     "@yunlefun/sso": "^0.6.2",
+    "@yunlefun/ui": "^0.0.7",
     "home-assistant-js-websocket": "^9.7.1",
     "nuxt": "^4.6.1",
     "pinia": "^4.1.0",

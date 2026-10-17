@@ -135,7 +135,7 @@ export const HOME_TEMPLATES: Record<HomeTemplateId, HomeTemplate> = {
 const defaultPlacements: Record<HomeTemplateId, VirtualHomeState['placements']> = {
   'cloud-apartment': [
     { deviceId: 'television', roomId: 'living-room', surfaceId: 'living-wall', u: 0.74, v: 0.56, rotation: 0 },
-    { deviceId: 'air-conditioner', roomId: 'living-room', surfaceId: 'living-wall', u: 0.34, v: 0.28, rotation: 0 },
+    { deviceId: 'air-conditioner', roomId: 'living-room', surfaceId: 'living-wall', u: 0.8, v: 0.12, rotation: 0 },
     { deviceId: 'fan', roomId: 'bedroom', surfaceId: 'bedroom-floor', u: 0.82, v: 0.52, rotation: 0 },
     { deviceId: 'robot-vacuum', roomId: 'utility-room', surfaceId: 'utility-floor', u: 0.76, v: 0.78, rotation: 0 },
     { deviceId: 'hand-warmer', roomId: 'living-room', surfaceId: 'living-table', u: 0.58, v: 0.45, rotation: 0 },
@@ -149,7 +149,7 @@ const defaultPlacements: Record<HomeTemplateId, VirtualHomeState['placements']> 
   ],
   'comfort-suite': [
     { deviceId: 'television', roomId: 'suite-living', surfaceId: 'suite-living-wall', u: 0.79, v: 0.42, rotation: 0 },
-    { deviceId: 'air-conditioner', roomId: 'suite-living', surfaceId: 'suite-living-wall', u: 0.30, v: 0.25, rotation: 0 },
+    { deviceId: 'air-conditioner', roomId: 'suite-living', surfaceId: 'suite-living-wall', u: 0.45, v: 0.12, rotation: 0 },
     { deviceId: 'fan', roomId: 'suite-bedroom', surfaceId: 'suite-bedroom-floor', u: 0.88, v: 0.52, rotation: 0 },
     { deviceId: 'robot-vacuum', roomId: 'suite-living', surfaceId: 'suite-living-floor', u: 0.12, v: 0.82, rotation: 0 },
     { deviceId: 'hand-warmer', roomId: 'suite-bedroom', surfaceId: 'suite-bedroom-table', u: 0.52, v: 0.42, rotation: 0 },

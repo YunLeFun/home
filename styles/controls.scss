@@ -19,7 +19,7 @@
 
 .ui-card {
   border: 1px solid var(--brand-line);
-  border-radius: 24px;
+  border-radius: var(--ylf-radius-xl);
   background: var(--brand-glass-strong);
   box-shadow: var(--shadow-lg), inset 0 1px 0 var(--brand-highlight);
   color: var(--brand-ink);
@@ -93,9 +93,10 @@
   &:active:not(:disabled) { transform: scale(0.92); }
   &:disabled { cursor: not-allowed; opacity: 0.5; }
 
-  &[data-tone="cool"] { --orb-tone: var(--tone-cool); }
-  &[data-tone="heat"] { --orb-tone: var(--tone-heat); }
-  &[data-tone="warm"] { --orb-tone: var(--tone-warm); }
+  --orb-on: var(--ylf-accent-green-on);
+  &[data-tone="cool"] { --orb-tone: var(--tone-cool); --orb-on: var(--ylf-accent-cyan-on); }
+  &[data-tone="heat"] { --orb-tone: var(--tone-heat); --orb-on: var(--ylf-accent-coral-on); }
+  &[data-tone="warm"] { --orb-tone: var(--tone-warm); --orb-on: var(--ylf-accent-sun-on); }
 
   &::before,
   &::after {
@@ -121,7 +122,7 @@
     box-shadow:
       0 0 0 7px color-mix(in oklab, var(--orb-tone) 14%, transparent),
       0 14px 30px color-mix(in oklab, var(--orb-tone) 42%, transparent);
-    color: white;
+    color: var(--orb-on);
 
     &::before { opacity: 1; animation: spin 3.4s linear infinite; }
     &::after { animation: ripple-out 2.6s var(--ease-out) infinite; }
@@ -270,7 +271,7 @@
   border-radius: 14px;
   background: var(--brand-primary);
   box-shadow: 0 10px 24px rgba(var(--brand-focus-rgb), 0.24);
-  color: white;
+  color: var(--ylf-c-text-on-accent);
   font-size: 12px;
   font-weight: 700;
   text-decoration: none;

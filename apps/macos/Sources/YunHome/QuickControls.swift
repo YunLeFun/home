@@ -38,9 +38,9 @@ struct QuickControls: View {
     VStack(alignment: .leading, spacing: 16) {
       HStack(spacing: 10) {
         Image(systemName: "house.fill")
-          .font(.system(size: 20, weight: .medium)).foregroundStyle(HomeTheme.moss)
+          .font(.system(size: 20, weight: .medium)).foregroundStyle(HomeTheme.brand)
           .frame(width: 38, height: 38)
-          .background(HomeTheme.moss.opacity(0.1), in: RoundedRectangle(cornerRadius: 11))
+          .background(HomeTheme.brandSoft, in: RoundedRectangle(cornerRadius: 11))
         VStack(alignment: .leading, spacing: 3) {
           Text("云之彼端").font(.headline)
           Text("\(store.activeCount) 台设备运行中").font(.caption).foregroundStyle(.secondary)
@@ -76,6 +76,7 @@ struct QuickControls: View {
       }.font(.callout)
     }
     .padding(18).frame(width: 336)
+    .tint(HomeTheme.brand)
   }
 }
 

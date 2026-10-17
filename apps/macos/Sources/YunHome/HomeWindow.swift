@@ -38,7 +38,7 @@ struct HomeWindow: View {
               Label(device.name, systemImage: device.symbol)
               Spacer()
               if store.isActive(device) {
-                Circle().fill(HomeTheme.moss).frame(width: 6, height: 6)
+                Circle().fill(store.tone(for: device).fill).frame(width: 6, height: 6)
                   .accessibilityLabel("正在运行")
               }
             }.tag(HomeDestination.device(device))
@@ -100,8 +100,10 @@ struct HomeWindow: View {
         case .settings: HomeSettings(store: store)
         }
       }
+      .foregroundStyle(HomeTheme.text, HomeTheme.textSecondary, HomeTheme.textTertiary)
       .background(HomeTheme.paper)
     }
+    .tint(HomeTheme.brand)
     .frame(minWidth: 880, minHeight: 620)
     .toolbar {
       ToolbarItemGroup(placement: .primaryAction) {
@@ -154,9 +156,9 @@ struct HomeOverview: View {
           HStack(spacing: 22) {
             Image(systemName: room?.symbol ?? "house.fill")
               .font(.system(size: 30, weight: .light)).symbolRenderingMode(.hierarchical)
-              .foregroundStyle(HomeTheme.moss)
+              .foregroundStyle(HomeTheme.brand)
               .frame(width: 62, height: 62)
-              .background(HomeTheme.moss.opacity(0.08), in: RoundedRectangle(cornerRadius: 16))
+              .background(HomeTheme.brandSoft, in: RoundedRectangle(cornerRadius: 16))
               .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 6) {
               Text(runningCount == 0 ? "\(room?.name ?? "家里")，一切安静" : "\(runningCount) 台设备正在运行")
@@ -213,9 +215,9 @@ struct DeviceTile: View {
           Button { store.toggle(device) } label: {
             Image(systemName: device == .robotVacuum ? (active ? "pause.fill" : "play.fill") : "power")
               .font(.system(size: 12, weight: .semibold))
-              .foregroundStyle(active ? Color.white : Color.secondary)
+              .foregroundStyle(active ? store.tone(for: device).on : HomeTheme.textSecondary)
               .frame(width: 30, height: 30)
-              .background(active ? device.tint : Color.primary.opacity(0.06), in: Circle())
+              .background(active ? store.tone(for: device).fill : HomeTheme.surfaceInset, in: Circle())
           }.buttonStyle(.plain)
             .disabled(device == .airConditioner && !store.acCanControl)
             .help(active ? "关闭或暂停设备" : "开启设备")
@@ -236,7 +238,7 @@ struct DeviceTile: View {
       }
     }
     .overlay(RoundedRectangle(cornerRadius: HomeTheme.cornerRadius)
-      .strokeBorder(Color.accentColor.opacity(hovered ? 0.24 : 0), lineWidth: 1))
+      .strokeBorder(HomeTheme.brand.opacity(hovered ? 0.32 : 0), lineWidth: 1))
     .onHover { hovered = $0 }
     .animation(.easeOut(duration: 0.15), value: hovered)
   }

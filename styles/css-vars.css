@@ -1,106 +1,86 @@
+/*
+ * Home brand tokens: 晴空暖居 — a warm home under a clear cloud sky.
+ * Foundations (brand blue, surfaces, text, radii, shadows, cloud lighting and
+ * the dopamine accents) come from YunLeFun Design (@yunlefun/ui, loaded
+ * before this file). Home adds warm interior neutrals and device tones.
+ */
 :root {
   color-scheme: light;
-  --brand-primary: #28312f;
-  --brand-primary-strong: #18201e;
-  --brand-primary-soft: #e1e6de;
-  --brand-secondary: #687b67;
-  --brand-warm: #c59a55;
-  --brand-ink: #28312f;
-  --brand-muted: #69716d;
-  --brand-faint: #9aa19b;
-  --brand-surface: #f4f5ef;
-  --brand-surface-raised: rgba(250, 251, 247, 0.86);
-  --brand-outline: rgba(104, 123, 103, 0.34);
-  --brand-focus-rgb: 40, 49, 47;
+  --brand-primary: var(--ylf-c-brand);
+  --brand-primary-strong: var(--ylf-c-brand-active);
+  --brand-primary-soft: var(--ylf-c-brand-soft);
+  --brand-secondary: var(--ylf-c-brand);
+  --brand-warm: #f2a93b;
+  --brand-ink: var(--ylf-c-text);
+  --brand-muted: var(--ylf-c-text-2);
+  --brand-faint: var(--ylf-c-text-3);
+  --brand-surface: var(--ylf-c-bg);
+  --brand-surface-raised: var(--ylf-c-surface-raised);
+  --brand-outline: var(--ylf-c-edge);
+  --brand-focus-rgb: 37, 99, 235;
 
-  /* Glass surfaces layered over the page */
-  --brand-glass: rgba(251, 251, 247, 0.74);
-  --brand-glass-strong: rgba(252, 252, 249, 0.94);
-  --brand-glass-sunken: rgba(225, 230, 222, 0.55);
-  --brand-line: rgba(104, 123, 103, 0.2);
-  --brand-line-strong: rgba(104, 123, 103, 0.38);
-  --brand-highlight: rgba(255, 255, 255, 0.86);
+  /* Glass surfaces layered over the sky */
+  --brand-glass: rgba(255, 255, 255, 0.72);
+  --brand-glass-strong: var(--ylf-c-panel);
+  --brand-glass-sunken: var(--ylf-c-surface-inset);
+  --brand-line: var(--ylf-c-edge);
+  --brand-line-strong: rgba(30, 64, 115, 0.22);
+  --brand-highlight: var(--ylf-c-highlight);
 
-  /* Device tones: 苔庭青 running, 湖水青 cooling, 桂影金/赭 heating */
-  --tone-active: #687b67;
-  --tone-active-soft: rgba(104, 123, 103, 0.16);
-  --tone-cool: #5f939e;
-  --tone-cool-soft: rgba(95, 147, 158, 0.16);
-  --tone-heat: #cc8456;
-  --tone-heat-soft: rgba(204, 132, 86, 0.17);
-  --tone-warm: #c59a55;
-  --tone-warm-soft: rgba(197, 154, 85, 0.18);
-  --tone-danger: #c4685d;
+  /* Device tones from the shared accent palette */
+  --tone-active: var(--ylf-accent-green);
+  --tone-active-soft: var(--ylf-accent-green-soft);
+  --tone-cool: var(--ylf-accent-cyan);
+  --tone-cool-soft: var(--ylf-accent-cyan-soft);
+  --tone-heat: var(--ylf-accent-coral);
+  --tone-heat-soft: var(--ylf-accent-coral-soft);
+  --tone-warm: #f2a93b;
+  --tone-warm-soft: var(--ylf-accent-sun-soft);
+  --tone-danger: var(--ylf-status-danger-text);
 
-  --shadow-sm: 0 4px 14px rgba(40, 49, 47, 0.07);
-  --shadow-md: 0 14px 38px rgba(40, 49, 47, 0.11);
-  --shadow-lg: 0 30px 80px rgba(40, 49, 47, 0.17);
+  --shadow-sm: var(--ylf-shadow-sm);
+  --shadow-md: var(--ylf-shadow);
+  --shadow-lg: var(--ylf-shadow-lg);
 
   /* Motion */
-  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-spring: var(--ylf-ease-bounce);
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
-  --dur-1: 140ms;
-  --dur-2: 260ms;
-  --dur-3: 480ms;
+  --dur-1: var(--ylf-duration-fast);
+  --dur-2: var(--ylf-duration-normal);
+  --dur-3: var(--ylf-duration-slow);
   --dur-4: 900ms;
 
+  /* Sky above, warm home below */
   --brand-page-background:
-    radial-gradient(circle at 18% 0%, rgba(210, 219, 209, 0.74), transparent 31%),
-    radial-gradient(circle at 88% 8%, rgba(197, 154, 85, 0.08), transparent 22%),
-    linear-gradient(155deg, #fafbf7 0%, #f0f2ec 55%, #f6f4ee 100%);
-  --ambient-a: rgba(183, 199, 182, 0.55);
-  --ambient-b: rgba(197, 154, 85, 0.2);
-  --ambient-c: rgba(150, 186, 192, 0.32);
-  --foreground-rgb: 40, 49, 47;
-  --background-start-rgb: 240, 242, 236;
-  --background-end-rgb: 250, 251, 247;
+    radial-gradient(circle at 16% 0%, rgba(191, 219, 254, 0.75), transparent 34%),
+    radial-gradient(circle at 86% 6%, rgba(253, 230, 138, 0.32), transparent 26%),
+    linear-gradient(180deg, #eef5ff 0%, #f6f8fb 46%, #faf7f1 100%);
+  --ambient-a: rgba(147, 197, 253, 0.42);
+  --ambient-b: rgba(253, 224, 138, 0.3);
+  --ambient-c: rgba(254, 205, 170, 0.28);
+  --foreground-rgb: 15, 23, 42;
+  --background-start-rgb: 238, 245, 255;
+  --background-end-rgb: 250, 247, 241;
 }
 
 html.dark {
   color-scheme: dark;
-  --brand-primary: #52665b;
-  --brand-primary-strong: #94a696;
-  --brand-primary-soft: #26332d;
-  --brand-secondary: #839982;
-  --brand-warm: #d2a95f;
-  --brand-ink: #f1f3ed;
-  --brand-muted: #aab3ab;
-  --brand-faint: #7c867f;
-  --brand-surface: #151c19;
-  --brand-surface-raised: rgba(31, 40, 36, 0.88);
-  --brand-outline: rgba(131, 153, 130, 0.34);
-  --brand-focus-rgb: 131, 153, 130;
+  --brand-warm: #f7b955;
+  --brand-focus-rgb: 96, 165, 250;
+  --brand-glass: rgba(20, 29, 43, 0.72);
+  --brand-line-strong: rgba(185, 198, 217, 0.24);
+  --tone-warm: #f7b955;
 
-  --brand-glass: rgba(30, 38, 35, 0.72);
-  --brand-glass-strong: rgba(32, 41, 37, 0.94);
-  --brand-glass-sunken: rgba(14, 19, 17, 0.5);
-  --brand-line: rgba(131, 153, 130, 0.2);
-  --brand-line-strong: rgba(131, 153, 130, 0.38);
-  --brand-highlight: rgba(255, 255, 255, 0.06);
-
-  --tone-active: #93ab92;
-  --tone-active-soft: rgba(147, 171, 146, 0.16);
-  --tone-cool: #82b9c4;
-  --tone-cool-soft: rgba(130, 185, 196, 0.16);
-  --tone-heat: #e19a6b;
-  --tone-heat-soft: rgba(225, 154, 107, 0.16);
-  --tone-warm: #d8b06a;
-  --tone-warm-soft: rgba(216, 176, 106, 0.16);
-  --tone-danger: #e38a7e;
-
-  --shadow-sm: 0 4px 14px rgba(0, 0, 0, 0.22);
-  --shadow-md: 0 14px 38px rgba(0, 0, 0, 0.3);
-  --shadow-lg: 0 30px 80px rgba(0, 0, 0, 0.42);
-
+  /* Moonlit night, as in the YunLeFun Design theme */
   --brand-page-background:
-    radial-gradient(circle at 18% 0%, rgba(82, 102, 91, 0.34), transparent 32%),
-    radial-gradient(circle at 88% 8%, rgba(197, 154, 85, 0.07), transparent 24%),
-    linear-gradient(155deg, #1a211f 0%, #151b19 58%, #1d201c 100%);
-  --ambient-a: rgba(82, 102, 91, 0.42);
-  --ambient-b: rgba(197, 154, 85, 0.12);
-  --ambient-c: rgba(80, 125, 133, 0.22);
-  --foreground-rgb: 241, 243, 237;
-  --background-start-rgb: 21, 28, 25;
-  --background-end-rgb: 26, 33, 31;
+    radial-gradient(circle at 18% 0%, rgba(37, 99, 235, 0.22), transparent 34%),
+    radial-gradient(circle at 86% 8%, rgba(247, 185, 85, 0.08), transparent 24%),
+    linear-gradient(180deg, #0b1424 0%, #0b111c 60%, #10141c 100%);
+  --ambient-a: rgba(37, 99, 235, 0.24);
+  --ambient-b: rgba(247, 185, 85, 0.08);
+  --ambient-c: rgba(6, 182, 212, 0.12);
+  --foreground-rgb: 231, 238, 248;
+  --background-start-rgb: 11, 17, 28;
+  --background-end-rgb: 16, 20, 28;
 }

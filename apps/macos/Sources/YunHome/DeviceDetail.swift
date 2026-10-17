@@ -75,7 +75,7 @@ struct ACControls: View {
         Spacer()
         HomeStatusBadge(title: stageStatus,
                         symbol: state.status ? (state.mode == .cold ? "snowflake" : "sun.max.fill") : "power",
-                        tint: state.status ? (state.mode == .cold ? .cyan : HomeTheme.gold) : .secondary)
+                        tone: state.status ? (state.mode == .cold ? .cool : .heat) : nil)
       }
       HStack(spacing: 12) {
         ACPreview(state: state)
@@ -90,7 +90,7 @@ struct ACControls: View {
     }
     .padding(16)
     .background(HomeTheme.modelBackground, in: RoundedRectangle(cornerRadius: HomeTheme.cornerRadius, style: .continuous))
-    .overlay(RoundedRectangle(cornerRadius: HomeTheme.cornerRadius).strokeBorder(HomeTheme.separator.opacity(0.3), lineWidth: 0.5))
+    .overlay(RoundedRectangle(cornerRadius: HomeTheme.cornerRadius).strokeBorder(HomeTheme.edge, lineWidth: 1))
   }
 
   private var controlCard: some View {
@@ -106,7 +106,8 @@ struct ACControls: View {
           Spacer(minLength: 16)
           Button { store.send(.ac(.toggle)) } label: {
             Label(state.status ? "关闭" : "开启", systemImage: "power")
-          }.buttonStyle(.borderedProminent).controlSize(.large).disabled(!store.acCanControl)
+          }.homeProminent(state.status ? store.tone(for: .airConditioner) : .brand)
+            .controlSize(.large).disabled(!store.acCanControl)
             .accessibilityLabel(state.status ? "关闭空调" : "开启空调")
         }
         HStack(spacing: 12) {
@@ -149,9 +150,9 @@ struct FanControls: View {
   var body: some View {
     HomeCard {
       VStack(spacing: 24) {
-        DeviceIllustration(symbol: "fan", color: HomeTheme.moss, active: state.power,
+        DeviceIllustration(symbol: "fan", tone: .running, active: state.power,
                            title: state.power ? "微风相伴" : "等一阵风")
-        PowerRow(active: state.power, title: "风扇电源") { store.send(.fan(.toggle)) }
+        PowerRow(active: state.power, title: "风扇电源", tone: .running) { store.send(.fan(.toggle)) }
         Picker("风速", selection: Binding(get: { state.speed }, set: { store.send(.fan(.speed($0))) })) {
           Text("一档 · 轻柔").tag(1); Text("二档 · 舒适").tag(2); Text("三档 · 清爽").tag(3)
         }.pickerStyle(.segmented)
@@ -169,9 +170,9 @@ struct WarmerControls: View {
   var body: some View {
     HomeCard {
       VStack(spacing: 24) {
-        DeviceIllustration(symbol: "sun.max", color: HomeTheme.gold, active: state.power,
+        DeviceIllustration(symbol: "sun.max", tone: .warm, active: state.power,
                            title: state.power ? "\(state.temperature)°C，掌心的温暖" : "把温暖捧在手心")
-        PowerRow(active: state.power, title: "暖手宝电源") { store.send(.warmer(.toggle)) }
+        PowerRow(active: state.power, title: "暖手宝电源", tone: .warm) { store.send(.warmer(.toggle)) }
         Picker("温度档位", selection: Binding(get: { state.level }, set: { store.send(.warmer(.level($0))) })) {
           ForEach(WarmerLevel.allCases, id: \.self) { Text("\($0.name) · \($0.temperature)°C").tag($0) }
         }.pickerStyle(.segmented)
@@ -187,7 +188,7 @@ struct RobotControls: View {
   var body: some View {
     HomeCard {
       VStack(spacing: 24) {
-        DeviceIllustration(symbol: "circle.dotted.circle", color: .indigo,
+        DeviceIllustration(symbol: "circle.dotted.circle", tone: .running,
                            active: state.status == .cleaning, title: store.status(for: .robotVacuum))
         HStack {
           Label("虚拟电量 \(state.battery)%", systemImage: "battery.75percent")
@@ -200,7 +201,7 @@ struct RobotControls: View {
         HStack {
           Button(state.status == .cleaning ? "暂停清扫" : "开始清扫", systemImage: state.status == .cleaning ? "pause" : "play") {
             store.send(.robot(state.status == .cleaning ? .pause : .start))
-          }.buttonStyle(.borderedProminent)
+          }.homeProminent(state.status == .cleaning ? .running : .brand)
           Button("返回充电", systemImage: "house") { store.send(.robot(.return)) }
             .disabled(state.status == .docked || state.status == .charging || state.status == .returning)
           if state.status == .returning {
@@ -214,29 +215,30 @@ struct RobotControls: View {
 
 struct DeviceIllustration: View {
   let symbol: String
-  let color: Color
+  let tone: HomeTone
   let active: Bool
   let title: String
   var body: some View {
     VStack(spacing: 20) {
       Image(systemName: symbol).font(.system(size: 100, weight: .ultraLight))
-        .foregroundStyle(active ? color : .secondary.opacity(0.5)).accessibilityHidden(true)
+        .foregroundStyle(active ? tone.fill : HomeTheme.textTertiary.opacity(0.5)).accessibilityHidden(true)
       Text(title).font(.title3.weight(.medium))
     }.frame(maxWidth: .infinity).frame(height: 230)
-      .background(color.opacity(active ? 0.08 : 0.03), in: RoundedRectangle(cornerRadius: 16))
+      .background(active ? tone.soft : HomeTheme.surfaceInset, in: RoundedRectangle(cornerRadius: 16))
   }
 }
 
 struct PowerRow: View {
   let active: Bool
   let title: String
+  var tone: HomeTone = .running
   let action: () -> Void
   var body: some View {
     HStack {
       Text(title).font(.headline)
       Spacer()
       Button(active ? "关闭" : "开启", systemImage: "power", action: action)
-        .buttonStyle(.borderedProminent).controlSize(.large)
+        .homeProminent(active ? tone : .brand).controlSize(.large)
     }
   }
 }

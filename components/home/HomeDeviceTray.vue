@@ -160,7 +160,7 @@ function onRoomChange(deviceId: DeviceKind, event: Event) {
 </template>
 
 <style scoped>
-.device-tray { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 18px; margin: 0 22px 18px; padding: 12px 16px; border: 1px solid var(--brand-line); border-radius: 24px; background: var(--brand-glass); box-shadow: var(--shadow-md), inset 0 1px 0 var(--brand-highlight); backdrop-filter: blur(20px) saturate(1.2); }
+.device-tray { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 18px; margin: 0 22px 18px; padding: 12px 16px; border: 1px solid var(--brand-line); border-radius: var(--ylf-radius-xl); background: var(--brand-glass); box-shadow: var(--shadow-md), inset 0 1px 0 var(--brand-highlight); backdrop-filter: blur(20px) saturate(1.2); }
 .device-tray__heading { display: grid; gap: 2px; min-width: 112px; padding-left: 4px; }
 .device-tray__heading span { font-size: 14px; font-weight: 750; letter-spacing: -0.01em; }
 .device-tray__heading small { color: var(--brand-muted); font-size: 10px; white-space: nowrap; }
@@ -222,7 +222,7 @@ function onRoomChange(deviceId: DeviceKind, event: Event) {
 .device-tray__empty > span:nth-child(2) { display: grid; gap: 2px; }
 .device-tray__empty strong { color: var(--brand-ink); font-size: 11px; }
 .device-tray__empty small { font-size: 9px; }
-.device-tray__empty button { min-height: 32px; padding: 0 12px; border: 0; border-radius: 10px; background: var(--brand-primary); color: white; font-size: 10px; font-weight: 700; cursor: pointer; transition: transform var(--dur-2) var(--ease-spring); }
+.device-tray__empty button { min-height: 32px; padding: 0 12px; border: 0; border-radius: 10px; background: var(--brand-primary); color: var(--ylf-c-text-on-accent); font-size: 10px; font-weight: 700; cursor: pointer; transition: transform var(--dur-2) var(--ease-spring); }
 .device-tray__empty button:active { transform: scale(0.95); }
 .device-tray__unplaced { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 8px; min-width: 178px; padding: 9px 10px; border: 1px dashed color-mix(in oklab, var(--brand-warm) 60%, transparent); border-radius: 14px; background: var(--tone-warm-soft); color: var(--brand-ink); text-align: left; cursor: pointer; transition: transform var(--dur-3) var(--ease-spring); }
 .device-tray__unplaced:hover { transform: translateY(-2px); }

@@ -13,15 +13,17 @@ extension Color {
 }
 
 enum PluginTone {
-  static func color(_ tone: String?) -> Color {
+  /// The Home tone for a plugin's `tone`; nil while idle or unknown.
+  static func tone(_ tone: String?) -> HomeTone? {
     switch tone {
-    case "cool": .cyan
-    case "heat": .orange
-    case "warm": HomeTheme.gold
-    case "active": HomeTheme.moss
-    default: .secondary
+    case "cool": .cool
+    case "heat": .heat
+    case "warm": .warm
+    case "active": .running
+    default: nil
     }
   }
+  static func color(_ tone: String?) -> Color { self.tone(tone)?.fill ?? HomeTheme.textTertiary }
 }
 
 struct PluginBadge: View {
@@ -41,7 +43,7 @@ struct PluginBadge: View {
 
 extension HomeStore {
   func tint(for instance: PluginInstance) -> Color {
-    Color(pluginHex: installedPlugin(for: instance)?.manifest.tint) ?? HomeTheme.moss
+    Color(pluginHex: installedPlugin(for: instance)?.manifest.tint) ?? HomeTheme.brand
   }
   func symbol(for instance: PluginInstance) -> String {
     installedPlugin(for: instance)?.manifest.symbol ?? "puzzlepiece.extension"
@@ -70,9 +72,9 @@ struct PluginDeviceTile: View {
             Button { store.send(plugin: instance.id, action: action) } label: {
               Image(systemName: "power")
                 .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(active ? Color.white : Color.secondary)
+                .foregroundStyle(active ? (PluginTone.tone(presentation?.tone) ?? .running).on : HomeTheme.textSecondary)
                 .frame(width: 30, height: 30)
-                .background(active ? PluginTone.color(presentation?.tone) : Color.primary.opacity(0.06), in: Circle())
+                .background(active ? (PluginTone.tone(presentation?.tone) ?? .running).fill : HomeTheme.surfaceInset, in: Circle())
                 .symbolEffect(.bounce, value: active)
             }.buttonStyle(.plain)
               .help(active ? "关闭设备" : "开启设备")
@@ -98,7 +100,7 @@ struct PluginDeviceTile: View {
       }
     }
     .overlay(RoundedRectangle(cornerRadius: HomeTheme.cornerRadius)
-      .strokeBorder(Color.accentColor.opacity(hovered ? 0.24 : 0), lineWidth: 1))
+      .strokeBorder(HomeTheme.brand.opacity(hovered ? 0.32 : 0), lineWidth: 1))
     .onHover { hovered = $0 }
     .animation(.easeOut(duration: 0.15), value: hovered)
     .animation(.smooth, value: presentation)
@@ -200,10 +202,10 @@ struct PluginACStage: View {
       .overlay(alignment: .topTrailing) {
         HomeStatusBadge(title: acState.status ? (acState.mode == .cold ? "制冷中" : "制热中") : "待机",
                         symbol: acState.status ? (acState.mode == .cold ? "snowflake" : "sun.max.fill") : "power",
-                        tint: PluginTone.color(tone))
+                        tone: acState.status ? PluginTone.tone(tone) : nil)
           .padding(12)
       }
-      .overlay(RoundedRectangle(cornerRadius: HomeTheme.cornerRadius).strokeBorder(HomeTheme.separator.opacity(0.3), lineWidth: 0.5))
+      .overlay(RoundedRectangle(cornerRadius: HomeTheme.cornerRadius).strokeBorder(HomeTheme.edge, lineWidth: 1))
   }
 }
 
@@ -236,7 +238,7 @@ struct PluginControlsView: View {
         Button { control.action.map(send) } label: {
           Label(on ? "关闭" : "开启", systemImage: "power").symbolEffect(.bounce, value: on)
         }
-        .buttonStyle(.borderedProminent).tint(on ? PluginTone.color(tone) : .accentColor).controlSize(.large)
+        .homeProminent(on ? PluginTone.tone(tone) ?? .running : .brand).controlSize(.large)
         .accessibilityLabel(on ? "关闭\(control.label)" : "开启\(control.label)")
       }
     case .dial:
@@ -295,10 +297,10 @@ struct PluginDial: View {
     HStack(spacing: 28) {
       ZStack {
         Circle().trim(from: 0, to: 0.75)
-          .stroke(Color.primary.opacity(0.08), style: StrokeStyle(lineWidth: 12, lineCap: .round))
+          .stroke(HomeTheme.surfaceInset, style: StrokeStyle(lineWidth: 12, lineCap: .round))
           .rotationEffect(.degrees(135))
         Circle().trim(from: 0, to: 0.75 * ratio)
-          .stroke(AngularGradient(colors: [.cyan, HomeTheme.moss, .orange], center: .center,
+          .stroke(AngularGradient(colors: [HomeTone.cool.fill, HomeTone.warm.fill, HomeTone.heat.fill], center: .center,
                                   startAngle: .degrees(0), endAngle: .degrees(270)),
                   style: StrokeStyle(lineWidth: 12, lineCap: .round))
           .rotationEffect(.degrees(135))

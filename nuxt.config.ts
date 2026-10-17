@@ -19,9 +19,12 @@ export default defineNuxtConfig({
 
   css: [
     '@unocss/reset/tailwind.css',
+    // YunLeFun Design tokens; Home's palette in css-vars.css builds on them.
+    '@yunlefun/ui/css',
     '~/styles/css-vars.css',
     '~/styles/index.scss',
     '~/styles/controls.scss',
+    '~/styles/scene.scss',
     '@yunlefun-home/air-conditioner/controls.css',
   ],
 
@@ -98,7 +101,7 @@ export default defineNuxtConfig({
       meta: [
         { name: 'viewport', content: 'width=device-width, initial-scale=1' },
         { name: 'description', content: appDescription },
-        { name: 'theme-color', content: '#f4f5ef' },
+        { name: 'theme-color', content: '#eef5ff' },
         { name: 'apple-mobile-web-app-status-bar-style', content: 'black-translucent' },
       ],
     },

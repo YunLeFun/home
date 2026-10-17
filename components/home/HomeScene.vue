@@ -139,6 +139,28 @@ const visiblePlacements = computed(() => props.placements
   })
   .filter(item => item.point !== null) as Array<{ placement: DevicePlacement; point: HomePoint }>)
 
+// Soft light cast by running devices: cool or warm air below an AC, screen
+// light around a TV, warmth around a hand warmer.
+interface SceneGlow { id: DeviceKind, x: number, y: number, rx: number, ry: number, fill: string, kind: 'screen' | 'air' | 'warm' }
+const deviceGlows = computed<SceneGlow[]>(() => visiblePlacements.value.flatMap(({ placement, point }): SceneGlow[] => {
+  const deviceId = placement.deviceId
+  if (!props.activeDevices.includes(deviceId))
+    return []
+  const tone = props.deviceTones?.[deviceId]
+  if (deviceId === 'television')
+    return [{ id: deviceId, x: point.x, y: point.y + 10, rx: 230, ry: 170, fill: 'url(#sc-glow-screen)', kind: 'screen' }]
+  if (deviceId === 'air-conditioner' && (tone === 'cool' || tone === 'heat'))
+    return [{ id: deviceId, x: point.x, y: point.y + 120, rx: 170, ry: 190, fill: `url(#sc-glow-${tone})`, kind: 'air' }]
+  if (deviceId === 'hand-warmer')
+    return [{ id: deviceId, x: point.x, y: point.y - 30, rx: 90, ry: 80, fill: 'url(#sc-glow-warm)', kind: 'warm' }]
+  return []
+}))
+// Rooms outside the focused one recede slightly while a room is selected.
+const dimmedRooms = computed(() => props.template.rooms.map(room => ({
+  ...room,
+  dimmed: !props.overviewMode && props.template.rooms.length > 1 && room.id !== props.activeRoomId,
+})))
+
 const previewValid = computed(() => {
   if (!draggingDeviceId.value || !previewPoint.value)
     return true
@@ -198,6 +220,20 @@ defineExpose({ getWorldPoint })
       <svg :key="viewportRevision" class="home-scene__geometry" :viewBox="viewBox" preserveAspectRatio="none" aria-hidden="true">
         <HomeSceneArt :template-id="template.id" />
 
+        <g class="home-scene__glows" aria-hidden="true">
+          <TransitionGroup name="scene-glow">
+            <ellipse
+v-for="glow in deviceGlows" :key="glow.id" :class="`home-scene__glow is-${glow.kind}`"
+                     :cx="glow.x" :cy="glow.y" :rx="glow.rx" :ry="glow.ry" :fill="glow.fill" />
+          </TransitionGroup>
+        </g>
+
+        <g class="home-scene__focus" aria-hidden="true">
+          <rect
+v-for="room in dimmedRooms" :key="room.id" :x="room.x" :y="room.y" :width="room.width" :height="room.height"
+                :data-dimmed="room.dimmed" />
+        </g>
+
         <g v-if="editMode" class="home-scene__surfaces">
           <polygon
             v-for="surface in template.surfaces"
@@ -250,7 +286,7 @@ defineExpose({ getWorldPoint })
   overflow: hidden;
   min-width: 0;
   border: 1px solid var(--brand-line);
-  border-radius: 30px;
+  border-radius: var(--ylf-radius-xl);
   background: #eef0ea;
   box-shadow: var(--shadow-lg), inset 0 1px var(--brand-highlight);
 }
@@ -270,7 +306,7 @@ defineExpose({ getWorldPoint })
   inset: 0;
   background:
     radial-gradient(120% 60% at 50% -10%, rgba(255, 252, 240, 0.32), transparent 60%),
-    linear-gradient(180deg, transparent 60%, rgba(40, 49, 47, 0.06));
+    linear-gradient(180deg, transparent 60%, rgba(30, 64, 115, 0.05));
   content: '';
   pointer-events: none;
 }
@@ -284,17 +320,51 @@ defineExpose({ getWorldPoint })
 }
 
 .home-scene__surfaces polygon {
-  fill: rgba(104, 123, 103, 0.05);
-  stroke: rgba(104, 123, 103, 0.28);
+  fill: rgba(37, 99, 235, 0.05);
+  stroke: rgba(37, 99, 235, 0.3);
   stroke-dasharray: 10 9;
   stroke-width: 2;
   vector-effect: non-scaling-stroke;
 }
 
 .home-scene__surfaces polygon[data-active="true"] {
-  fill: rgba(104, 123, 103, 0.16);
-  stroke: rgba(104, 123, 103, 0.85);
+  fill: rgba(37, 99, 235, 0.14);
+  stroke: rgba(37, 99, 235, 0.8);
   animation: surface-pulse 1.8s ease-in-out infinite;
+}
+
+.home-scene__glow {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: scene-glow-breathe 4.8s ease-in-out infinite;
+}
+
+.home-scene__glow.is-screen { animation: scene-glow-flicker 3.2s steps(1) infinite; }
+.home-scene__glow.is-air { animation-duration: 3.6s; }
+
+.scene-glow-enter-active,
+.scene-glow-leave-active { transition: opacity 900ms ease; }
+.scene-glow-enter-from,
+.scene-glow-leave-to { opacity: 0; }
+
+.home-scene__focus rect {
+  fill: var(--brand-surface);
+  opacity: 0;
+  transition: opacity 600ms var(--ease-out);
+}
+
+.home-scene__focus rect[data-dimmed="true"] { opacity: 0.32; }
+
+@keyframes scene-glow-breathe {
+  0%, 100% { opacity: 0.85; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.06); }
+}
+
+@keyframes scene-glow-flicker {
+  0%, 100% { opacity: 0.9; }
+  20% { opacity: 0.72; }
+  45% { opacity: 1; }
+  70% { opacity: 0.8; }
 }
 
 .home-scene__route polyline {
@@ -346,7 +416,7 @@ defineExpose({ getWorldPoint })
 }
 
 @keyframes surface-pulse {
-  50% { fill: rgba(104, 123, 103, 0.26); }
+  50% { fill: rgba(37, 99, 235, 0.24); }
 }
 
 @keyframes route-move {
@@ -367,6 +437,40 @@ defineExpose({ getWorldPoint })
 
 @media (prefers-reduced-motion: reduce) {
   .home-scene__surfaces polygon[data-active="true"],
-  .home-scene__route polyline { animation: none; }
+  .home-scene__glow {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: scene-glow-breathe 4.8s ease-in-out infinite;
+}
+
+.home-scene__glow.is-screen { animation: scene-glow-flicker 3.2s steps(1) infinite; }
+.home-scene__glow.is-air { animation-duration: 3.6s; }
+
+.scene-glow-enter-active,
+.scene-glow-leave-active { transition: opacity 900ms ease; }
+.scene-glow-enter-from,
+.scene-glow-leave-to { opacity: 0; }
+
+.home-scene__focus rect {
+  fill: var(--brand-surface);
+  opacity: 0;
+  transition: opacity 600ms var(--ease-out);
+}
+
+.home-scene__focus rect[data-dimmed="true"] { opacity: 0.32; }
+
+@keyframes scene-glow-breathe {
+  0%, 100% { opacity: 0.85; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.06); }
+}
+
+@keyframes scene-glow-flicker {
+  0%, 100% { opacity: 0.9; }
+  20% { opacity: 0.72; }
+  45% { opacity: 1; }
+  70% { opacity: 0.8; }
+}
+
+.home-scene__route polyline { animation: none; }
 }
 </style>

@@ -112,7 +112,7 @@ useResizeObserver(navRef, measure)
 }
 
 .room-tabs button:hover { color: var(--brand-ink); }
-.room-tabs button[aria-pressed="true"] { color: white; }
+.room-tabs button[aria-pressed="true"] { color: var(--ylf-c-text-on-accent); }
 
 .room-tabs small {
   display: grid;
@@ -128,8 +128,8 @@ useResizeObserver(navRef, measure)
 }
 
 .room-tabs button[aria-pressed="true"] small {
-  background: rgba(255, 255, 255, 0.18);
-  color: white;
+  background: color-mix(in oklab, var(--ylf-c-text-on-accent) 18%, transparent);
+  color: var(--ylf-c-text-on-accent);
 }
 
 @media (max-width: 720px) {
