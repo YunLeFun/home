@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, shallowRef, watch } from 'vue'
-import type { DeviceKind, DevicePlacement, HomePoint, HomeTemplate } from '~/types'
+import type { DeviceKind, DevicePlacement, HomeTemplate, SurfaceTarget } from '~/types'
 import type { DeviceVisual } from '~/utils/scene3d/devices'
 import type { HomeScene3D, ScreenAnchor } from '~/utils/scene3d/scene'
 import { HOME_DEVICES } from '~/constants/home'
@@ -24,7 +24,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   select: [deviceId: DeviceKind]
   roomSelect: [roomId: string]
-  place: [deviceId: DeviceKind, point: HomePoint]
+  place: [deviceId: DeviceKind, target: SurfaceTarget]
   nudge: [deviceId: DeviceKind, deltaU: number, deltaV: number]
   rotate: [deviceId: DeviceKind]
   remove: [deviceId: DeviceKind]
@@ -76,7 +76,7 @@ function syncPaused() {
 // Pointer: a short press picks, a drag turns the diorama a little. While
 // editing, a drag that starts on a device moves the device instead.
 let press: { id: number, x: number, y: number, lastX: number, lastY: number, dragging: boolean, deviceId: DeviceKind | null } | null = null
-let dropPoint: HomePoint | null = null
+let dropTarget: SurfaceTarget | null = null
 
 function localPoint(event: { clientX: number, clientY: number }) {
   const rect = canvas.value!.getBoundingClientRect()
@@ -133,12 +133,12 @@ function handlePointerUp(event: PointerEvent) {
       emit('select', deviceId)
       return
     }
-    const point = dropPoint
+    const target = dropTarget
     endDrag()
     // Select first, so a turned-down drop still leaves the dragged device in hand.
     emit('select', deviceId)
-    if (point)
-      emit('place', deviceId, point)
+    if (target)
+      emit('place', deviceId, target)
     return
   }
   if (dragging || !scene)
@@ -179,25 +179,25 @@ function previewDrop(deviceId: DeviceKind, clientX: number, clientY: number) {
   draggingId.value = deviceId
   if (!insideCanvas(clientX, clientY)) {
     scene.endDrag()
-    dropPoint = null
+    dropTarget = null
     dropValid.value = true
     return
   }
   const point = localPoint({ clientX, clientY })
   const result = scene.dragDevice(deviceId, point.x, point.y)
-  dropPoint = result.point
+  dropTarget = result.target
   dropValid.value = result.valid
 }
 
 function endDrag() {
   scene?.endDrag()
   draggingId.value = null
-  dropPoint = null
+  dropTarget = null
   dropValid.value = true
 }
 
-/** The plan point under a point of the page, for dropping a device there. */
-function getWorldPoint(clientX: number, clientY: number, deviceId: DeviceKind): HomePoint | null {
+/** The surface point under a point of the page, for dropping a device there. */
+function getWorldPoint(clientX: number, clientY: number, deviceId: DeviceKind): SurfaceTarget | null {
   if (!scene || !insideCanvas(clientX, clientY))
     return null
   const point = localPoint({ clientX, clientY })

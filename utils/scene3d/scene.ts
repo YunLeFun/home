@@ -1,15 +1,16 @@
 import * as THREE from 'three'
 import type { ScenePhase } from '~/composables/scene-time'
-import type { DeviceKind, DevicePlacement, HomePoint, HomeSurface, HomeSurfaceKind, HomeTemplate } from '~/types'
+import type { PlanShell, PlanWall } from '~/constants/scene3d'
+import type { DeviceKind, DevicePlacement, HomePoint, HomeSurface, HomeSurfaceKind, HomeTemplate, SurfaceTarget } from '~/types'
 import type { DeviceModel, DeviceVisual } from './devices'
 import type { PhaseTargets, SceneLamp } from './furniture'
-import type { Ray3, Vec3 } from './projection'
+import type { FloorBounds, Ray3, Vec3 } from './projection'
 import { SCENE3D_TEMPLATES } from '~/constants/scene3d'
 import { createPlacementAtPoint, getPointAlongRoute, getRobotRoute } from '~/utils/home'
 import { buildDevice, buildRobotDock } from './devices'
 import { buildFurniture } from './furniture'
 import { EDIT_COLORS, Kit, PALETTE, TONE_COLORS } from './kit'
-import { findSurfaceAlongRay, projectFloorPoint, projectPlacement, roomAtWorldX, roomExtent, SCENE3D, surfaceCorners, worldX } from './projection'
+import { findSurfaceAlongRay, isPlan, PLAN3D, planX, planZ, projectFloorPoint, projectPlacement, roomAt, roomBounds, SCENE3D, surfaceCorners, surfaceFrame, worldX } from './projection'
 
 /** A device hotspot projected to canvas pixels. */
 export interface ScreenAnchor {
@@ -51,6 +52,10 @@ const FOV = 28
 /** Camera elevation; phones look down more steeply to fill a squarer frame. */
 const BASE_PITCH = 0.34
 const MOBILE_PITCH = 0.52
+/** Floor plans are seen from higher up, and a little from the west so east walls face the camera. */
+const PLAN_PITCH = 0.92
+const PLAN_MOBILE_PITCH = 1.02
+const PLAN_YAW = -0.28
 
 interface CameraPose {
   x: number
@@ -70,6 +75,8 @@ interface DeviceDrag {
   /** Where the pointer meets the surface, in diorama space. */
   position: Vec3 | null
   surfaceKind: HomeSurfaceKind | null
+  /** Out of the surface under the pointer. */
+  normal: Vec3 | null
 }
 
 interface SurfaceOverlay {
@@ -123,6 +130,28 @@ function plankTexture(kit: Kit) {
   return texture
 }
 
+/** Floor tile colours of the wet rooms, by room accent: tile and grout. */
+const TILE_COLORS = {
+  warm: ['#f3ede4', '#e2d8ca'],
+  sky: ['#e6f0f9', '#cbdcec'],
+  clay: ['#f5e4d2', '#e3cbb2'],
+} as const
+
+function tileTexture(kit: Kit, [tile, grout]: readonly [string, string]) {
+  const texture = kit.canvasTexture(128, 128, (context) => {
+    context.fillStyle = grout
+    context.fillRect(0, 0, 128, 128)
+    context.fillStyle = tile
+    for (const x of [0, 64]) {
+      for (const y of [0, 64])
+        context.fillRect(x + 2, y + 2, 60, 60)
+    }
+  })
+  texture.wrapS = THREE.RepeatWrapping
+  texture.wrapT = THREE.RepeatWrapping
+  return texture
+}
+
 function fadeTexture(kit: Kit, inner: string, outer: string, radial: boolean) {
   return kit.canvasTexture(128, 128, (context) => {
     const gradient = radial
@@ -165,7 +194,6 @@ export class HomeScene3D {
   private editing = false
   private drag: DeviceDrag | null = null
   private options: HomeScene3DOptions
-  private basePitch: number
 
   private template: HomeTemplate | null = null
   private placements: DevicePlacement[] = []
@@ -197,7 +225,6 @@ export class HomeScene3D {
 
   constructor(options: HomeScene3DOptions) {
     this.options = options
-    this.basePitch = options.mobile ? MOBILE_PITCH : BASE_PITCH
     this.renderer = new THREE.WebGLRenderer({ canvas: options.canvas, antialias: true, alpha: true, powerPreference: 'high-performance' })
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, options.mobile ? 1.75 : 2))
     this.renderer.outputColorSpace = THREE.SRGBColorSpace
@@ -343,11 +370,17 @@ export class HomeScene3D {
     this.templateKit = new Kit()
     this.lamps = []
     this.ticks = []
-    this.buildShell(template)
     const spec = SCENE3D_TEMPLATES[template.id]
+    if (spec.plan)
+      this.buildPlanShell(template, spec.plan)
+    else
+      this.buildShell(template)
+    this.sun.target.position.set(0, 0, isPlan(template) ? 0 : 1.6)
+    const ceiling = isPlan(template) ? PLAN3D.height : SCENE3D.height
     for (const item of spec.furniture) {
-      const built = buildFurniture(this.templateKit, item, this.phaseTargets)
+      const built = buildFurniture(this.templateKit, item, this.phaseTargets, ceiling)
       built.object.position.set(item.x, item.y ?? 0, item.z ?? 0)
+      built.object.rotation.y = THREE.MathUtils.degToRad(item.rotation ?? 0)
       built.object.userData.roomId = item.roomId
       this.templateRoot.add(built.object)
       if (built.lamp)
@@ -418,6 +451,133 @@ export class HomeScene3D {
     }
   }
 
+  /**
+   * Build a floor plan template: a plinth, each room's floor in its true
+   * place, and the walls the plan draws, cut away where they would hide a
+   * room from the camera.
+   */
+  private buildPlanShell(template: HomeTemplate, plan: PlanShell) {
+    const kit = this.templateKit
+    const accents = SCENE3D_TEMPLATES[template.id].rooms
+    const width = template.width * PLAN3D.scale
+    const depth = template.height * PLAN3D.scale
+    const toWorld = (point: HomePoint) => new THREE.Vector2(planX(point.x, template.width), planZ(point.y, template.height))
+
+    const plinthWidth = width + 0.6
+    const plinthDepth = depth + 0.6
+    this.templateRoot.add(kit.mesh(kit.roundedBox(plinthWidth, 0.34, plinthDepth, 0.14), kit.material(PALETTE.plinth, { roughness: 0.7 }), 0, -0.33, 0))
+    this.templateRoot.add(kit.mesh(kit.roundedBox(plinthWidth + 0.04, 0.05, plinthDepth + 0.04, 0.025), kit.material(PALETTE.plinthEdge, { roughness: 0.7 }), 0, -0.48, 0, false))
+    const shadow = new THREE.Mesh(kit.plane(plinthWidth + 3, plinthDepth + 3), kit.track(new THREE.MeshBasicMaterial({
+      map: fadeTexture(kit, 'rgba(30, 50, 80, 0.32)', 'rgba(30, 50, 80, 0)', true),
+      transparent: true,
+      depthWrite: false,
+    })))
+    shadow.rotation.x = -Math.PI / 2
+    shadow.position.set(0.3, -0.52, 0.3)
+    this.templateRoot.add(shadow)
+
+    // Floors: planks, or tiles in the wet rooms. Texture coordinates are in metres.
+    const planks = plankTexture(kit)
+    planks.repeat.set(1 / 1.6, 1 / 4.4)
+    const plankMaterial = kit.material('#ffffff', { roughness: 0.78, map: planks })
+    const tileMaterials = new Map<string, THREE.Material>()
+    const tileMaterial = (accent: keyof typeof TILE_COLORS) => {
+      let material = tileMaterials.get(accent)
+      if (!material) {
+        const texture = tileTexture(kit, TILE_COLORS[accent])
+        texture.repeat.set(1 / 1.2, 1 / 1.2)
+        material = kit.material('#ffffff', { roughness: 0.5, map: texture })
+        tileMaterials.set(accent, material)
+      }
+      return material
+    }
+    const addFloor = (key: string, outline: HomePoint[], material: THREE.Material, roomId?: string) => {
+      const geometry = kit.custom(`plan-floor:${key}`, () => {
+        const shape = new THREE.Shape(outline.map(toWorld))
+        const extruded = new THREE.ExtrudeGeometry(shape, { depth: 0.16, bevelEnabled: false })
+        extruded.rotateX(Math.PI / 2)
+        return extruded
+      })
+      const floor = kit.mesh(geometry, material)
+      floor.castShadow = false
+      if (roomId)
+        floor.userData.roomId = roomId
+      this.templateRoot.add(floor)
+    }
+    for (const room of template.rooms) {
+      const outline = plan.outlines?.[room.id] ?? [
+        { x: room.x, y: room.y },
+        { x: room.x + room.width, y: room.y },
+        { x: room.x + room.width, y: room.y + room.height },
+        { x: room.x, y: room.y + room.height },
+      ]
+      const material = plan.tiled?.includes(room.id) ? tileMaterial(accents[room.id] ?? 'warm') : plankMaterial
+      addFloor(room.id, outline, material, room.id)
+    }
+
+    for (const wall of plan.walls)
+      this.buildPlanWall(wall, toWorld)
+  }
+
+  private buildPlanWall(wall: PlanWall, toWorld: (point: HomePoint) => THREE.Vector2) {
+    const kit = this.templateKit
+    const kind = wall.height ?? 'full'
+    const thickness: number = PLAN3D.wall
+    const height = kind === 'full' ? PLAN3D.height : kind === 'cut' ? PLAN3D.cutHeight : 0.08
+    const paint = kit.material(PALETTE.wallWarm, { roughness: 0.92 })
+    // Cut walls show their section, like a drawing.
+    const cap = kind === 'cut' ? kit.material(PALETTE.plinthEdge, { roughness: 0.7 }) : kit.material(PALETTE.trim, { roughness: 0.6 })
+    const glass = kit.material('#cfe6f7', { roughness: 0.1, transparent: true, opacity: 0.32 })
+    const openings = (wall.openings ?? []).map(opening => [opening.at / 100, (opening.at + opening.width) / 100] as const)
+    const doorHeight = 2.1
+    const points = wall.points.map(toWorld)
+    let travelled = 0
+    points.slice(1).forEach((end, index) => {
+      const start = points[index]!
+      const length = start.distanceTo(end)
+      const angle = Math.atan2(end.y - start.y, end.x - start.x)
+      const piece = (from: number, to: number, y0: number, y1: number, material: THREE.Material, depth = thickness) => {
+        const along = (from + to) / 2
+        const mesh = kit.mesh(kit.custom(`plan-wall:${(to - from).toFixed(3)}:${(y1 - y0).toFixed(3)}:${depth}`, () => new THREE.BoxGeometry(to - from, y1 - y0, depth)), material)
+        mesh.position.set(start.x + Math.cos(angle) * along, (y0 + y1) / 2, start.y + Math.sin(angle) * along)
+        mesh.rotation.y = -angle
+        this.templateRoot.add(mesh)
+        return mesh
+      }
+      // Solid stretches between the door gaps; the outer ends reach over the corners.
+      const gaps = openings
+        .map(([a, b]) => [a - travelled, b - travelled] as const)
+        .filter(([a, b]) => b > 0 && a < length)
+      const first = index === 0 ? -thickness / 2 : 0
+      const last = index === points.length - 2 ? length + thickness / 2 : length
+      let cursor = first
+      const solids: Array<[number, number]> = []
+      for (const [a, b] of gaps) {
+        if (a > cursor)
+          solids.push([cursor, a])
+        if (kind === 'full')
+          piece(Math.max(0, a), Math.min(length, b), doorHeight, height, paint)
+        cursor = Math.max(cursor, b)
+      }
+      if (cursor < last)
+        solids.push([cursor, last])
+      for (const [from, to] of solids) {
+        if (to - from < 0.01)
+          continue
+        if (kind === 'rail') {
+          piece(from, to, 0, 0.08, cap, 0.1)
+          piece(from, to, 0.08, 0.92, glass, 0.03).castShadow = false
+          piece(from, to, 0.92, 0.97, kit.material(PALETTE.trim, { roughness: 0.6 }), 0.07)
+          continue
+        }
+        const body = piece(from, to, 0, height, paint)
+        body.castShadow = kind === 'full'
+        piece(from - 0.01, to + 0.01, height, height + 0.04, cap, thickness + 0.03).castShadow = false
+      }
+      travelled += length
+    })
+  }
+
   // Devices ------------------------------------------------------------------
 
   private entry(kind: DeviceKind) {
@@ -453,12 +613,13 @@ export class HomeScene3D {
     const tabletops = SCENE3D_TEMPLATES[template.id].tabletops
     const drag = this.drag
     const placed = new Set<DeviceKind>()
-    const put = (kind: DeviceKind, position: Vec3, surfaceKind: HomeSurfaceKind, rotation: number) => {
+    const put = (kind: DeviceKind, position: Vec3, surfaceKind: HomeSurfaceKind, normal: Vec3, rotation: number) => {
       const entry = this.entry(kind)
       placed.add(kind)
       entry.holder.visible = true
       entry.holder.position.set(position.x, position.y, position.z)
-      const heading = surfaceKind === 'wall' ? 0 : -THREE.MathUtils.degToRad(rotation)
+      // Wall devices face out of their wall; the rest turn with the placement.
+      const heading = surfaceKind === 'wall' ? Math.atan2(normal.x, normal.z) : -THREE.MathUtils.degToRad(rotation)
       entry.heading = heading
       entry.holder.rotation.y = heading
       entry.holder.userData.base = position
@@ -468,7 +629,7 @@ export class HomeScene3D {
         continue
       const projected = projectPlacement(template, placement, tabletops)
       if (projected)
-        put(placement.deviceId, projected.position, projected.surfaceKind, placement.rotation)
+        put(placement.deviceId, projected.position, projected.surfaceKind, projected.normal, placement.rotation)
     }
     this.marker.visible = false
     if (drag) {
@@ -476,9 +637,10 @@ export class HomeScene3D {
       const projected = drag.placement && projectPlacement(template, drag.placement, tabletops)
       const position = projected?.position ?? (drag.position && this.clampToDiorama(drag.position))
       const surfaceKind = projected?.surfaceKind ?? drag.surfaceKind
-      if (position && surfaceKind) {
-        put(drag.deviceId, position, surfaceKind, rotation)
-        this.showMarker(position, surfaceKind, Boolean(projected))
+      const normal = projected?.normal ?? drag.normal
+      if (position && surfaceKind && normal) {
+        put(drag.deviceId, position, surfaceKind, normal, rotation)
+        this.showMarker(position, surfaceKind, normal, Boolean(projected))
       }
     }
     for (const [kind, entry] of this.devices) {
@@ -488,11 +650,14 @@ export class HomeScene3D {
   }
 
   private clampToDiorama(position: Vec3): Vec3 {
-    const width = this.template?.width ?? 1600
+    const template = this.template
+    if (!template)
+      return position
+    const bounds = roomBounds(template, null)
     return {
-      x: THREE.MathUtils.clamp(position.x, worldX(0, width), worldX(width, width)),
-      y: THREE.MathUtils.clamp(position.y, 0, SCENE3D.height),
-      z: THREE.MathUtils.clamp(position.z, 0, SCENE3D.depth),
+      x: THREE.MathUtils.clamp(position.x, bounds.x0, bounds.x1),
+      y: THREE.MathUtils.clamp(position.y, 0, isPlan(template) ? PLAN3D.height : SCENE3D.height),
+      z: THREE.MathUtils.clamp(position.z, bounds.z0, bounds.z1),
     }
   }
 
@@ -505,9 +670,10 @@ export class HomeScene3D {
     const kit = this.templateKit
     this.surfaceOverlays = template.surfaces.map((surface) => {
       // Lift each overlay just clear of what it lies on: wall, rug or tabletop.
-      const lift = surface.kind === 'wall' ? { y: 0, z: 0.014 - SCENE3D.wallOffset } : { y: surface.kind === 'floor' ? 0.032 : 0.008, z: 0 }
-      const corners = surfaceCorners(surface, template.width, tabletops[surface.id])
-        .map(corner => new THREE.Vector3(corner.x, corner.y + lift.y, corner.z + lift.z))
+      const { normal } = surfaceFrame(template, surface, tabletops[surface.id])
+      const lift = surface.kind === 'wall' ? 0.014 - SCENE3D.wallOffset : surface.kind === 'floor' ? 0.032 : 0.008
+      const corners = surfaceCorners(template, surface, tabletops[surface.id])
+        .map(corner => new THREE.Vector3(corner.x + normal.x * lift, corner.y + normal.y * lift, corner.z + normal.z * lift))
       const [a, b, c, d] = corners as [THREE.Vector3, THREE.Vector3, THREE.Vector3, THREE.Vector3]
       // A solid border band reads better than a 1 px WebGL line at any size.
       const at = (u: number, v: number) => a.clone().lerp(b, u).lerp(d.clone().lerp(c, u), v)
@@ -543,11 +709,16 @@ export class HomeScene3D {
     }
   }
 
-  private showMarker(position: Vec3, surfaceKind: HomeSurfaceKind, valid: boolean) {
+  private showMarker(position: Vec3, surfaceKind: HomeSurfaceKind, normal: Vec3, valid: boolean) {
     const wall = surfaceKind === 'wall'
+    // Just clear of the wall face, or of the floor or tabletop.
+    const lift = wall ? 0.02 - SCENE3D.wallOffset : 0.036
     this.marker.visible = true
-    this.marker.position.set(position.x, position.y + (wall ? 0 : 0.036), wall ? 0.02 : position.z)
-    this.marker.rotation.set(wall ? 0 : -Math.PI / 2, 0, 0)
+    this.marker.position.set(position.x + normal.x * lift, position.y + normal.y * lift, position.z + normal.z * lift)
+    if (wall)
+      this.marker.rotation.set(0, Math.atan2(normal.x, normal.z), 0)
+    else
+      this.marker.rotation.set(-Math.PI / 2, 0, 0)
     for (const material of this.markerMaterials)
       material.color.set(valid ? EDIT_COLORS.surface : EDIT_COLORS.invalid)
   }
@@ -572,19 +743,20 @@ export class HomeScene3D {
   }
 
   /**
-   * The plan point under a point of the canvas, on a surface that accepts
+   * The surface point under a point of the canvas, on a surface that accepts
    * the device. Feed it to the placement rules to place the device there.
    *
    * @param deviceId - Device being placed
    * @param x - Canvas x in CSS pixels
    * @param y - Canvas y in CSS pixels
-   * @returns The point in plan coordinates, or null when no surface is under the pointer
+   * @returns The surface and the point on its sheet, or null when no surface is under the pointer
    */
-  surfacePointAt(deviceId: DeviceKind, x: number, y: number): HomePoint | null {
+  surfacePointAt(deviceId: DeviceKind, x: number, y: number): SurfaceTarget | null {
     const template = this.template
     if (!template)
       return null
-    return findSurfaceAlongRay(template, deviceId, this.rayAt(x, y), SCENE3D_TEMPLATES[template.id].tabletops)?.point ?? null
+    const hit = findSurfaceAlongRay(template, deviceId, this.rayAt(x, y), SCENE3D_TEMPLATES[template.id].tabletops)
+    return hit && { surfaceId: hit.surface.id, point: hit.point }
   }
 
   /**
@@ -595,20 +767,28 @@ export class HomeScene3D {
    * @param deviceId - Device being dragged
    * @param x - Canvas x in CSS pixels
    * @param y - Canvas y in CSS pixels
-   * @returns The plan point and whether a drop there would place the device
+   * @returns The surface point and whether a drop there would place the device
    */
-  dragDevice(deviceId: DeviceKind, x: number, y: number): { point: HomePoint | null, valid: boolean } {
+  dragDevice(deviceId: DeviceKind, x: number, y: number): { target: SurfaceTarget | null, valid: boolean } {
     const template = this.template
     if (!template)
-      return { point: null, valid: false }
-    const hit = findSurfaceAlongRay(template, deviceId, this.rayAt(x, y), SCENE3D_TEMPLATES[template.id].tabletops)
+      return { target: null, valid: false }
+    const tabletops = SCENE3D_TEMPLATES[template.id].tabletops
+    const hit = findSurfaceAlongRay(template, deviceId, this.rayAt(x, y), tabletops)
     const rotation = this.placements.find(item => item.deviceId === deviceId)?.rotation ?? 0
-    const placement = hit ? createPlacementAtPoint(template, deviceId, hit.point, this.placements, rotation) : null
-    this.drag = { deviceId, point: hit?.point ?? null, placement, position: hit?.position ?? null, surfaceKind: hit?.surface.kind ?? null }
+    const placement = hit ? createPlacementAtPoint(template, deviceId, hit.point, this.placements, rotation, hit.surface.id) : null
+    this.drag = {
+      deviceId,
+      point: hit?.point ?? null,
+      placement,
+      position: hit?.position ?? null,
+      surfaceKind: hit?.surface.kind ?? null,
+      normal: hit ? surfaceFrame(template, hit.surface, tabletops[hit.surface.id]).normal : null,
+    }
     this.layoutDevices()
     this.styleSurfaceOverlays(performance.now() / 1000)
     this.invalidate()
-    return { point: this.drag.point, valid: Boolean(placement) }
+    return { target: hit && { surfaceId: hit.surface.id, point: hit.point }, valid: Boolean(placement) }
   }
 
   /** End a drag preview and put the device back on its placement. */
@@ -657,13 +837,14 @@ export class HomeScene3D {
     this.dock.visible = Boolean(this.robot.cleaning && robot?.holder.visible)
     if (robot?.holder.userData.base) {
       const base = robot.holder.userData.base as { x: number, z: number }
-      this.dock.position.set(base.x, 0, Math.max(0.08, base.z - 0.32))
+      const z = base.z - 0.32
+      this.dock.position.set(base.x, 0, template && isPlan(template) ? z : Math.max(0.08, z))
     }
     const points = this.robotRoute()
     if (!template || !this.robot.cleaning || points.length < 2)
       return
     const geometry = new THREE.BufferGeometry().setFromPoints(points.map((point) => {
-      const p = projectFloorPoint(point, template.width)
+      const p = projectFloorPoint(template, point)
       return new THREE.Vector3(p.x, 0.012, p.z)
     }))
     const line = new THREE.Line(geometry, new THREE.LineDashedMaterial({ color: TONE_COLORS.cool, dashSize: 0.12, gapSize: 0.1, transparent: true, opacity: 0.75 }))
@@ -693,8 +874,8 @@ export class HomeScene3D {
     const next = getPointAlongRoute(route, (progress + 0.004) % 1)
     if (!current || !next)
       return false
-    const point = projectFloorPoint(current, template.width)
-    const ahead = projectFloorPoint(next, template.width)
+    const point = projectFloorPoint(template, current)
+    const ahead = projectFloorPoint(template, next)
     entry.holder.position.set(point.x, 0, point.z)
     const heading = Math.atan2(ahead.x - point.x, ahead.z - point.z)
     let delta = heading - entry.holder.rotation.y
@@ -775,7 +956,6 @@ export class HomeScene3D {
     if (mobile === this.options.mobile)
       return
     this.options.mobile = mobile
-    this.basePitch = mobile ? MOBILE_PITCH : BASE_PITCH
     this.reframe(true)
   }
 
@@ -794,21 +974,57 @@ export class HomeScene3D {
     this.invalidate()
   }
 
+  /** Camera elevation for the template and screen. */
+  private get basePitch() {
+    if (this.template && isPlan(this.template))
+      return this.options.mobile ? PLAN_MOBILE_PITCH : PLAN_PITCH
+    return this.options.mobile ? MOBILE_PITCH : BASE_PITCH
+  }
+
+  /** Camera turn for the template. */
+  private get baseYaw() {
+    return this.template && isPlan(this.template) ? PLAN_YAW : 0
+  }
+
   private framePose(): CameraPose {
     const template = this.template
     const aspect = this.width / this.height
-    const extent = template ? roomExtent(template, this.overview ? null : this.focusRoomId) : { x0: -8, x1: 8 }
-    const width = extent.x1 - extent.x0 + (this.overview ? 0.9 : this.options.mobile ? 0.5 : 1.6)
     const tan = Math.tan(THREE.MathUtils.degToRad(FOV / 2))
+    const usable = Math.max(0.4, 1 - this.insetRight / this.width)
+    if (template && isPlan(template))
+      return this.framePlan(roomBounds(template, this.overview ? null : this.focusRoomId), aspect, tan, usable)
+    const extent = template ? roomBounds(template, this.overview ? null : this.focusRoomId) : { x0: -8, x1: 8 }
+    const width = extent.x1 - extent.x0 + (this.overview ? 0.9 : this.options.mobile ? 0.5 : 1.6)
     const pitch = this.basePitch
     const visibleHeight = SCENE3D.height * Math.cos(pitch) + SCENE3D.depth * Math.sin(pitch) + 1.1
     // Leave room for the overlay by narrowing the usable width.
-    const usable = Math.max(0.4, 1 - this.insetRight / this.width)
     const distance = Math.max(width / 2 / (tan * aspect * usable), visibleHeight / 2 / tan) + SCENE3D.depth * 0.45
     return {
       x: (extent.x0 + extent.x1) / 2,
       y: 1.2,
       z: SCENE3D.depth * 0.42,
+      distance,
+      shift: this.insetRight / 2,
+    }
+  }
+
+  /** Frame an area of a floor plan, seen from above and a little to the west. */
+  private framePlan(bounds: FloorBounds, aspect: number, tan: number, usable: number): CameraPose {
+    const margin = this.overview ? 0.7 : this.options.mobile ? 0.8 : 1.8
+    const pitch = this.basePitch
+    const yaw = this.baseYaw
+    // The footprint as the turned camera sees it.
+    const spanX = bounds.x1 - bounds.x0 + margin
+    const spanZ = bounds.z1 - bounds.z0 + margin
+    const turn = Math.abs(yaw)
+    const across = spanX * Math.cos(turn) + spanZ * Math.sin(turn)
+    const along = spanX * Math.sin(turn) + spanZ * Math.cos(turn)
+    const visibleHeight = along * Math.sin(pitch) + PLAN3D.height * Math.cos(pitch)
+    const distance = Math.max(across / 2 / (tan * aspect * usable), visibleHeight / 2 / tan) + along * 0.2
+    return {
+      x: (bounds.x0 + bounds.x1) / 2,
+      y: 0.4,
+      z: (bounds.z0 + bounds.z1) / 2 + 0.15,
       distance,
       shift: this.insetRight / 2,
     }
@@ -855,7 +1071,7 @@ export class HomeScene3D {
       orbit.pitch = approach(orbit.pitch, orbit.targetPitch, dt, 9)
       busy = busy || Math.abs(orbit.yaw - orbit.targetYaw) > 0.0005 || Math.abs(orbit.pitch - orbit.targetPitch) > 0.0005
     }
-    const yaw = orbit.yaw
+    const yaw = this.baseYaw + orbit.yaw
     const pitch = this.basePitch + orbit.pitch
     const { x, y, z, distance, shift } = this.pose
     this.camera.position.set(
@@ -965,7 +1181,7 @@ export class HomeScene3D {
       object = object.parent
     return {
       deviceId: (object?.userData.deviceId as DeviceKind | undefined) ?? null,
-      roomId: roomAtWorldX(this.template, hit.point.x),
+      roomId: roomAt(this.template, hit.point),
     }
   }
 

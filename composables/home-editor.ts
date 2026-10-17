@@ -1,6 +1,6 @@
 import { computed, onMounted, onUnmounted, readonly, shallowRef, watch } from 'vue'
 import { HOME_TEMPLATES, createDefaultHomeState } from '~/constants/home'
-import type { DeviceKind, DevicePlacement, HomePoint, HomeSyncStatus, HomeTemplateId, VirtualHomeState } from '~/types'
+import type { DeviceKind, DevicePlacement, HomeSyncStatus, HomeTemplateId, SurfaceTarget, VirtualHomeState } from '~/types'
 import { selectCloudSyncDirection } from '~/utils/cloud-sync'
 import { clamp, createPlacementAtPoint, createPlacementInRoom, defaultRoomId, hasPlacementCollision, normalizeHomeState } from '~/utils/home'
 
@@ -64,9 +64,9 @@ export function useHomeEditor() {
     setState(next)
   }
 
-  function placeDevice(deviceId: DeviceKind, point: HomePoint) {
+  function placeDevice(deviceId: DeviceKind, target: SurfaceTarget) {
     const current = state.value.placements.find(item => item.deviceId === deviceId)
-    const placement = createPlacementAtPoint(template.value, deviceId, point, state.value.placements, current?.rotation ?? 0)
+    const placement = createPlacementAtPoint(template.value, deviceId, target.point, state.value.placements, current?.rotation ?? 0, target.surfaceId)
     if (!placement)
       return false
     updatePlacement(deviceId, placement)
