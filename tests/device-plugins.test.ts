@@ -111,7 +111,7 @@ describe('device running state and tone', () => {
     expect(getDeviceTone('robot-vacuum', robot)).toBe('active')
     expect(isDeviceRunning('robot-vacuum', reduceDeviceState('robot-vacuum', robot, { type: 'dock' }))).toBe(false)
     expect(getDeviceTone('fan', createDefaultDeviceState('fan'))).toBe('idle')
-    expect(getDeviceTone('fan', reduceDeviceState('fan', createDefaultDeviceState('fan'), { type: 'set-speed', speed: 2 }))).toBe('active')
+    expect(getDeviceTone('fan', reduceDeviceState('fan', createDefaultDeviceState('fan'), { type: 'set-speed', speed: 2 }))).toBe('cool')
     const tv = reduceDeviceState('television', createDefaultDeviceState('television'), { type: 'toggle-power' })
     expect(isDeviceRunning('television', tv)).toBe(true)
     expect(getDeviceTone('television', tv)).toBe('active')

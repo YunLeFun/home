@@ -22,13 +22,13 @@ const caption = computed(() => {
 <template>
   <div class="fan-quick">
     <div class="ui-hero">
-      <button class="ui-orb" :class="{ 'is-on': state.power }" type="button" :aria-label="state.power ? '关闭风扇' : '开启风扇'" :aria-pressed="state.power" @click="device.dispatch({ type: 'toggle' })">
+      <button class="ui-orb" data-tone="cool" :class="{ 'is-on': state.power }" type="button" :aria-label="state.power ? '关闭风扇' : '开启风扇'" :aria-pressed="state.power" @click="device.dispatch({ type: 'toggle' })">
         <span class="i-carbon-power" />
       </button>
       <div><strong><RollingNumber :value="state.speed" /><sup>档</sup></strong><small>{{ caption }}</small></div>
     </div>
     <div class="ui-segments" :style="{ '--count': 3, '--index': state.speed - 1 }" role="group" aria-label="风速">
-      <button v-for="speed in SPEEDS" :key="speed" type="button" :aria-pressed="state.speed === speed" @click="device.dispatch({ type: 'set-speed', speed })">
+      <button v-for="speed in SPEEDS" :key="speed" type="button" :aria-pressed="state.speed === speed" style="--segment-tone: var(--tone-cool)" @click="device.dispatch({ type: 'set-speed', speed })">
         {{ speed }} 档
       </button>
     </div>

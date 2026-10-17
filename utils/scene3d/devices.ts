@@ -246,7 +246,7 @@ function fan(kit: Kit): DeviceModel {
   const object = new THREE.Group()
   object.add(kit.mesh(kit.cylinder(0.2, 0.22, 0.06, 32), white, 0, 0.03, 0))
   const buttons = [0, 1, 2].map((index) => {
-    const material = glowMaterial(kit, TONE_COLORS.active)
+    const material = glowMaterial(kit, TONE_COLORS.cool)
     object.add(kit.mesh(kit.cylinder(0.022, 0.022, 0.02, 12), material, -0.06 + index * 0.06, 0.065, 0.12, false))
     return material
   })
@@ -269,7 +269,7 @@ function fan(kit: Kit): DeviceModel {
     extruded.scale(0.0032, 0.0032, 0.0032)
     return extruded
   })
-  const bladeMaterial = kit.material('#a9d3f2', { roughness: 0.3, transparent: true, opacity: 0.92 })
+  const bladeMaterial = kit.material('#8cc8ee', { roughness: 0.3, transparent: true, opacity: 0.92 })
   for (let index = 0; index < 3; index++) {
     const pivot = new THREE.Group()
     pivot.rotation.z = (index / 3) * Math.PI * 2
@@ -293,7 +293,7 @@ function fan(kit: Kit): DeviceModel {
     spoke.position.set(Math.sin(-spoke.rotation.z) * 0.165, Math.cos(spoke.rotation.z) * 0.165, 0.115)
     tilt.add(spoke)
   }
-  tilt.add(kit.mesh(kit.cylinder(0.05, 0.05, 0.02, 20), kit.material(PALETTE.accent, { roughness: 0.4 }), 0, 0, 0.12, false).rotateX(Math.PI / 2))
+  tilt.add(kit.mesh(kit.cylinder(0.05, 0.05, 0.02, 20), kit.material(PALETTE.ink, { roughness: 0.4 }), 0, 0, 0.12, false).rotateX(Math.PI / 2))
 
   let visual: DeviceVisual = { active: false, tone: 'idle' }
   let spin = 0

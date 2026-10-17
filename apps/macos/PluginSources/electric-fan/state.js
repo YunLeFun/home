@@ -53,7 +53,8 @@
     const mode = `${state.speed} 档${state.oscillating ? ' · 摇头' : ''}`
     return {
       active: state.power,
-      tone: state.power ? 'active' : 'idle',
+      // A running fan reads as a cool breeze, matching the web plugin.
+      tone: state.power ? 'cool' : 'idle',
       summary: state.power ? mode : `待机 · ${mode}`,
       motionSpeed: MOTION_SPEEDS[state.speed],
     }

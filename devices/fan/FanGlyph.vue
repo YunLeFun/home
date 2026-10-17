@@ -63,14 +63,15 @@ useEasedSpin(root, '.fan-glyph__blades', {
   pointer-events: none;
 }
 
-.fan-glyph__shadow { fill: rgba(40, 49, 47, 0.14); }
-.fan-glyph__stand { fill: #d4d9d0; stroke: #939d92; stroke-width: 1.5; }
-.fan-glyph__base { fill: #c4cbc0; stroke: #8a948b; stroke-width: 1.5; }
-.fan-glyph__body { fill: #fbfbf8; stroke: #a9b3a6; stroke-width: 2; }
-.fan-glyph__grille { fill: #e6eae2; }
-.fan-glyph__blades { fill: #a3b4a5; }
-.fan-glyph__hub { fill: #687b67; }
-.fan-glyph__ring { fill: none; stroke: #8a948b; stroke-opacity: 0.6; stroke-width: 1.5; }
+/* 晴空清风: the ElpsyCN line-art fan in ink, with sky blue petals. */
+.fan-glyph__shadow { fill: rgba(59, 70, 88, 0.14); }
+.fan-glyph__stand { fill: #f6f1e8; stroke: #3b4658; stroke-width: 1.4; }
+.fan-glyph__base { fill: #f6f1e8; stroke: #3b4658; stroke-width: 1.4; }
+.fan-glyph__body { fill: #ffffff; stroke: #3b4658; stroke-width: 1.8; }
+.fan-glyph__grille { fill: #eaf4fb; }
+.fan-glyph__blades { fill: #8cc8ee; }
+.fan-glyph__hub { fill: #ffffff; stroke: #3b4658; stroke-width: 1.5; }
+.fan-glyph__ring { fill: none; stroke: #3b4658; stroke-opacity: 0.22; stroke-width: 1.2; }
 
 /* Spin and sway around the hub and the neck, not the groups' bounding boxes. */
 .fan-glyph__blades {

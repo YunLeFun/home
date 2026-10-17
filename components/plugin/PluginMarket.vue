@@ -19,7 +19,7 @@ const SURFACE_LABELS: Record<HomeSurfaceKind, string> = { wall: '墙面', floor:
 // Tone each plugin shows in its running preview.
 const PREVIEW_TONES: Record<DeviceKind, DeviceTone[]> = {
   'air-conditioner': ['cool', 'heat'],
-  'fan': ['active'],
+  'fan': ['cool'],
   'television': ['active'],
   'robot-vacuum': ['active'],
   'hand-warmer': ['warm'],

@@ -68,8 +68,14 @@ export function isFanAction(value: unknown): value is FanAction {
     || (value.type === 'set-timer' && isValidTimerMinutes(value.minutes))
 }
 
+/**
+ * A running fan reads as a cool breeze, the same tone as an AC cooling.
+ *
+ * @param state - Fan state
+ * @returns `cool` while on, `idle` while off
+ */
 export function fanTone(state: FanState): DeviceTone {
-  return state.power ? 'active' : 'idle'
+  return state.power ? 'cool' : 'idle'
 }
 
 /** Icon spin speed for each fan speed level. */

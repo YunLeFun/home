@@ -148,20 +148,24 @@
       "author": "ElpsyCN",
       "category": "climate",
       "symbol": "fan",
-      "tint": "#687B67",
+      "tint": "#4FB6EF",
       "appIcon": {
         "background": [
-          "#e0f7ec",
-          "#a7dfc3"
+          "#fbf6ee",
+          "#ecdfca"
+        ],
+        "backgroundDark": [
+          "#4a4239",
+          "#332d27"
         ],
         "shapes": [
           {
             "type": "ellipse",
             "cx": 32,
-            "cy": 55,
+            "cy": 55.5,
             "rx": 13,
-            "ry": 2.6,
-            "fill": "#0f3a2a",
+            "ry": 2.4,
+            "fill": "#5a3d1e",
             "opacity": 0.1
           },
           {
@@ -169,25 +173,37 @@
             "cx": 32,
             "cy": 52.5,
             "rx": 12,
-            "ry": 4,
-            "fill": "surface"
+            "ry": 3.8,
+            "fill": "surface",
+            "stroke": "ink",
+            "strokeWidth": 1.2
           },
           {
             "type": "rect",
             "x": 30,
-            "y": 37,
+            "y": 38,
             "width": 4,
-            "height": 16,
+            "height": 14,
             "rx": 2,
-            "fill": "surface"
+            "fill": "surface",
+            "stroke": "ink",
+            "strokeWidth": 1.2
           },
           {
             "type": "circle",
             "cx": 32,
             "cy": 25,
             "r": 17,
-            "fill": "#ffffff",
-            "opacity": 0.35
+            "fill": "surface",
+            "stroke": "ink",
+            "strokeWidth": 1.6
+          },
+          {
+            "type": "circle",
+            "cx": 32,
+            "cy": 25,
+            "r": 13.6,
+            "fill": "#eaf4fb"
           },
           {
             "type": "group",
@@ -196,7 +212,7 @@
               32,
               25
             ],
-            "fill": "#7fbfe9",
+            "fill": "#8cc8ee",
             "children": [
               {
                 "type": "path",
@@ -219,44 +235,59 @@
             "type": "circle",
             "cx": 32,
             "cy": 25,
-            "r": 17,
-            "fill": "none",
-            "stroke": "surface",
-            "strokeWidth": 2.2
-          },
-          {
-            "type": "circle",
-            "cx": 32,
-            "cy": 25,
-            "r": 9.5,
-            "fill": "none",
-            "stroke": "surface",
-            "strokeWidth": 0.8,
-            "opacity": 0.7
-          },
-          {
-            "type": "circle",
-            "cx": 32,
-            "cy": 25,
-            "r": 3.8,
+            "r": 3.4,
             "fill": "surface",
-            "stroke": "#a9bccf",
-            "strokeWidth": 0.8
+            "stroke": "ink",
+            "strokeWidth": 1
           },
           {
             "type": "circle",
             "cx": 32,
             "cy": 25,
-            "r": 1.6,
+            "r": 1.3,
             "fill": "tone"
+          },
+          {
+            "type": "group",
+            "when": "active",
+            "fill": "none",
+            "stroke": "tone",
+            "strokeWidth": 2,
+            "linecap": "round",
+            "children": [
+              {
+                "type": "path",
+                "d": "M52.5 18q3.5 7 0 14",
+                "motion": "blink"
+              },
+              {
+                "type": "path",
+                "d": "M11.5 18q-3.5 7 0 14",
+                "motion": "blink"
+              },
+              {
+                "type": "path",
+                "d": "M57 15q5 10 0 20",
+                "opacity": 0.55,
+                "motion": "blink",
+                "delay": 0.5
+              },
+              {
+                "type": "path",
+                "d": "M7 15q-5 10 0 20",
+                "opacity": 0.55,
+                "motion": "blink",
+                "delay": 0.5
+              }
+            ]
           }
         ]
       },
-      "previewTone": "active",
-      "version": "1.1.0",
+      "previewTone": "cool",
+      "version": "1.2.0",
       "permissions": [],
       "package": "electric-fan.yunplugin",
-      "sha256": "118eaf44439f7c08c8beaae46186af8ed0ee798f80bb895943033406e36600a0",
+      "sha256": "76bfb1fb2cfe2a2d03c0f82250bf2b25cb42cd7869b359f65566297a20966e8f",
       "verified": true,
       "homepage": "https://github.com/ElpsyCN/electric-fan"
     }

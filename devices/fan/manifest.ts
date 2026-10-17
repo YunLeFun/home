@@ -15,6 +15,6 @@ export const fanManifest: DevicePluginManifest<'fan'> = {
   route: '/items/fan',
   size: { width: 92, height: 182 },
   surfaces: ['floor'],
-  accent: { cool: '#687b67', heat: '#687b67' },
+  accent: { cool: '#4fb6ef', heat: '#4fb6ef' },
   integrations: [],
 }
