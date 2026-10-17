@@ -2,7 +2,8 @@
 import { computed, onMounted } from 'vue'
 import { appName } from '~/constants'
 import { HOME_TEMPLATES } from '~/constants/home'
-import type { HomeSyncStatus, HomeTemplateId } from '~/types'
+import HomeLayoutMenu from './HomeLayoutMenu.vue'
+import type { HomeSyncStatus, HomeTemplateId, SavedHomeLayout } from '~/types'
 
 const props = defineProps<{
   templateId: HomeTemplateId
@@ -11,6 +12,8 @@ const props = defineProps<{
   editMode: boolean
   canUndo: boolean
   canRedo: boolean
+  layouts: readonly SavedHomeLayout[]
+  activeLayoutId: string | null
 }>()
 
 const emit = defineEmits<{
@@ -18,6 +21,11 @@ const emit = defineEmits<{
   toggleEdit: []
   undo: []
   redo: []
+  saveLayout: [name: string]
+  applyLayout: [id: string]
+  overwriteLayout: [id: string]
+  renameLayout: [id: string, name: string]
+  removeLayout: [id: string]
 }>()
 
 const { session, pending, login, refresh } = useYunleSession()
@@ -69,6 +77,15 @@ onMounted(refresh)
       <span class="home-sync" :data-status="syncStatus" role="status" aria-live="polite" aria-atomic="true">
         <span class="home-sync__dot" />{{ syncLabel }}
       </span>
+      <HomeLayoutMenu
+        :layouts="layouts"
+        :active-layout-id="activeLayoutId"
+        @save="emit('saveLayout', $event)"
+        @apply="emit('applyLayout', $event)"
+        @overwrite="emit('overwriteLayout', $event)"
+        @rename="(id, name) => emit('renameLayout', id, name)"
+        @remove="emit('removeLayout', $event)"
+      />
       <div v-if="editMode" class="home-history">
         <button type="button" title="撤销" aria-label="撤销" :disabled="!canUndo" @click="emit('undo')">
           <span class="i-carbon-undo" />

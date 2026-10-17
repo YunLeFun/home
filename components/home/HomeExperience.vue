@@ -3,8 +3,11 @@ import { computed, onMounted, onUnmounted, shallowRef, watch } from 'vue'
 import HomeDeviceGlyph from './HomeDeviceGlyph.vue'
 import HomeRoomTabs from './HomeRoomTabs.vue'
 import type { DeviceTone } from '~/devices/types'
-import type { DeviceKind, HomeTemplateId, SurfaceTarget } from '~/types'
+import type { DeviceKind, FurnitureKind, HomeTemplateId, SurfaceTarget } from '~/types'
+import type { HomeResetScope } from '~/composables/home-editor'
 import type { DeviceVisual } from '~/utils/scene3d/devices'
+import type { FurniturePose, FurnitureProblem } from '~/utils/scene3d/layout'
+import { FURNITURE_KINDS } from '~/constants/furniture'
 import { HOME_DEVICES, HOME_DEVICE_ORDER } from '~/constants/home'
 import { getDeviceMotionSpeed, getDeviceTone, isDeviceRunning } from '~/utils/device'
 
@@ -77,6 +80,7 @@ function showNotice(message: string) {
 }
 
 function selectDevice(deviceId: DeviceKind) {
+  editor.selectedFurnitureId.value = null
   editor.selectedDeviceId.value = deviceId
   const placement = editor.placements.value.find(item => item.deviceId === deviceId)
   if (placement?.roomId) {
@@ -91,6 +95,67 @@ function selectDevice(deviceId: DeviceKind) {
 function placeDevice(deviceId: DeviceKind, target: SurfaceTarget) {
   const placed = editor.placeDevice(deviceId, target)
   showNotice(placed ? `${HOME_DEVICES[deviceId].name}已吸附到合适位置` : '这里不能摆放，设备已回到原位')
+}
+
+const FURNITURE_PROBLEMS: Record<FurnitureProblem, string> = {
+  fixed: '这件家具固定在户型里，不能移动',
+  outside: '家具要留在原来的房间里',
+  overlap: '这里已经有家具了',
+  device: '这里有设备，先把设备挪开',
+}
+
+function furnitureName(id: string) {
+  const spec = editor.home.value.furniture.find(item => item.id === id)
+  return spec ? FURNITURE_KINDS[spec.kind].name : '家具'
+}
+
+function selectFurniture(id: string | null) {
+  editor.selectedFurnitureId.value = id
+  if (id)
+    editor.selectedDeviceId.value = null
+}
+
+function moveFurniture(id: string, pose: FurniturePose) {
+  const problem = editor.moveFurniture(id, pose)
+  if (problem)
+    showNotice(`${FURNITURE_PROBLEMS[problem]}，${furnitureName(id)}已回到原位`)
+}
+
+function nudgeFurniture(id: string, dx: number, dz: number) {
+  const problem = editor.nudgeFurniture(id, dx, dz)
+  if (problem)
+    showNotice(FURNITURE_PROBLEMS[problem])
+}
+
+function rotateFurniture(id: string) {
+  const problem = editor.rotateFurniture(id)
+  if (problem)
+    showNotice(`${FURNITURE_PROBLEMS[problem]}，没有地方转动${furnitureName(id)}`)
+}
+
+function removeFurniture(id: string) {
+  const name = furnitureName(id)
+  editor.removeFurniture(id)
+  showNotice(`${name}已移除，可以撤销`)
+}
+
+function addFurniture(kind: FurnitureKind) {
+  const room = currentRoom.value
+  if (!room)
+    return
+  const added = editor.addFurniture(kind, room.id)
+  showNotice(added ? `${FURNITURE_KINDS[kind].name}已放进${room.shortName}，拖动调整位置` : `${room.shortName}放不下${FURNITURE_KINDS[kind].name}了`)
+}
+
+const RESET_NOTICES: Record<HomeResetScope, string> = {
+  furniture: '家具已回到户型默认位置，可以撤销',
+  devices: '设备已回到户型默认位置，可以撤销',
+  all: '家具和设备都已恢复默认，可以撤销',
+}
+
+function resetHome(scope: HomeResetScope) {
+  editor.reset(scope)
+  showNotice(RESET_NOTICES[scope])
 }
 
 function handleTrayDragStart(deviceId: DeviceKind, event: PointerEvent) {
@@ -119,6 +184,34 @@ function handleTrayDragEnd(deviceId: DeviceKind, event: PointerEvent) {
     showNotice('拖到房间里的高亮区域即可完成摆放')
 }
 
+function layoutName(id: string) {
+  return editor.layouts.value.find(layout => layout.id === id)?.name ?? '布局'
+}
+
+function saveLayout(name: string) {
+  const id = editor.saveLayout(name)
+  showNotice(id ? `已保存布局「${layoutName(id)}」` : '布局已满，先删掉一套再保存')
+}
+
+function applyLayout(id: string) {
+  const name = layoutName(id)
+  if (editor.applyLayout(id)) {
+    overviewMode.value = window.innerWidth > 720
+    showNotice(`已切换到布局「${name}」，可以撤销`)
+  }
+}
+
+function overwriteLayout(id: string) {
+  editor.overwriteLayout(id)
+  showNotice(`已用当前摆放更新「${layoutName(id)}」`)
+}
+
+function removeLayout(id: string) {
+  const name = layoutName(id)
+  editor.deleteLayout(id)
+  showNotice(`已删除布局「${name}」`)
+}
+
 function changeTemplate(templateId: HomeTemplateId) {
   editor.changeTemplate(templateId)
   overviewMode.value = window.innerWidth > 720
@@ -138,6 +231,7 @@ function selectOverview() {
 
 function toggleEditMode() {
   editor.editMode.value = !editor.editMode.value
+  editor.selectedFurnitureId.value = null
   if (!editor.editMode.value)
     editor.selectedDeviceId.value = null
 }
@@ -204,10 +298,17 @@ onUnmounted(() => {
       :edit-mode="editor.editMode.value"
       :can-undo="editor.canUndo.value"
       :can-redo="editor.canRedo.value"
+      :layouts="editor.layouts.value"
+      :active-layout-id="editor.activeLayoutId.value"
       @change-template="changeTemplate"
       @toggle-edit="toggleEditMode"
       @undo="editor.undo"
       @redo="editor.redo"
+      @save-layout="saveLayout"
+      @apply-layout="applyLayout"
+      @overwrite-layout="overwriteLayout"
+      @rename-layout="editor.renameLayout"
+      @remove-layout="removeLayout"
     />
 
     <main class="home-stage">
@@ -234,9 +335,10 @@ onUnmounted(() => {
         <HomeScene3D
           v-if="mount3d"
           ref="scene3dRef"
-          :template="editor.template.value"
+          :home="editor.home.value"
           :placements="placements"
           :selected-device-id="editor.selectedDeviceId.value"
+          :selected-furniture-id="editor.editMode.value ? editor.selectedFurnitureId.value : null"
           :active-room-id="editor.activeRoomId.value"
           :overview-mode="overviewMode"
           :active-devices="activeDevices"
@@ -251,6 +353,13 @@ onUnmounted(() => {
           @nudge="editor.moveDeviceByKeyboard"
           @rotate="editor.rotateDevice"
           @remove="removeDevice"
+          @select-furniture="selectFurniture"
+          @move-furniture="moveFurniture"
+          @nudge-furniture="nudgeFurniture"
+          @rotate-furniture="rotateFurniture"
+          @remove-furniture="removeFurniture"
+          @add-furniture="addFurniture"
+          @reset="resetHome"
           @ready="scene3dReady = true"
           @failed="handle3dFailed"
         />

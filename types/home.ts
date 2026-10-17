@@ -73,8 +73,60 @@ export interface HomeTemplate {
   /** Room to open first; the first room when unset. */
   defaultRoomId?: string
   surfaces: HomeSurface[]
-  obstacles: HomeObstacle[]
+  /**
+   * Footprints of the furniture on the floor, where floor devices cannot go.
+   * Derived from the furniture by `resolveHomeLayout`; templates leave it out.
+   */
+  obstacles?: HomeObstacle[]
   robotRoutes: HomeRobotRoute[]
+}
+
+/** Furniture the diorama can build. */
+export type FurnitureKind =
+  | 'sofa'
+  | 'coffee-table'
+  | 'console'
+  | 'table-lamp'
+  | 'floor-lamp'
+  | 'pendant'
+  | 'plant'
+  | 'rug'
+  | 'bed'
+  | 'nightstand'
+  | 'shelf'
+  | 'laundry'
+  | 'basket'
+  | 'desk'
+  | 'clock'
+  | 'window'
+  | 'moon-gate'
+  | 'counter'
+  | 'fridge'
+  | 'dining-table'
+  | 'vanity'
+  | 'toilet'
+  | 'bay-seat'
+
+/** A quarter turn about the vertical, in degrees. */
+export type FurnitureRotation = 0 | 90 | 180 | 270
+
+/**
+ * A change the user made to the template's furniture. Moved and turned
+ * pieces keep the template's id; removed ones are marked; added ones carry
+ * their kind and room. Positions are in diorama metres, like the template's
+ * furniture.
+ */
+export interface FurnitureEdit {
+  id: string
+  /** Added pieces: what to build. */
+  kind?: FurnitureKind
+  /** Added pieces: the room they stand in. */
+  roomId?: string
+  x?: number
+  z?: number
+  rotation?: FurnitureRotation
+  /** A template piece taken out of the home. */
+  removed?: true
 }
 
 export interface DevicePlacement {
@@ -86,10 +138,24 @@ export interface DevicePlacement {
   rotation: DeviceRotation
 }
 
-export interface VirtualHomeState {
-  version: 1
+/** A layout the user saved under a name, to come back to. */
+export interface SavedHomeLayout {
+  id: string
+  name: string
   templateId: HomeTemplateId
   placements: DevicePlacement[]
+  furniture: FurnitureEdit[]
+  savedAt: string
+}
+
+export interface VirtualHomeState {
+  version: 2
+  templateId: HomeTemplateId
+  placements: DevicePlacement[]
+  /** Changes to the template's furniture, oldest first. */
+  furniture: FurnitureEdit[]
+  /** Layouts saved under a name, newest first. */
+  layouts: SavedHomeLayout[]
   revision: number
   changedAt: string
 }

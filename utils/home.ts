@@ -1,11 +1,15 @@
+import { FURNITURE_KINDS, isFurnitureKind } from '~/constants/furniture'
 import { HOME_DEVICES, HOME_DEVICE_ORDER, HOME_TEMPLATES, createDefaultHomeState } from '~/constants/home'
 import type {
   DeviceKind,
   DevicePlacement,
+  FurnitureEdit,
+  FurnitureRotation,
   HomePoint,
   HomeSurface,
   HomeTemplate,
   HomeTemplateId,
+  SavedHomeLayout,
   VirtualHomeState,
 } from '~/types'
 
@@ -125,7 +129,7 @@ function distanceToBounds(point: HomePoint, surface: HomeSurface) {
 }
 
 function isBlocked(template: HomeTemplate, roomId: string, point: HomePoint) {
-  return template.obstacles.some(obstacle => obstacle.roomId === roomId && pointInPolygon(point, obstacle.polygon))
+  return (template.obstacles ?? []).some(obstacle => obstacle.roomId === roomId && pointInPolygon(point, obstacle.polygon))
 }
 
 /**
@@ -156,6 +160,9 @@ export function findSurfaceAtPoint(template: HomeTemplate, deviceId: DeviceKind,
     // Obstacles are furniture footprints on the floor; tabletops sit on top of them.
     if (candidate.surface.kind !== 'floor' || !isBlocked(template, candidate.surface.roomId, world))
       return { surface: candidate.surface, ...local, world }
+    // A drop onto furniture stays turned down rather than snapping through the wall next door.
+    if (candidate.distance === 0)
+      return null
   }
   return null
 }
@@ -250,6 +257,35 @@ export function createPlacementInRoom(
   return null
 }
 
+/**
+ * Make placements fit the home as it now stands, after its furniture changed
+ * or its devices went back to their defaults. Devices on a surface the home
+ * no longer has leave it; floor devices a piece of furniture now stands on
+ * move to a free spot in the same room, or leave it when there is none.
+ *
+ * @param template - Home template, furnished
+ * @param placements - Device placements
+ * @returns The placements, settled
+ */
+export function settlePlacements(template: HomeTemplate, placements: DevicePlacement[]): DevicePlacement[] {
+  const settled = placements.map(placement => ({ ...placement }))
+  settled.forEach((placement, index) => {
+    if (!placement.surfaceId)
+      return
+    const surface = template.surfaces.find(item => item.id === placement.surfaceId)
+    const unplaced = { ...placement, roomId: null, surfaceId: null, u: 0.5, v: 0.5 }
+    if (!surface) {
+      settled[index] = unplaced
+      return
+    }
+    if (surface.kind !== 'floor' || !isBlocked(template, surface.roomId, surfacePointToWorld(surface, placement.u, placement.v)))
+      return
+    const others = settled.filter((_, other) => other !== index)
+    settled[index] = createPlacementInRoom(template, placement.deviceId, surface.roomId, others, placement.rotation) ?? unplaced
+  })
+  return settled
+}
+
 export function getRobotRoute(template: HomeTemplate, placement: DevicePlacement | undefined) {
   if (!placement?.roomId)
     return []
@@ -298,16 +334,72 @@ function readRotation(value: unknown): DevicePlacement['rotation'] {
   return 0
 }
 
-export function normalizeHomeState(value: unknown): VirtualHomeState {
-  if (!value || typeof value !== 'object')
-    return createDefaultHomeState()
+function readFurnitureRotation(value: unknown): FurnitureRotation | undefined {
+  return value === 0 || value === 90 || value === 180 || value === 270 ? value : undefined
+}
 
-  const record = value as Record<string, unknown>
-  const templateId = isHomeTemplateId(record.templateId) ? record.templateId : 'cloud-apartment'
-  const template = HOME_TEMPLATES[templateId]
+function readFurnitureEdit(raw: unknown, template: Pick<HomeTemplate, 'rooms'>): FurnitureEdit | null {
+  if (!raw || typeof raw !== 'object')
+    return null
+  const record = raw as Record<string, unknown>
+  if (typeof record.id !== 'string' || !record.id || record.id.length > 80)
+    return null
+  const id = record.id
+  if (record.removed === true && record.kind === undefined)
+    return { id, removed: true }
+  const x = typeof record.x === 'number' && Number.isFinite(record.x) ? Math.round(record.x * 100) / 100 : undefined
+  const z = typeof record.z === 'number' && Number.isFinite(record.z) ? Math.round(record.z * 100) / 100 : undefined
+  const rotation = readFurnitureRotation(record.rotation)
+  if (x === undefined || z === undefined || rotation === undefined)
+    return null
+  if (record.kind === undefined)
+    return { id, x, z, rotation }
+  const roomId = typeof record.roomId === 'string' ? record.roomId : null
+  if (!isFurnitureKind(record.kind) || !roomId || !template.rooms.some(room => room.id === roomId))
+    return null
+  return { id, kind: record.kind, roomId, x, z, rotation }
+}
+
+/**
+ * Keep the well-formed furniture edits of saved state, the last one per
+ * piece. Edits naming pieces the template does not have are left for the
+ * layout to ignore, so a template can bring a piece back.
+ *
+ * @param value - Saved edits
+ * @param template - The template they change
+ * @returns The edits, oldest first
+ */
+export function normalizeFurnitureEdits(value: unknown, template: Pick<HomeTemplate, 'rooms'>): FurnitureEdit[] {
+  if (!Array.isArray(value))
+    return []
+  const edits = new Map<string, FurnitureEdit>()
+  for (const raw of value) {
+    const edit = readFurnitureEdit(raw, template)
+    if (!edit)
+      continue
+    // Map keeps insertion order: a later edit of the same piece moves to the end.
+    edits.delete(edit.id)
+    edits.set(edit.id, edit)
+  }
+  return [...edits.values()]
+}
+
+/**
+ * Surfaces a placement may name: the template's own, and the tabletops of
+ * pieces the user added.
+ */
+function placementSurfaces(template: HomeTemplate, furniture: FurnitureEdit[]): Array<Pick<HomeSurface, 'id' | 'roomId' | 'accepts'>> {
+  const added = furniture
+    .filter(edit => edit.kind && edit.roomId && FURNITURE_KINDS[edit.kind].top)
+    .map(edit => ({ id: `${edit.id}-top`, roomId: edit.roomId!, accepts: ['hand-warmer'] as DeviceKind[] }))
+  return [...template.surfaces, ...added]
+}
+
+function normalizePlacements(value: unknown, templateId: HomeTemplateId, furniture: FurnitureEdit[]): DevicePlacement[] {
+  const surfaces = placementSurfaces(HOME_TEMPLATES[templateId], furniture)
   const fallback = createDefaultHomeState(templateId)
-  const rawPlacements = Array.isArray(record.placements) ? record.placements : []
-  const placements = HOME_DEVICE_ORDER.map((deviceId) => {
+  const rawPlacements = Array.isArray(value) ? value : []
+  return HOME_DEVICE_ORDER.map((deviceId) => {
     const raw = rawPlacements.find((item) => {
       return item && typeof item === 'object' && (item as Record<string, unknown>).deviceId === deviceId
     }) as Record<string, unknown> | undefined
@@ -315,7 +407,7 @@ export function normalizeHomeState(value: unknown): VirtualHomeState {
       return fallback.placements.find(item => item.deviceId === deviceId)!
 
     const surfaceId = typeof raw.surfaceId === 'string' ? raw.surfaceId : null
-    const surface = surfaceId ? template.surfaces.find(item => item.id === surfaceId && item.accepts.includes(deviceId)) : undefined
+    const surface = surfaceId ? surfaces.find(item => item.id === surfaceId && item.accepts.includes(deviceId)) : undefined
     return {
       deviceId,
       roomId: surface?.roomId ?? null,
@@ -325,15 +417,80 @@ export function normalizeHomeState(value: unknown): VirtualHomeState {
       rotation: readRotation(raw.rotation),
     }
   })
+}
 
-  const hasValidChangedAt = typeof record.changedAt === 'string' && Number.isFinite(Date.parse(record.changedAt))
-  const changedAt = hasValidChangedAt ? new Date(record.changedAt as string).toISOString() : fallback.changedAt
+function readTimestamp(value: unknown, fallback: string) {
+  return typeof value === 'string' && Number.isFinite(Date.parse(value)) ? new Date(value).toISOString() : fallback
+}
+
+/** Most layouts a home keeps. */
+export const MAX_SAVED_LAYOUTS = 20
+/** Longest layout name, in characters. */
+export const MAX_LAYOUT_NAME = 24
+
+/**
+ * Tidy a layout name: trimmed, one line, not too long.
+ *
+ * @param value - Name the user typed
+ * @returns The name, or null when nothing is left
+ */
+export function normalizeLayoutName(value: unknown) {
+  if (typeof value !== 'string')
+    return null
+  const name = [...value.replace(/\s+/g, ' ').trim()].slice(0, MAX_LAYOUT_NAME).join('')
+  return name || null
+}
+
+/**
+ * Keep the well-formed saved layouts, newest first.
+ *
+ * @param value - Saved layouts
+ * @returns The layouts
+ */
+export function normalizeSavedLayouts(value: unknown): SavedHomeLayout[] {
+  if (!Array.isArray(value))
+    return []
+  const layouts: SavedHomeLayout[] = []
+  for (const raw of value) {
+    if (!raw || typeof raw !== 'object')
+      continue
+    const record = raw as Record<string, unknown>
+    const name = normalizeLayoutName(record.name)
+    if (typeof record.id !== 'string' || !record.id || record.id.length > 80 || !name || !isHomeTemplateId(record.templateId) || layouts.some(layout => layout.id === record.id))
+      continue
+    const furniture = normalizeFurnitureEdits(record.furniture, HOME_TEMPLATES[record.templateId])
+    layouts.push({
+      id: record.id,
+      name,
+      templateId: record.templateId,
+      placements: normalizePlacements(record.placements, record.templateId, furniture),
+      furniture,
+      savedAt: readTimestamp(record.savedAt, '1970-01-01T00:00:00.000Z'),
+    })
+  }
+  return layouts.slice(0, MAX_SAVED_LAYOUTS)
+}
+
+/**
+ * Read saved state, whatever version wrote it. Version 1 had no furniture
+ * edits, so it keeps the template's furniture, and no saved layouts.
+ */
+export function normalizeHomeState(value: unknown): VirtualHomeState {
+  if (!value || typeof value !== 'object')
+    return createDefaultHomeState()
+
+  const record = value as Record<string, unknown>
+  const templateId = isHomeTemplateId(record.templateId) ? record.templateId : 'cloud-apartment'
+  const fallback = createDefaultHomeState(templateId)
+  const furniture = normalizeFurnitureEdits(record.furniture, HOME_TEMPLATES[templateId])
 
   return {
-    version: 1,
+    version: 2,
     templateId,
-    placements,
+    placements: normalizePlacements(record.placements, templateId, furniture),
+    furniture,
+    layouts: normalizeSavedLayouts(record.layouts),
     revision: Math.max(0, Math.floor(readNumber(record.revision, 0))),
-    changedAt,
+    changedAt: readTimestamp(record.changedAt, fallback.changedAt),
   }
 }

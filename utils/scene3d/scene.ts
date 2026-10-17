@@ -1,16 +1,18 @@
 import * as THREE from 'three'
 import type { ScenePhase } from '~/composables/scene-time'
-import type { PlanShell, PlanWall } from '~/constants/scene3d'
+import type { FurnitureSpec, PlanShell, PlanWall } from '~/constants/scene3d'
 import type { DeviceKind, DevicePlacement, HomePoint, HomeSurface, HomeSurfaceKind, HomeTemplate, SurfaceTarget } from '~/types'
 import type { DeviceModel, DeviceVisual } from './devices'
 import type { PhaseTargets, SceneLamp } from './furniture'
-import type { FloorBounds, Ray3, Vec3 } from './projection'
+import type { FurniturePose, FurnitureProblem, ResolvedHome } from './layout'
+import type { FloorBounds, Ray3, TabletopSpec, Vec3 } from './projection'
 import { SCENE3D_TEMPLATES } from '~/constants/scene3d'
 import { createPlacementAtPoint, getPointAlongRoute, getRobotRoute } from '~/utils/home'
 import { buildDevice, buildRobotDock } from './devices'
 import { buildFurniture } from './furniture'
 import { EDIT_COLORS, Kit, PALETTE, TONE_COLORS } from './kit'
-import { findSurfaceAlongRay, isPlan, PLAN3D, planX, planZ, projectFloorPoint, projectPlacement, roomAt, roomBounds, SCENE3D, surfaceCorners, surfaceFrame, worldX } from './projection'
+import { carryPoint, furnitureFootprint, furnitureProblem, isMovableFurniture, piecesMovedTo, poseOf, snapFurniture } from './layout'
+import { findSurfaceAlongRay, intersectSurfacePlane, isPlan, PLAN3D, planX, planZ, projectFloorPoint, projectPlacement, roomAt, roomBounds, SCENE3D, surfaceCorners, surfaceFrame, worldX } from './projection'
 
 /** A device hotspot projected to canvas pixels. */
 export interface ScreenAnchor {
@@ -77,6 +79,15 @@ interface DeviceDrag {
   surfaceKind: HomeSurfaceKind | null
   /** Out of the surface under the pointer. */
   normal: Vec3 | null
+}
+
+/** A piece of furniture being dragged to a new spot. */
+interface FurnitureDrag {
+  id: string
+  /** From the pointer's spot on the floor to the centre of the piece. */
+  grab: { x: number, z: number }
+  pose: FurniturePose | null
+  problem: FurnitureProblem | null
 }
 
 interface SurfaceOverlay {
@@ -178,6 +189,10 @@ export class HomeScene3D {
   private templateRoot = new THREE.Group()
   private deviceRoot = new THREE.Group()
   private templateKit = new Kit()
+  private furnitureRoot = new THREE.Group()
+  private furnitureKit = new Kit()
+  private furnitureObjects = new Map<string, THREE.Object3D>()
+  private overlayKit = new Kit()
   private deviceKit = new Kit()
   private phaseTargets: PhaseTargets
   private lamps: SceneLamp[] = []
@@ -193,8 +208,14 @@ export class HomeScene3D {
   private markerMaterials: THREE.MeshBasicMaterial[]
   private editing = false
   private drag: DeviceDrag | null = null
+  private furnitureDrag: FurnitureDrag | null = null
+  private selectedFurniture: string | null = null
+  /** Footprint of the selected or dragged piece. */
+  private footprint: THREE.Group
+  private footprintMaterials: THREE.MeshBasicMaterial[]
   private options: HomeScene3DOptions
 
+  private home: ResolvedHome | null = null
   private template: HomeTemplate | null = null
   private placements: DevicePlacement[] = []
   private focusRoomId: string | null = null
@@ -209,6 +230,8 @@ export class HomeScene3D {
   private poseTo: CameraPose = { ...this.pose }
   private poseStartedAt = -Infinity
   private orbit = { yaw: 0, pitch: 0, targetYaw: 0, targetPitch: 0 }
+  /** The user's pan, in world x and z, and zoom, as a factor on the framed distance. */
+  private view = { x: 0, z: 0, zoom: 1, targetX: 0, targetZ: 0, targetZoom: 1 }
 
   private phase: ScenePhase = 'day'
   private phaseFrom = this.snapshotLighting(PHASE_LIGHTING.day)
@@ -240,7 +263,7 @@ export class HomeScene3D {
     Object.assign(this.sun.shadow.camera, { left: -10, right: 10, top: 7, bottom: -6, near: 1, far: 40 })
     this.sun.shadow.bias = -0.0004
     this.sun.shadow.normalBias = 0.025
-    this.scene.add(this.hemi, this.sun, this.sun.target, this.templateRoot, this.deviceRoot, this.editRoot)
+    this.scene.add(this.hemi, this.sun, this.sun.target, this.templateRoot, this.furnitureRoot, this.deviceRoot, this.editRoot)
     this.editRoot.visible = false
 
     const beam = new THREE.MeshBasicMaterial({
@@ -271,6 +294,11 @@ export class HomeScene3D {
     })
     this.marker.visible = false
     this.editRoot.add(this.marker)
+    this.footprintMaterials = [0.16, 0.85].map(opacity => this.deviceKit.track(new THREE.MeshBasicMaterial({ color: EDIT_COLORS.surface, transparent: true, opacity, depthTest: false, depthWrite: false, side: THREE.DoubleSide })))
+    this.footprint = new THREE.Group()
+    this.footprint.visible = false
+    this.footprint.renderOrder = 9
+    this.editRoot.add(this.footprint)
     this.applyLighting(this.phaseTo)
   }
 
@@ -359,30 +387,67 @@ export class HomeScene3D {
 
   // Template -----------------------------------------------------------------
 
-  /** Build the rooms and furniture of a template. */
-  setTemplate(template: HomeTemplate) {
-    if (this.template?.id === template.id)
+  private get tabletops(): Record<string, TabletopSpec> {
+    return this.home?.tabletops ?? {}
+  }
+
+  /**
+   * Show a home: build its rooms when the template changes, and its
+   * furniture, tabletops and routes whenever the user rearranges it.
+   */
+  setHome(home: ResolvedHome) {
+    const previous = this.home
+    if (previous === home)
       return
-    this.template = template
-    this.drag = null
-    this.templateRoot.clear()
-    this.templateKit.dispose()
-    this.templateKit = new Kit()
+    this.home = home
+    this.template = home.template
+    const template = home.template
+    if (previous?.template.id !== template.id) {
+      this.drag = null
+      this.templateRoot.clear()
+      this.templateKit.dispose()
+      this.templateKit = new Kit()
+      const spec = SCENE3D_TEMPLATES[template.id]
+      if (spec.plan)
+        this.buildPlanShell(template, spec.plan)
+      else
+        this.buildShell(template)
+      this.sun.target.position.set(0, 0, isPlan(template) ? 0 : 1.6)
+    }
+    if (previous?.furniture !== home.furniture)
+      this.buildFurniture(template, home.furniture)
+    this.furnitureDrag = null
+    if (this.selectedFurniture && !home.furniture.some(item => item.id === this.selectedFurniture))
+      this.selectedFurniture = null
+    this.showFootprint()
+    this.buildSurfaceOverlays(template)
+    this.updateRoute()
+    this.setPlacements(this.placements)
+    if (previous?.template.id !== template.id)
+      this.reframe(true)
+  }
+
+  private buildFurniture(template: HomeTemplate, furniture: FurnitureSpec[]) {
+    this.furnitureRoot.clear()
+    this.furnitureKit.dispose()
+    this.furnitureKit = new Kit()
+    this.furnitureObjects.clear()
     this.lamps = []
     this.ticks = []
-    const spec = SCENE3D_TEMPLATES[template.id]
-    if (spec.plan)
-      this.buildPlanShell(template, spec.plan)
-    else
-      this.buildShell(template)
-    this.sun.target.position.set(0, 0, isPlan(template) ? 0 : 1.6)
     const ceiling = isPlan(template) ? PLAN3D.height : SCENE3D.height
-    for (const item of spec.furniture) {
-      const built = buildFurniture(this.templateKit, item, this.phaseTargets, ceiling)
+    const movable = new Set(furniture.filter(isMovableFurniture).map(item => item.id))
+    for (const item of furniture) {
+      const built = buildFurniture(this.furnitureKit, item, this.phaseTargets, ceiling)
       built.object.position.set(item.x, item.y ?? 0, item.z ?? 0)
       built.object.rotation.y = THREE.MathUtils.degToRad(item.rotation ?? 0)
       built.object.userData.roomId = item.roomId
-      this.templateRoot.add(built.object)
+      // A lamp on a console picks the console.
+      const owner = item.on ?? item.id
+      if (movable.has(owner))
+        built.object.userData.furnitureId = owner
+      built.object.userData.flat = item.kind === 'rug'
+      this.furnitureRoot.add(built.object)
+      this.furnitureObjects.set(item.id, built.object)
       if (built.lamp)
         this.lamps.push(built.lamp)
       if (built.tick)
@@ -391,10 +456,6 @@ export class HomeScene3D {
     for (const tick of this.ticks)
       tick(0)
     this.applyLighting(this.current)
-    this.buildSurfaceOverlays(template)
-    this.updateRoute()
-    this.setPlacements(this.placements)
-    this.reframe(true)
   }
 
   private buildShell(template: HomeTemplate) {
@@ -610,8 +671,9 @@ export class HomeScene3D {
     const template = this.template
     if (!template)
       return
-    const tabletops = SCENE3D_TEMPLATES[template.id].tabletops
+    const tabletops = this.tabletops
     const drag = this.drag
+    const carried = this.carriedTabletop()
     const placed = new Set<DeviceKind>()
     const put = (kind: DeviceKind, position: Vec3, surfaceKind: HomeSurfaceKind, normal: Vec3, rotation: number) => {
       const entry = this.entry(kind)
@@ -628,8 +690,14 @@ export class HomeScene3D {
       if (placement.deviceId === drag?.deviceId && (drag.placement || drag.position))
         continue
       const projected = projectPlacement(template, placement, tabletops)
-      if (projected)
-        put(placement.deviceId, projected.position, projected.surfaceKind, projected.normal, placement.rotation)
+      if (!projected)
+        continue
+      // A device on a tabletop rides along with the piece being dragged.
+      if (carried && placement.surfaceId === carried.surfaceId) {
+        const at = carryPoint(projected.position, carried.from, carried.to)
+        projected.position = { ...projected.position, x: at.x, z: at.z }
+      }
+      put(placement.deviceId, projected.position, projected.surfaceKind, projected.normal, placement.rotation)
     }
     this.marker.visible = false
     if (drag) {
@@ -666,8 +734,11 @@ export class HomeScene3D {
   private buildSurfaceOverlays(template: HomeTemplate) {
     for (const overlay of this.surfaceOverlays)
       this.editRoot.remove(overlay.object)
-    const tabletops = SCENE3D_TEMPLATES[template.id].tabletops
-    const kit = this.templateKit
+    // Tabletops move with their furniture, so overlays are rebuilt rather than cached.
+    this.overlayKit.dispose()
+    this.overlayKit = new Kit()
+    const tabletops = this.tabletops
+    const kit = this.overlayKit
     this.surfaceOverlays = template.surfaces.map((surface) => {
       // Lift each overlay just clear of what it lies on: wall, rug or tabletop.
       const { normal } = surfaceFrame(template, surface, tabletops[surface.id])
@@ -729,8 +800,10 @@ export class HomeScene3D {
       return
     this.editing = editing
     this.editRoot.visible = editing
-    if (!editing)
+    if (!editing) {
       this.endDrag()
+      this.endFurnitureDrag()
+    }
     this.styleSurfaceOverlays(performance.now() / 1000)
     this.invalidate()
   }
@@ -755,7 +828,7 @@ export class HomeScene3D {
     const template = this.template
     if (!template)
       return null
-    const hit = findSurfaceAlongRay(template, deviceId, this.rayAt(x, y), SCENE3D_TEMPLATES[template.id].tabletops)
+    const hit = findSurfaceAlongRay(template, deviceId, this.rayAt(x, y), this.tabletops)
     return hit && { surfaceId: hit.surface.id, point: hit.point }
   }
 
@@ -773,7 +846,7 @@ export class HomeScene3D {
     const template = this.template
     if (!template)
       return { target: null, valid: false }
-    const tabletops = SCENE3D_TEMPLATES[template.id].tabletops
+    const tabletops = this.tabletops
     const hit = findSurfaceAlongRay(template, deviceId, this.rayAt(x, y), tabletops)
     const rotation = this.placements.find(item => item.deviceId === deviceId)?.rotation ?? 0
     const placement = hit ? createPlacementAtPoint(template, deviceId, hit.point, this.placements, rotation, hit.surface.id) : null
@@ -798,6 +871,116 @@ export class HomeScene3D {
     this.drag = null
     this.layoutDevices()
     this.styleSurfaceOverlays(performance.now() / 1000)
+    this.invalidate()
+  }
+
+  // Furniture -----------------------------------------------------------------
+
+  /** The tabletop of the piece being dragged, and how the piece moves. */
+  private carriedTabletop() {
+    const drag = this.furnitureDrag
+    const spec = drag?.pose && this.home?.furniture.find(item => item.id === drag.id)
+    if (!drag?.pose || !spec)
+      return null
+    const surfaceId = spec.tabletop ?? `${spec.id}-top`
+    return { surfaceId, from: poseOf(spec), to: drag.pose }
+  }
+
+  /** Outline the selected or dragged piece's footprint on the floor. */
+  private showFootprint() {
+    const drag = this.furnitureDrag
+    const id = drag?.id ?? this.selectedFurniture
+    const spec = id ? this.home?.furniture.find(item => item.id === id) : undefined
+    const bounds = spec && furnitureFootprint(spec, drag?.pose ?? poseOf(spec))
+    for (const child of this.footprint.children)
+      (child as THREE.Mesh).geometry.dispose()
+    this.footprint.clear()
+    this.footprint.visible = Boolean(bounds)
+    if (!bounds)
+      return
+    const y = 0.04
+    const corner = (x: number, z: number) => new THREE.Vector3(x, y, z)
+    const outer = [corner(bounds.x0, bounds.z0), corner(bounds.x1, bounds.z0), corner(bounds.x1, bounds.z1), corner(bounds.x0, bounds.z1)]
+    const band = Math.min(0.05, (bounds.x1 - bounds.x0) / 4, (bounds.z1 - bounds.z0) / 4)
+    const inner = [corner(bounds.x0 + band, bounds.z0 + band), corner(bounds.x1 - band, bounds.z0 + band), corner(bounds.x1 - band, bounds.z1 - band), corner(bounds.x0 + band, bounds.z1 - band)]
+    const edge = outer.flatMap((point, index) => {
+      const next = (index + 1) % 4
+      return [point, outer[next]!, inner[next]!, point, inner[next]!, inner[index]!]
+    })
+    const fill = new THREE.Mesh(new THREE.BufferGeometry().setFromPoints([0, 1, 2, 0, 2, 3].map(index => inner[index]!)), this.footprintMaterials[0])
+    const outline = new THREE.Mesh(new THREE.BufferGeometry().setFromPoints(edge), this.footprintMaterials[1])
+    fill.renderOrder = 9
+    outline.renderOrder = 9
+    this.footprint.add(fill, outline)
+    for (const material of this.footprintMaterials)
+      material.color.set(drag?.problem ? EDIT_COLORS.invalid : EDIT_COLORS.surface)
+  }
+
+  /** Outline a piece of furniture as selected, or none. */
+  setFurnitureSelection(id: string | null) {
+    if (id === this.selectedFurniture)
+      return
+    this.selectedFurniture = id
+    this.showFootprint()
+    this.invalidate()
+  }
+
+  /** Set the pieces of a drag at a pose, or back where they stand. */
+  private poseFurniture(id: string, pose: FurniturePose | null) {
+    const home = this.home
+    if (!home)
+      return
+    const pieces = pose ? piecesMovedTo(home, id, pose) : home.furniture.filter(item => item.id === id || item.on === id)
+    for (const piece of pieces) {
+      const object = this.furnitureObjects.get(piece.id)
+      object?.position.set(piece.x, piece.y ?? 0, piece.z ?? 0)
+      object?.rotation.set(0, THREE.MathUtils.degToRad(piece.rotation ?? 0), 0)
+    }
+  }
+
+  /**
+   * Preview a piece of furniture dragged to a point of the canvas. It slides
+   * over the floor of its room on the furniture grid; its footprint turns red
+   * where it cannot stand.
+   *
+   * @param id - Piece being dragged
+   * @param x - Canvas x in CSS pixels
+   * @param y - Canvas y in CSS pixels
+   * @returns Where a drop would put it and why it cannot go there, if it cannot
+   */
+  dragFurniture(id: string, x: number, y: number): { pose: FurniturePose | null, problem: FurnitureProblem | null } {
+    const home = this.home
+    const spec = home?.furniture.find(item => item.id === id)
+    if (!home || !spec)
+      return { pose: null, problem: 'fixed' }
+    const template = home.template
+    const floor = template.surfaces.find(surface => surface.kind === 'floor' && surface.roomId === spec.roomId)
+      ?? template.surfaces.find(surface => surface.kind === 'floor')
+    const hit = floor && intersectSurfacePlane(template, floor, this.rayAt(x, y))
+    if (!hit)
+      return { pose: this.furnitureDrag?.pose ?? null, problem: this.furnitureDrag?.problem ?? 'outside' }
+    if (this.furnitureDrag?.id !== id)
+      this.furnitureDrag = { id, grab: { x: spec.x - hit.position.x, z: (spec.z ?? 0) - hit.position.z }, pose: null, problem: null }
+    const drag = this.furnitureDrag
+    const pose = { x: snapFurniture(hit.position.x + drag.grab.x), z: snapFurniture(hit.position.z + drag.grab.z), rotation: poseOf(spec).rotation }
+    drag.pose = pose
+    drag.problem = furnitureProblem(home, this.placements, spec, pose)
+    this.poseFurniture(id, pose)
+    this.showFootprint()
+    this.layoutDevices()
+    this.invalidate()
+    return { pose, problem: drag.problem }
+  }
+
+  /** End a furniture drag and put the piece back where it stands. */
+  endFurnitureDrag() {
+    const drag = this.furnitureDrag
+    if (!drag)
+      return
+    this.furnitureDrag = null
+    this.poseFurniture(drag.id, null)
+    this.showFootprint()
+    this.layoutDevices()
     this.invalidate()
   }
 
@@ -929,9 +1112,7 @@ export class HomeScene3D {
       return
     this.focusRoomId = roomId
     this.overview = overview
-    this.orbit.targetYaw = 0
-    this.orbit.targetPitch = 0
-    this.reframe(false)
+    this.resetView()
   }
 
   /**
@@ -967,11 +1148,50 @@ export class HomeScene3D {
     this.reframe(false)
   }
 
-  /** Turn the diorama a little, from a pointer drag in CSS pixels. */
+  /** Turn the diorama, from a pointer drag in CSS pixels. */
   rotateBy(dx: number, dy: number) {
-    this.orbit.targetYaw = THREE.MathUtils.clamp(this.orbit.targetYaw - dx * 0.0042, -0.5, 0.5)
-    this.orbit.targetPitch = THREE.MathUtils.clamp(this.orbit.targetPitch + dy * 0.0028, -0.16, 0.32)
+    this.orbit.targetYaw = THREE.MathUtils.clamp(this.orbit.targetYaw - dx * 0.0045, -0.85, 0.85)
+    this.orbit.targetPitch = THREE.MathUtils.clamp(this.orbit.targetPitch + dy * 0.003, -0.24, 0.42)
     this.invalidate()
+  }
+
+  /**
+   * Slide the view over the home, from a pointer drag in CSS pixels: the
+   * floor under the pointer follows it.
+   */
+  panBy(dx: number, dy: number) {
+    const template = this.template
+    if (!template)
+      return
+    const yaw = this.baseYaw + this.orbit.targetYaw
+    const pitch = this.basePitch + this.orbit.targetPitch
+    const distance = this.poseTo.distance * this.view.targetZoom
+    const perPixel = 2 * distance * Math.tan(THREE.MathUtils.degToRad(FOV / 2)) / this.height
+    // Screen right and screen up, laid on the floor.
+    const right = { x: Math.cos(yaw), z: -Math.sin(yaw) }
+    const away = { x: -Math.sin(yaw), z: -Math.cos(yaw) }
+    const along = perPixel / Math.max(0.35, Math.sin(pitch))
+    const bounds = roomBounds(template, null)
+    const centre = { x: (bounds.x0 + bounds.x1) / 2 - this.poseTo.x, z: (bounds.z0 + bounds.z1) / 2 - this.poseTo.z }
+    const reachX = (bounds.x1 - bounds.x0) / 2 + 1
+    const reachZ = (bounds.z1 - bounds.z0) / 2 + 1
+    this.view.targetX = THREE.MathUtils.clamp(this.view.targetX - right.x * dx * perPixel + away.x * dy * along, centre.x - reachX, centre.x + reachX)
+    this.view.targetZ = THREE.MathUtils.clamp(this.view.targetZ - right.z * dx * perPixel + away.z * dy * along, centre.z - reachZ, centre.z + reachZ)
+    this.invalidate()
+  }
+
+  /** Move the camera closer (factor below 1) or further away. */
+  zoomBy(factor: number) {
+    this.view.targetZoom = THREE.MathUtils.clamp(this.view.targetZoom * factor, 0.35, 1.6)
+    this.invalidate()
+  }
+
+  /** Back to the framed view of the room or home. */
+  resetView() {
+    this.orbit.targetYaw = 0
+    this.orbit.targetPitch = 0
+    Object.assign(this.view, { targetX: 0, targetZ: 0, targetZoom: 1 })
+    this.reframe(false)
   }
 
   /** Camera elevation for the template and screen. */
@@ -1062,18 +1282,27 @@ export class HomeScene3D {
       busy = progress < 1
     }
     const orbit = this.orbit
+    const view = this.view
     if (this.options.reducedMotion) {
       orbit.yaw = orbit.targetYaw
       orbit.pitch = orbit.targetPitch
+      Object.assign(view, { x: view.targetX, z: view.targetZ, zoom: view.targetZoom })
     }
     else {
       orbit.yaw = approach(orbit.yaw, orbit.targetYaw, dt, 9)
       orbit.pitch = approach(orbit.pitch, orbit.targetPitch, dt, 9)
+      view.x = approach(view.x, view.targetX, dt, 14)
+      view.z = approach(view.z, view.targetZ, dt, 14)
+      view.zoom = approach(view.zoom, view.targetZoom, dt, 12)
       busy = busy || Math.abs(orbit.yaw - orbit.targetYaw) > 0.0005 || Math.abs(orbit.pitch - orbit.targetPitch) > 0.0005
+        || Math.abs(view.x - view.targetX) > 0.001 || Math.abs(view.z - view.targetZ) > 0.001 || Math.abs(view.zoom - view.targetZoom) > 0.0005
     }
     const yaw = this.baseYaw + orbit.yaw
     const pitch = this.basePitch + orbit.pitch
-    const { x, y, z, distance, shift } = this.pose
+    const x = this.pose.x + view.x
+    const z = this.pose.z + view.z
+    const { y, shift } = this.pose
+    const distance = this.pose.distance * view.zoom
     this.camera.position.set(
       x + Math.sin(yaw) * Math.cos(pitch) * distance,
       y + Math.sin(pitch) * distance,
@@ -1167,21 +1396,37 @@ export class HomeScene3D {
    *
    * @param x - Canvas x in CSS pixels
    * @param y - Canvas y in CSS pixels
-   * @returns The device under the point, and the room it falls in
+   * @returns The device or movable piece of furniture under the point, and the room it falls in
    */
-  pick(x: number, y: number): { deviceId: DeviceKind | null, roomId: string | null } {
+  pick(x: number, y: number): { deviceId: DeviceKind | null, furnitureId: string | null, roomId: string | null } {
     const pointer = new THREE.Vector2(x / this.width * 2 - 1, -(y / this.height) * 2 + 1)
     this.raycaster.setFromCamera(pointer, this.camera)
     // Raycasting ignores visibility; skip devices hidden because they are not placed.
-    const hit = this.raycaster.intersectObjects([this.deviceRoot, this.templateRoot], true).find(item => isShown(item.object))
-    if (!hit || !this.template)
-      return { deviceId: null, roomId: null }
-    let object: THREE.Object3D | null = hit.object
-    while (object && !object.userData.deviceId)
-      object = object.parent
+    const first = this.raycaster.intersectObjects([this.deviceRoot, this.furnitureRoot, this.templateRoot], true).find(item => isShown(item.object))
+    if (!first || !this.template)
+      return { deviceId: null, furnitureId: null, roomId: null }
+    const owner = (object: THREE.Object3D) => {
+      let node: THREE.Object3D | null = object
+      while (node && !node.userData.deviceId && !node.userData.furnitureId)
+        node = node.parent
+      return node
+    }
+    let picked = owner(first.object)
+    // Rugs lie under tables and sofas: a press on the rug just beside one
+    // means the piece, which is what people reach for.
+    if (picked?.userData.flat && this.home) {
+      const near = this.home.furniture.find((item) => {
+        const bounds = item.kind !== 'rug' && item.roomId === picked!.userData.roomId && isMovableFurniture(item) ? furnitureFootprint(item) : null
+        const reach = 0.15
+        return bounds && first.point.x > bounds.x0 - reach && first.point.x < bounds.x1 + reach && first.point.z > bounds.z0 - reach && first.point.z < bounds.z1 + reach
+      })
+      if (near)
+        picked = this.furnitureObjects.get(near.id) ?? picked
+    }
     return {
-      deviceId: (object?.userData.deviceId as DeviceKind | undefined) ?? null,
-      roomId: roomAt(this.template, hit.point),
+      deviceId: (picked?.userData.deviceId as DeviceKind | undefined) ?? null,
+      furnitureId: (picked?.userData.furnitureId as string | undefined) ?? null,
+      roomId: roomAt(this.template, first.point),
     }
   }
 
@@ -1190,6 +1435,10 @@ export class HomeScene3D {
     cancelAnimationFrame(this.frame)
     this.updateRouteDispose()
     this.templateKit.dispose()
+    this.furnitureKit.dispose()
+    this.overlayKit.dispose()
+    for (const child of this.footprint.children)
+      (child as THREE.Mesh).geometry.dispose()
     this.deviceKit.dispose()
     this.renderer.dispose()
     this.renderer.forceContextLoss()

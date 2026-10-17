@@ -73,12 +73,6 @@ export const HOME_TEMPLATES: Record<HomeTemplateId, HomeTemplate> = {
       { id: 'utility-floor', roomId: 'utility-room', name: '家政区地面', kind: 'floor', polygon: [{ x: 1215, y: 555 }, { x: 1585, y: 555 }, { x: 1600, y: 790 }, { x: 1205, y: 790 }], accepts: ['fan', 'robot-vacuum'] },
       { id: 'utility-table', roomId: 'utility-room', name: '家政操作台', kind: 'tabletop', polygon: [{ x: 1260, y: 425 }, { x: 1515, y: 425 }, { x: 1525, y: 505 }, { x: 1250, y: 505 }], accepts: ['hand-warmer'] },
     ],
-    obstacles: [
-      { id: 'living-sofa', roomId: 'living-room', polygon: [{ x: 105, y: 430 }, { x: 400, y: 430 }, { x: 420, y: 590 }, { x: 85, y: 590 }] },
-      { id: 'living-table-base', roomId: 'living-room', polygon: [{ x: 190, y: 535 }, { x: 455, y: 535 }, { x: 475, y: 665 }, { x: 170, y: 665 }] },
-      { id: 'bed', roomId: 'bedroom', polygon: [{ x: 720, y: 430 }, { x: 1055, y: 430 }, { x: 1105, y: 710 }, { x: 680, y: 710 }] },
-      { id: 'utility-cabinet', roomId: 'utility-room', polygon: [{ x: 1230, y: 390 }, { x: 1565, y: 390 }, { x: 1565, y: 600 }, { x: 1230, y: 600 }] },
-    ],
     robotRoutes: [
       { roomId: 'living-room', points: [{ x: 70, y: 720 }, { x: 535, y: 720 }, { x: 535, y: 650 }, { x: 85, y: 650 }, { x: 85, y: 610 }, { x: 550, y: 610 }] },
       { roomId: 'bedroom', points: [{ x: 650, y: 748 }, { x: 1160, y: 748 }, { x: 1160, y: 690 }, { x: 650, y: 690 }, { x: 650, y: 625 }, { x: 1160, y: 625 }] },
@@ -97,10 +91,6 @@ export const HOME_TEMPLATES: Record<HomeTemplateId, HomeTemplate> = {
       { id: 'studio-wall', roomId: 'studio-room', name: '单间墙面', kind: 'wall', polygon: [{ x: 90, y: 110 }, { x: 1500, y: 110 }, { x: 1500, y: 420 }, { x: 90, y: 420 }], accepts: ['air-conditioner', 'television'] },
       { id: 'studio-floor', roomId: 'studio-room', name: '单间地面', kind: 'floor', polygon: [{ x: 45, y: 585 }, { x: 1550, y: 585 }, { x: 1600, y: 790 }, { x: 0, y: 790 }], accepts: ['fan', 'robot-vacuum'] },
       { id: 'studio-table', roomId: 'studio-room', name: '书桌桌面', kind: 'tabletop', polygon: [{ x: 1040, y: 440 }, { x: 1345, y: 440 }, { x: 1360, y: 520 }, { x: 1025, y: 520 }], accepts: ['hand-warmer'] },
-    ],
-    obstacles: [
-      { id: 'studio-sofa', roomId: 'studio-room', polygon: [{ x: 180, y: 420 }, { x: 625, y: 420 }, { x: 650, y: 620 }, { x: 150, y: 620 }] },
-      { id: 'studio-bed', roomId: 'studio-room', polygon: [{ x: 690, y: 445 }, { x: 1010, y: 445 }, { x: 1060, y: 715 }, { x: 650, y: 715 }] },
     ],
     robotRoutes: [
       { roomId: 'studio-room', points: [{ x: 70, y: 745 }, { x: 1515, y: 745 }, { x: 1515, y: 680 }, { x: 80, y: 680 }, { x: 80, y: 625 }, { x: 1515, y: 625 }] },
@@ -123,19 +113,11 @@ export const HOME_TEMPLATES: Record<HomeTemplateId, HomeTemplate> = {
       { id: 'suite-bedroom-floor', roomId: 'suite-bedroom', name: '卧室地面', kind: 'floor', polygon: [{ x: 825, y: 585 }, { x: 1580, y: 585 }, { x: 1600, y: 790 }, { x: 805, y: 790 }], accepts: ['fan', 'robot-vacuum'] },
       { id: 'suite-bedroom-table', roomId: 'suite-bedroom', name: '卧室床头柜', kind: 'tabletop', polygon: [{ x: 850, y: 505 }, { x: 960, y: 505 }, { x: 965, y: 570 }, { x: 845, y: 570 }], accepts: ['hand-warmer'] },
     ],
-    obstacles: [
-      { id: 'suite-sofa', roomId: 'suite-living', polygon: [{ x: 260, y: 430 }, { x: 690, y: 430 }, { x: 710, y: 620 }, { x: 235, y: 620 }] },
-      { id: 'suite-table-base', roomId: 'suite-living', polygon: [{ x: 235, y: 525 }, { x: 555, y: 525 }, { x: 575, y: 660 }, { x: 215, y: 660 }] },
-      { id: 'suite-bed', roomId: 'suite-bedroom', polygon: [{ x: 940, y: 430 }, { x: 1360, y: 430 }, { x: 1410, y: 720 }, { x: 900, y: 720 }] },
-    ],
     robotRoutes: [
       { roomId: 'suite-living', points: [{ x: 55, y: 745 }, { x: 760, y: 745 }, { x: 760, y: 675 }, { x: 70, y: 675 }, { x: 70, y: 625 }, { x: 760, y: 625 }] },
       { roomId: 'suite-bedroom', points: [{ x: 835, y: 748 }, { x: 1565, y: 748 }, { x: 1565, y: 680 }, { x: 835, y: 680 }, { x: 835, y: 620 }, { x: 1565, y: 620 }] },
     ],
   },
-  // A real two-bedroom flat (about 9.8 m × 7.2 m), rooms unrolled west to east
-  // along the back wall at roughly three quarters of their true width.
-  // Floor obstacles sit at y = 570 + 50 × depth in metres.
   'my-home': {
     id: 'my-home',
     name: '云端小家',
@@ -172,23 +154,6 @@ export const HOME_TEMPLATES: Record<HomeTemplateId, HomeTemplate> = {
       { id: 'home-bedroom-b-wall', roomId: 'home-bedroom-b', name: '卧室 B 墙面', kind: 'wall', run: [{ x: 647, y: 0 }, { x: 980, y: 0 }], polygon: [{ x: 15, y: 30 }, { x: 318, y: 30 }, { x: 318, y: 120 }, { x: 15, y: 120 }], accepts: ['air-conditioner', 'television'] },
       { id: 'home-bedroom-b-floor', roomId: 'home-bedroom-b', name: '卧室 B 地面', kind: 'floor', polygon: [{ x: 659, y: 12 }, { x: 968, y: 12 }, { x: 968, y: 251 }, { x: 659, y: 251 }], accepts: ['fan', 'robot-vacuum'] },
       { id: 'home-bedroom-b-table', roomId: 'home-bedroom-b', name: '卧室 B 床头柜', kind: 'tabletop', polygon: [{ x: 940, y: 15 }, { x: 970, y: 15 }, { x: 970, y: 45 }, { x: 940, y: 45 }], accepts: ['hand-warmer'] },
-    ],
-    obstacles: [
-      { id: 'home-bathroom-vanity', roomId: 'home-bathroom', polygon: [{ x: 10, y: 148 }, { x: 80, y: 148 }, { x: 80, y: 196 }, { x: 10, y: 196 }] },
-      { id: 'home-bathroom-toilet', roomId: 'home-bathroom', polygon: [{ x: 98, y: 148 }, { x: 142, y: 148 }, { x: 142, y: 210 }, { x: 98, y: 210 }] },
-      { id: 'home-kitchen-units', roomId: 'home-kitchen', polygon: [{ x: 6, y: 327 }, { x: 70, y: 327 }, { x: 70, y: 550 }, { x: 6, y: 550 }] },
-      { id: 'home-balcony-laundry', roomId: 'home-balcony', polygon: [{ x: 343, y: 648 }, { x: 497, y: 648 }, { x: 497, y: 708 }, { x: 343, y: 708 }] },
-      { id: 'home-balcony-basket', roomId: 'home-balcony', polygon: [{ x: 222, y: 652 }, { x: 278, y: 652 }, { x: 278, y: 708 }, { x: 222, y: 708 }] },
-      { id: 'home-living-sofa', roomId: 'home-living', polygon: [{ x: 236, y: 338 }, { x: 330, y: 338 }, { x: 330, y: 542 }, { x: 236, y: 542 }] },
-      { id: 'home-living-table-base', roomId: 'home-living', polygon: [{ x: 378, y: 383 }, { x: 442, y: 383 }, { x: 442, y: 497 }, { x: 378, y: 497 }] },
-      { id: 'home-living-dining', roomId: 'home-living', polygon: [{ x: 432, y: 40 }, { x: 552, y: 40 }, { x: 552, y: 180 }, { x: 432, y: 180 }] },
-      { id: 'home-living-console', roomId: 'home-living', polygon: [{ x: 594, y: 378 }, { x: 643, y: 378 }, { x: 643, y: 542 }, { x: 594, y: 542 }] },
-      { id: 'home-bedroom-a-bed', roomId: 'home-bedroom-a', polygon: [{ x: 778, y: 383 }, { x: 975, y: 383 }, { x: 975, y: 537 }, { x: 778, y: 537 }] },
-      { id: 'home-bedroom-a-side-table', roomId: 'home-bedroom-a', polygon: [{ x: 928, y: 328 }, { x: 976, y: 328 }, { x: 976, y: 382 }, { x: 928, y: 382 }] },
-      { id: 'home-bedroom-a-bay', roomId: 'home-bedroom-a', polygon: [{ x: 788, y: 573 }, { x: 928, y: 573 }, { x: 928, y: 637 }, { x: 788, y: 637 }] },
-      { id: 'home-bedroom-b-bed', roomId: 'home-bedroom-b', polygon: [{ x: 651, y: 23 }, { x: 855, y: 23 }, { x: 855, y: 167 }, { x: 651, y: 167 }] },
-      { id: 'home-bedroom-b-side-table', roomId: 'home-bedroom-b', polygon: [{ x: 933, y: 6 }, { x: 977, y: 6 }, { x: 977, y: 54 }, { x: 933, y: 54 }] },
-      { id: 'home-bedroom-b-bay', roomId: 'home-bedroom-b', polygon: [{ x: 980, y: 128 }, { x: 1055, y: 128 }, { x: 1055, y: 252 }, { x: 980, y: 252 }] },
     ],
     robotRoutes: [
       { roomId: 'home-bathroom', points: [{ x: 25, y: 215 }, { x: 145, y: 215 }, { x: 145, y: 305 }, { x: 25, y: 305 }, { x: 25, y: 260 }, { x: 145, y: 260 }] },
@@ -234,9 +199,11 @@ const defaultPlacements: Record<HomeTemplateId, VirtualHomeState['placements']> 
 
 export function createDefaultHomeState(templateId: HomeTemplateId = 'cloud-apartment', changedAt = '1970-01-01T00:00:00.000Z'): VirtualHomeState {
   return {
-    version: 1,
+    version: 2,
     templateId,
     placements: defaultPlacements[templateId].map(placement => ({ ...placement })),
+    furniture: [],
+    layouts: [],
     revision: 0,
     changedAt,
   }

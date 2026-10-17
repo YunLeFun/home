@@ -1,32 +1,8 @@
-import type { HomePoint, HomeTemplateId } from '~/types'
+import type { FurnitureKind, HomePoint, HomeTemplateId } from '~/types'
 import type { TabletopSpec } from '~/utils/scene3d/projection'
 import { floorDepth, planX, planZ, wallHeight, worldX } from '~/utils/scene3d/projection'
 
-/** Furniture the diorama can build. */
-export type FurnitureKind =
-  | 'sofa'
-  | 'coffee-table'
-  | 'console'
-  | 'table-lamp'
-  | 'floor-lamp'
-  | 'pendant'
-  | 'plant'
-  | 'rug'
-  | 'bed'
-  | 'nightstand'
-  | 'shelf'
-  | 'laundry'
-  | 'basket'
-  | 'desk'
-  | 'clock'
-  | 'window'
-  | 'moon-gate'
-  | 'counter'
-  | 'fridge'
-  | 'dining-table'
-  | 'vanity'
-  | 'toilet'
-  | 'bay-seat'
+export type { FurnitureKind }
 
 /**
  * One piece of furniture in diorama space. x and z are the centre of its
@@ -47,6 +23,10 @@ export interface FurnitureSpec {
   rotation?: number
   /** Lamps glow in the evening and at night. */
   light?: boolean
+  /** The tabletop surface this piece carries, which moves with it. */
+  tabletop?: string
+  /** The piece this one stands on or hangs over, which it moves with. */
+  on?: string
 }
 
 /** Back wall tint of each room, by room. */
@@ -116,20 +96,20 @@ export const SCENE3D_TEMPLATES: Record<HomeTemplateId, Scene3DTemplate> = {
     furniture: [
       { id: 'living-window', kind: 'window', roomId: 'living-room', x: worldX(175), y: wallHeight(365), w: 2.1, h: 1.53 },
       { id: 'living-media-console', kind: 'console', roomId: 'living-room', x: worldX(432), z: 0.26, w: 2, d: 0.48, h: 0.5 },
-      { id: 'living-lamp', kind: 'table-lamp', roomId: 'living-room', x: worldX(512), y: 0.5, z: 0.24, light: true },
+      { id: 'living-lamp', kind: 'table-lamp', roomId: 'living-room', x: worldX(512), y: 0.5, z: 0.24, light: true, on: 'living-media-console' },
       { id: 'living-plant', kind: 'plant', roomId: 'living-room', x: worldX(578), z: 0.42 },
       { id: 'living-rug', kind: 'rug', roomId: 'living-room', x: worldX(311), z: floorDepth(694), w: 4.3, d: 2.2 },
       { id: 'living-sofa', kind: 'sofa', roomId: 'living-room', x: worldX(252), z: 0.96, w: 3, d: 0.95 },
-      { id: 'living-table', kind: 'coffee-table', roomId: 'living-room', x: worldX(327), z: 2, w: 2.1, d: 0.9, h: 0.44 },
+      { id: 'living-table', kind: 'coffee-table', roomId: 'living-room', x: worldX(327), z: 2, w: 2.1, d: 0.9, h: 0.44, tabletop: 'living-table' },
       { id: 'bedroom-clock', kind: 'clock', roomId: 'bedroom', x: worldX(722), y: wallHeight(196), w: 0.62 },
       { id: 'bedroom-window', kind: 'window', roomId: 'bedroom', x: worldX(950), y: wallHeight(315), w: 2.4, h: 1.29 },
-      { id: 'bedroom-pendant', kind: 'pendant', roomId: 'bedroom', x: worldX(1110), y: 1.5, z: 0.42, light: true },
+      { id: 'bedroom-pendant', kind: 'pendant', roomId: 'bedroom', x: worldX(1110), y: 1.5, z: 0.42, light: true, on: 'bedroom-side-table' },
       { id: 'bedroom-rug', kind: 'rug', roomId: 'bedroom', x: worldX(915), z: floorDepth(744), w: 5.2, d: 1.2 },
       { id: 'bed', kind: 'bed', roomId: 'bedroom', x: worldX(882), z: 1.32, w: 3.1, d: 2.64 },
-      { id: 'bedroom-side-table', kind: 'nightstand', roomId: 'bedroom', x: worldX(1110), z: 0.36, w: 0.9, d: 0.6, h: 0.62 },
+      { id: 'bedroom-side-table', kind: 'nightstand', roomId: 'bedroom', x: worldX(1110), z: 0.36, w: 0.9, d: 0.6, h: 0.62, tabletop: 'bedroom-table' },
       { id: 'utility-shelf', kind: 'shelf', roomId: 'utility-room', x: worldX(1400), y: 1.7, w: 2.6 },
-      { id: 'utility-lamp', kind: 'table-lamp', roomId: 'utility-room', x: worldX(1545), y: 0.9, z: 0.22, light: true },
-      { id: 'utility-cabinet', kind: 'laundry', roomId: 'utility-room', x: worldX(1398), z: 0.34, w: 3.3, d: 0.68, h: 0.9 },
+      { id: 'utility-lamp', kind: 'table-lamp', roomId: 'utility-room', x: worldX(1545), y: 0.9, z: 0.22, light: true, on: 'utility-cabinet' },
+      { id: 'utility-cabinet', kind: 'laundry', roomId: 'utility-room', x: worldX(1398), z: 0.34, w: 3.3, d: 0.68, h: 0.9, tabletop: 'utility-table' },
       { id: 'utility-baskets', kind: 'basket', roomId: 'utility-room', x: worldX(1300), z: 1.25 },
     ],
   },
@@ -146,8 +126,8 @@ export const SCENE3D_TEMPLATES: Record<HomeTemplateId, Scene3DTemplate> = {
       { id: 'studio-sofa', kind: 'sofa', roomId: 'studio-room', x: worldX(400), z: 0.98, w: 4.2, d: 1 },
       { id: 'studio-floor-lamp', kind: 'floor-lamp', roomId: 'studio-room', x: worldX(150), z: 0.42, light: true },
       { id: 'studio-bed', kind: 'bed', roomId: 'studio-room', x: worldX(855), z: 1.3, w: 2.9, d: 2.56 },
-      { id: 'studio-desk', kind: 'desk', roomId: 'studio-room', x: worldX(1192), z: 0.42, w: 3.1, d: 0.8, h: 0.76 },
-      { id: 'studio-desk-lamp', kind: 'table-lamp', roomId: 'studio-room', x: worldX(1322), y: 0.76, z: 0.24, light: true },
+      { id: 'studio-desk', kind: 'desk', roomId: 'studio-room', x: worldX(1192), z: 0.42, w: 3.1, d: 0.8, h: 0.76, tabletop: 'studio-table' },
+      { id: 'studio-desk-lamp', kind: 'table-lamp', roomId: 'studio-room', x: worldX(1322), y: 0.76, z: 0.24, light: true, on: 'studio-desk' },
       { id: 'studio-plant', kind: 'plant', roomId: 'studio-room', x: worldX(1460), z: 0.46, variant: 'tall' },
     ],
   },
@@ -164,13 +144,13 @@ export const SCENE3D_TEMPLATES: Record<HomeTemplateId, Scene3DTemplate> = {
       { id: 'suite-floor-lamp', kind: 'floor-lamp', roomId: 'suite-living', x: worldX(742), z: 0.44, light: true },
       { id: 'suite-rug', kind: 'rug', roomId: 'suite-living', x: worldX(465), z: floorDepth(700), w: 4.7, d: 2.3 },
       { id: 'suite-sofa', kind: 'sofa', roomId: 'suite-living', x: worldX(472), z: 0.98, w: 4.2, d: 1 },
-      { id: 'suite-coffee-table', kind: 'coffee-table', roomId: 'suite-living', x: worldX(395), z: 2, w: 2.5, d: 0.96, h: 0.44 },
+      { id: 'suite-coffee-table', kind: 'coffee-table', roomId: 'suite-living', x: worldX(395), z: 2, w: 2.5, d: 0.96, h: 0.44, tabletop: 'suite-living-table' },
       { id: 'suite-moon-gate', kind: 'moon-gate', roomId: 'suite-bedroom', x: worldX(1010), y: wallHeight(210), w: 1.28 },
       { id: 'suite-bedroom-window', kind: 'window', roomId: 'suite-bedroom', x: worldX(1334), y: wallHeight(315), w: 3.08, h: 1.32 },
-      { id: 'suite-pendant', kind: 'pendant', roomId: 'suite-bedroom', x: worldX(905), y: 1.55, z: 0.42, light: true },
+      { id: 'suite-pendant', kind: 'pendant', roomId: 'suite-bedroom', x: worldX(905), y: 1.55, z: 0.42, light: true, on: 'suite-side-table' },
       { id: 'suite-bedroom-rug', kind: 'rug', roomId: 'suite-bedroom', x: worldX(1180), z: floorDepth(753), w: 6.2, d: 1.04 },
       { id: 'suite-bed', kind: 'bed', roomId: 'suite-bedroom', x: worldX(1155), z: 1.38, w: 3.8, d: 2.72 },
-      { id: 'suite-side-table', kind: 'nightstand', roomId: 'suite-bedroom', x: worldX(905), z: 0.38, w: 1, d: 0.64, h: 0.66 },
+      { id: 'suite-side-table', kind: 'nightstand', roomId: 'suite-bedroom', x: worldX(905), z: 0.38, w: 1, d: 0.64, h: 0.66, tabletop: 'suite-bedroom-table' },
       { id: 'suite-bedroom-plant', kind: 'plant', roomId: 'suite-bedroom', x: worldX(1540), z: 0.5, variant: 'bush' },
     ],
   },
@@ -215,27 +195,27 @@ export const SCENE3D_TEMPLATES: Record<HomeTemplateId, Scene3DTemplate> = {
       { id: 'home-bath-toilet', kind: 'toilet', roomId: 'home-bathroom', x: myX(120), z: myZ(181) },
       { id: 'home-bath-window', kind: 'window', roomId: 'home-bathroom', x: myX(7), y: 1.2, z: myZ(245), w: 0.8, h: 0.9, rotation: 90 },
       { id: 'home-kitchen-fridge', kind: 'fridge', roomId: 'home-kitchen', x: myX(39), z: myZ(358), w: 0.6, d: 0.64, h: 1.8, rotation: 90 },
-      { id: 'home-kitchen-counter', kind: 'counter', roomId: 'home-kitchen', x: myX(38), z: myZ(470), w: 1.6, d: 0.62, h: 0.9, rotation: 90 },
+      { id: 'home-kitchen-counter', kind: 'counter', roomId: 'home-kitchen', x: myX(38), z: myZ(470), w: 1.6, d: 0.62, h: 0.9, rotation: 90, tabletop: 'home-kitchen-counter' },
       { id: 'home-kitchen-pendant', kind: 'pendant', roomId: 'home-kitchen', x: myX(140), y: 1.95, z: myZ(445), light: true },
       { id: 'home-balcony-laundry', kind: 'laundry', roomId: 'home-balcony', x: myX(420), z: myZ(677), w: 1.5, d: 0.6, h: 0.9, rotation: 180 },
       { id: 'home-balcony-plant', kind: 'plant', roomId: 'home-balcony', x: myX(612), z: myZ(598), variant: 'tall' },
       { id: 'home-balcony-basket', kind: 'basket', roomId: 'home-balcony', x: myX(250), z: myZ(680) },
       { id: 'home-living-window', kind: 'window', roomId: 'home-living', x: myX(492), y: 0.95, z: myZ(7), w: 1.4, h: 1.35 },
       { id: 'home-dining-table', kind: 'dining-table', roomId: 'home-living', x: myX(492), z: myZ(110), w: 1, d: 0.9, h: 0.75 },
-      { id: 'home-dining-pendant', kind: 'pendant', roomId: 'home-living', x: myX(492), y: 1.75, z: myZ(110), light: true },
+      { id: 'home-dining-pendant', kind: 'pendant', roomId: 'home-living', x: myX(492), y: 1.75, z: myZ(110), light: true, on: 'home-dining-table' },
       { id: 'home-living-plant', kind: 'plant', roomId: 'home-living', x: myX(615), z: myZ(32) },
       { id: 'home-living-rug', kind: 'rug', roomId: 'home-living', x: myX(380), z: myZ(440), w: 2.1, d: 2, rotation: 90 },
       { id: 'home-living-sofa', kind: 'sofa', roomId: 'home-living', x: myX(283), z: myZ(440), w: 2, d: 0.9, rotation: 90 },
       { id: 'home-living-floor-lamp', kind: 'floor-lamp', roomId: 'home-living', x: myX(262), z: myZ(312), light: true },
-      { id: 'home-living-table', kind: 'coffee-table', roomId: 'home-living', x: myX(410), z: myZ(440), w: 1.1, d: 0.6, h: 0.42, rotation: 90 },
+      { id: 'home-living-table', kind: 'coffee-table', roomId: 'home-living', x: myX(410), z: myZ(440), w: 1.1, d: 0.6, h: 0.42, rotation: 90, tabletop: 'home-living-table' },
       { id: 'home-living-console', kind: 'console', roomId: 'home-living', x: myX(618), z: myZ(460), w: 1.6, d: 0.45, h: 0.5, rotation: 270 },
-      { id: 'home-living-lamp', kind: 'table-lamp', roomId: 'home-living', x: myX(620), y: 0.5, z: myZ(392), light: true },
+      { id: 'home-living-lamp', kind: 'table-lamp', roomId: 'home-living', x: myX(620), y: 0.5, z: myZ(392), light: true, on: 'home-living-console' },
       { id: 'home-bedroom-a-rug', kind: 'rug', roomId: 'home-bedroom-a', x: myX(720), z: myZ(460), w: 1.6, d: 0.8, rotation: 90 },
       { id: 'home-bedroom-a-bed', kind: 'bed', roomId: 'home-bedroom-a', x: myX(874), z: myZ(460), w: 1.5, d: 2, rotation: 270 },
-      { id: 'home-bedroom-a-side-table', kind: 'nightstand', roomId: 'home-bedroom-a', x: myX(953), z: myZ(355), w: 0.5, d: 0.45, h: 0.56, rotation: 270 },
+      { id: 'home-bedroom-a-side-table', kind: 'nightstand', roomId: 'home-bedroom-a', x: myX(953), z: myZ(355), w: 0.5, d: 0.45, h: 0.56, rotation: 270, tabletop: 'home-bedroom-a-table' },
       { id: 'home-bedroom-a-bay', kind: 'bay-seat', roomId: 'home-bedroom-a', x: myX(858), z: myZ(605), w: 1.36, d: 0.6, rotation: 180 },
       { id: 'home-bedroom-b-bed', kind: 'bed', roomId: 'home-bedroom-b', x: myX(753), z: myZ(95), w: 1.4, d: 2, rotation: 90 },
-      { id: 'home-bedroom-b-side-table', kind: 'nightstand', roomId: 'home-bedroom-b', x: myX(955), z: myZ(30), w: 0.45, d: 0.4, h: 0.5, rotation: 270 },
+      { id: 'home-bedroom-b-side-table', kind: 'nightstand', roomId: 'home-bedroom-b', x: myX(955), z: myZ(30), w: 0.45, d: 0.4, h: 0.5, rotation: 270, tabletop: 'home-bedroom-b-table' },
       { id: 'home-bedroom-b-rug', kind: 'rug', roomId: 'home-bedroom-b', x: myX(800), z: myZ(205), w: 1.9, d: 0.6 },
       { id: 'home-bedroom-b-window', kind: 'window', roomId: 'home-bedroom-b', x: myX(1048), y: 0.95, z: myZ(190), w: 1.1, h: 1.3, rotation: 270 },
       { id: 'home-bedroom-b-bay', kind: 'bay-seat', roomId: 'home-bedroom-b', x: myX(1018), z: myZ(190), w: 1.2, d: 0.66, rotation: 270 },
