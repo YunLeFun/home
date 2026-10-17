@@ -14,7 +14,17 @@ export function clamp(value: number, min = 0, max = 1) {
 }
 
 export function isHomeTemplateId(value: unknown): value is HomeTemplateId {
-  return value === 'cloud-apartment' || value === 'studio' || value === 'comfort-suite'
+  return value === 'cloud-apartment' || value === 'studio' || value === 'comfort-suite' || value === 'my-home'
+}
+
+/**
+ * The room a template opens on.
+ *
+ * @param template - Home template
+ * @returns Its default room, or the first room when it names none
+ */
+export function defaultRoomId(template: HomeTemplate) {
+  return template.defaultRoomId ?? template.rooms[0]?.id ?? null
 }
 
 export function getPolygonBounds(points: HomePoint[]) {

@@ -2,7 +2,7 @@ import { computed, onMounted, onUnmounted, readonly, shallowRef, watch } from 'v
 import { HOME_TEMPLATES, createDefaultHomeState } from '~/constants/home'
 import type { DeviceKind, DevicePlacement, HomePoint, HomeSyncStatus, HomeTemplateId, VirtualHomeState } from '~/types'
 import { selectCloudSyncDirection } from '~/utils/cloud-sync'
-import { clamp, createPlacementAtPoint, createPlacementInRoom, hasPlacementCollision, normalizeHomeState } from '~/utils/home'
+import { clamp, createPlacementAtPoint, createPlacementInRoom, defaultRoomId, hasPlacementCollision, normalizeHomeState } from '~/utils/home'
 
 const STORAGE_KEY = 'yun-home:layout:v1'
 const ACTIVE_ROOM_STORAGE_KEY = 'yun-home:active-room:v1'
@@ -125,7 +125,7 @@ export function useHomeEditor() {
     const next = createDefaultHomeState(templateId)
     next.revision = state.value.revision
     setState(next)
-    activeRoomId.value = HOME_TEMPLATES[templateId].rooms[0]?.id ?? null
+    activeRoomId.value = defaultRoomId(HOME_TEMPLATES[templateId])
     selectedDeviceId.value = null
   }
 
@@ -220,7 +220,7 @@ export function useHomeEditor() {
       }
     }
     if (!activeRoomId.value || !template.value.rooms.some(room => room.id === activeRoomId.value))
-      activeRoomId.value = template.value.rooms[0]?.id ?? null
+      activeRoomId.value = defaultRoomId(template.value)
     window.addEventListener('focus', refreshFromCloud)
     window.addEventListener('online', refreshFromCloud)
     void reconcileCloudState()
