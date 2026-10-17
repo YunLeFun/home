@@ -26,6 +26,11 @@ extension ACSceneRendering {
   func zoom(delta: CGFloat) {}
 }
 
+// Where the camera starts relative to its target. Typed as Float so the
+// orbit maths below stays cheap for the type checker (literal-only
+// expressions here timed out on CI).
+private let cameraStartOffset = SIMD3<Float>(0.55, -0.43, 3)
+
 /// Keeps the original USDZ hierarchy so the exported louver pivot and display
 /// UVs work in RealityKit without changing the model or device state.
 @MainActor
@@ -43,9 +48,9 @@ final class ACSceneController: ACSceneRendering {
   private let restingModel: Transform
   private var lastState: ACState?
   private var lastRoom: RoomReading?
-  private var yaw = Float(atan2(0.55, 3.0))
-  private var pitch = Float(atan2(-0.43, hypot(0.55, 3.0)))
-  private var distance = Float(sqrt(0.55 * 0.55 + 0.43 * 0.43 + 3 * 3))
+  private var yaw: Float = atan2(cameraStartOffset.x, cameraStartOffset.z)
+  private var pitch: Float = atan2(cameraStartOffset.y, hypot(cameraStartOffset.x, cameraStartOffset.z))
+  private var distance: Float = simd_length(cameraStartOffset)
   private static let cameraTarget = SIMD3<Float>(0, -0.02, 0)
 
   enum ModelError: LocalizedError {
