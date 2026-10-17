@@ -8,9 +8,9 @@
       <stop offset="0" class="sc-stop" style="stop-color: var(--sc-wall-1)" />
       <stop offset="1" class="sc-stop" style="stop-color: var(--sc-wall-2)" />
     </linearGradient>
-    <linearGradient id="sc-wall-sage" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" class="sc-stop" style="stop-color: var(--sc-sage-wall-1)" />
-      <stop offset="1" class="sc-stop" style="stop-color: var(--sc-sage-wall-2)" />
+    <linearGradient id="sc-wall-sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" class="sc-stop" style="stop-color: var(--sc-sky-wall-1)" />
+      <stop offset="1" class="sc-stop" style="stop-color: var(--sc-sky-wall-2)" />
     </linearGradient>
     <linearGradient id="sc-wall-clay" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" class="sc-stop" style="stop-color: var(--sc-clay-wall-1)" />
@@ -77,9 +77,9 @@
       <stop offset="1" class="sc-stop" style="stop-color: var(--sc-wood-light-2)" />
     </linearGradient>
     <linearGradient id="sc-brass" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#e8cf9a" />
-      <stop offset=".5" stop-color="#c59a55" />
-      <stop offset="1" stop-color="#9c7438" />
+      <stop offset="0" stop-color="#fbe2a8" />
+      <stop offset=".5" stop-color="#f2a93b" />
+      <stop offset="1" stop-color="#c47f22" />
     </linearGradient>
     <linearGradient id="sc-ceramic" x1="0" y1="0" x2="1" y2="0">
       <stop offset="0" class="sc-stop" style="stop-color: var(--sc-ceramic-1)" />

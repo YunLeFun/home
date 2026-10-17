@@ -133,7 +133,7 @@ function onKeydown(event: KeyboardEvent) {
   border: 0;
   background: transparent;
   cursor: pointer;
-  filter: drop-shadow(0 9px 10px rgba(40, 49, 47, 0.2));
+  filter: drop-shadow(0 9px 10px rgba(30, 64, 115, 0.2));
   transform: translate(-50%, calc(var(--device-anchor-y) + var(--device-lift))) rotate(var(--device-rotation));
   transform-origin: 50% 70%;
   transition: filter var(--dur-2) ease, transform var(--dur-3) var(--ease-spring);

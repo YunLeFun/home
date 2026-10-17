@@ -10,6 +10,8 @@
 
 优先使用 `public/brand-mark.svg`。应用商店或系统蒙版环境使用
 `public/brand-mark-maskable.svg`，不要在标志内部添加文字、描边或设备连接符号。
+标志为晴空蓝 `#2563eb` 的云门，衬在浅天色 `#eff6ff` 圆角底上；PWA、favicon 与 macOS
+图标的 PNG 都由这两个 SVG 导出。
 
 ## 主题色：晴空暖居
 

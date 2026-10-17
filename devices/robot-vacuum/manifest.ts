@@ -15,6 +15,6 @@ export const robotVacuumManifest: DevicePluginManifest<'robot-vacuum'> = {
   route: '/items/robot-vacuum',
   size: { width: 104, height: 76 },
   surfaces: ['floor'],
-  accent: { cool: '#5f939e', heat: '#687b67' },
+  accent: { cool: '#06b6d4', heat: '#22c55e' },
   integrations: [],
 }

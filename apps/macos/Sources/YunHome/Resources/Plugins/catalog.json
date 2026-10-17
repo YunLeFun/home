@@ -8,7 +8,7 @@
       "author": "YunYouJun",
       "category": "climate",
       "symbol": "air.conditioner.horizontal",
-      "tint": "#5F939E",
+      "tint": "#06B6D4",
       "appIcon": {
         "background": [
           "#e2f0ff",
@@ -133,11 +133,11 @@
         ]
       },
       "previewTone": "cool",
-      "version": "0.3.0",
+      "version": "0.3.1",
       "permissions": ["sensor:thermal"],
       "renderer": "cute-ac-3d",
       "package": "air-conditioner.yunplugin",
-      "sha256": "bb762bbf5b4733ee25a299b99988e1433355f7479b0ac8676f54390af5d30309",
+      "sha256": "fdd99a4f4b32a9fe0eaca1494fe2e963ceec555fcddb801d62525d79fd3ab473",
       "verified": true,
       "homepage": "https://github.com/YunYouJun/air-conditioner/tree/main/packages/home-plugin"
     },

@@ -38,7 +38,7 @@ withDefaults(defineProps<DeviceGlyphProps>(), {
   pointer-events: none;
 }
 
-.warmer-glyph__shadow { fill: rgba(40, 49, 47, 0.14); }
+.warmer-glyph__shadow { fill: rgba(59, 70, 88, 0.14); }
 .warmer-glyph__handle { fill: none; stroke: #b9a07e; stroke-linecap: round; stroke-width: 8; }
 .warmer-glyph__body { fill: #f2d6c0; stroke: #c39d84; stroke-width: 2; }
 .warmer-glyph__panel { fill: #e6b391; stroke: #b98a6c; stroke-width: 1.5; }
@@ -46,7 +46,7 @@ withDefaults(defineProps<DeviceGlyphProps>(), {
 .warmer-glyph__led { fill: #fff2b0; transition: fill var(--dur-3) ease; }
 
 .warmer-glyph.is-active .warmer-glyph__warm-line { animation: warmer-glyph-rise 1.8s ease-in-out infinite; }
-.warmer-glyph.is-active .warmer-glyph__led { fill: #ffe7a8; filter: drop-shadow(0 0 5px rgba(197, 154, 85, 0.9)); }
+.warmer-glyph.is-active .warmer-glyph__led { fill: #ffe7a8; filter: drop-shadow(0 0 5px rgba(242, 169, 59, 0.9)); }
 
 @keyframes warmer-glyph-rise {
   50% { opacity: 0.45; transform: translateY(-2px); }
