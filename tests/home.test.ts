@@ -10,6 +10,7 @@ import {
   surfacePointToWorld,
   worldPointToSurface,
 } from '~/utils/home'
+import { resolveHomeLayout } from '~/utils/scene3d/layout'
 
 describe('cloud home projection', () => {
   const template = HOME_TEMPLATES['cloud-apartment']
@@ -63,8 +64,11 @@ describe('cloud home projection', () => {
   })
 
   it('rejects floor placement inside furniture obstacles', () => {
-    const placement = createPlacementAtPoint(template, 'fan', { x: 250, y: 520 }, createDefaultHomeState().placements)
+    // The sofa stands about a metre out from the living room wall: 0.5 to 1.4 m deep.
+    const furnished = resolveHomeLayout('cloud-apartment').template
+    const placement = createPlacementAtPoint(furnished, 'fan', { x: 250, y: 620 }, createDefaultHomeState().placements)
     expect(placement).toBeNull()
+    expect(createPlacementAtPoint(furnished, 'fan', { x: 250, y: 760 }, createDefaultHomeState().placements)?.surfaceId).toBe('living-floor')
   })
 
   it('moves a device to a compatible surface in another room', () => {
@@ -100,5 +104,4 @@ describe('cloud home persistence', () => {
   it('starts untouched homes at the migration epoch so cloud state wins', () => {
     expect(createDefaultHomeState().changedAt).toBe('1970-01-01T00:00:00.000Z')
   })
-
 })
