@@ -43,7 +43,10 @@ import Testing
   #expect(await waitUntil { collection.connection?.canControl == true })
   collection.connection?.request(.temperature(27.5))
   collection.select(second.id)
-  #expect(await waitUntil { collection.connection?.canControl == true && firstServer.commands.count == 1 })
+  #expect(await waitUntil {
+    collection.connection?.canControl == true && firstServer.commands.count == 1
+      && firstServer.entity.attributes["temperature"]?.number == 27.5
+  })
   #expect(firstServer.entity.attributes["temperature"]?.number == 27.5)
   #expect(secondServer.commands.isEmpty)
   #expect(collection.connection?.displayTemperature == 24)

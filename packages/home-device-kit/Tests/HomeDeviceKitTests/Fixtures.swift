@@ -88,7 +88,7 @@ func climateEntity(mode: String = "off", temperature: Double = 24, updated: Int 
   func result(_ message: HAValue, value: HAValue) -> HAValue {
     .object(["type": .string(message["type"].string == "ping" ? "pong" : "result"), "id": message["id"], "success": .bool(true), "result": value])
   }
-  func controller(credentials: MemoryCredentials? = nil) -> HomeAssistantClimate {
+  func controller(credentials: (any HACredentialStore)? = nil) -> HomeAssistantClimate {
     HomeAssistantClimate(client: HomeAssistantClient(timeout: .milliseconds(250), factory: socket),
                          credentials: credentials ?? MemoryCredentials(), confirmationTimeout: .milliseconds(40),
                          debounce: .milliseconds(20), reconnectDelay: .milliseconds(20))

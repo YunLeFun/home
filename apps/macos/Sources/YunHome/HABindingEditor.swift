@@ -72,7 +72,9 @@ struct HABindingEditor: View {
         if store.haDevices.contains(where: { $0.binding.endpoint.baseURL.absoluteString == address }) {
           Button("使用已保存令牌") {
             do {
-              token = try HAKeychainCredentials().load(for: HAEndpoint(address)) ?? ""
+              let endpoint = try HAEndpoint(address)
+              HASessionCredentials.shared.invalidate(for: endpoint)
+              token = try HASessionCredentials.shared.load(for: endpoint) ?? ""
               // Token changes invalidate an earlier test; the next click starts a fresh one.
             } catch { errorMessage = HAError.credentialStore.localizedDescription }
           }.disabled(busy)

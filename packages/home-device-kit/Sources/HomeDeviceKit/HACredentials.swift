@@ -5,6 +5,47 @@ import Security
   func load(for endpoint: HAEndpoint) throws -> String?
   func save(_ token: String, for endpoint: HAEndpoint) throws
   func remove(for endpoint: HAEndpoint) throws
+  /// Discard a process-local read before an explicit retry or after auth failure.
+  func invalidate(for endpoint: HAEndpoint)
+}
+
+public extension HACredentialStore {
+  func invalidate(for endpoint: HAEndpoint) {}
+}
+
+/// One authorization per HA server per app session, shared by every device.
+/// Tokens and denied reads live only in memory; Keychain remains the only
+/// persistent credential store. A denial is retried only on an explicit action.
+@MainActor public final class HASessionCredentials: HACredentialStore {
+  public static let shared = HASessionCredentials(store: HAKeychainCredentials())
+  private let store: any HACredentialStore
+  private var reads: [HAEndpoint: Result<String?, Error>] = [:]
+
+  public init(store: any HACredentialStore) { self.store = store }
+
+  public func load(for endpoint: HAEndpoint) throws -> String? {
+    if let result = reads[endpoint] { return try result.get() }
+    let result = Result { try store.load(for: endpoint) }
+    reads[endpoint] = result
+    return try result.get()
+  }
+
+  public func save(_ token: String, for endpoint: HAEndpoint) throws {
+    invalidate(for: endpoint)
+    try store.save(token, for: endpoint)
+    reads[endpoint] = .success(token)
+  }
+
+  public func remove(for endpoint: HAEndpoint) throws {
+    invalidate(for: endpoint)
+    try store.remove(for: endpoint)
+    reads[endpoint] = .success(nil)
+  }
+
+  public func invalidate(for endpoint: HAEndpoint) {
+    reads.removeValue(forKey: endpoint)
+    store.invalidate(for: endpoint)
+  }
 }
 
 @MainActor public final class HAKeychainCredentials: HACredentialStore {

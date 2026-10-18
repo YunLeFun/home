@@ -230,6 +230,9 @@ public final class HomeStore {
     persistHABindings()
   }
   public func reconnectHADevices(at endpoint: HAEndpoint) {
+    // Clear a denied/stale read once, then share the new read across this fleet.
+    haDevices.first(where: { $0.binding.endpoint == endpoint })
+      .flatMap { haConnections[$0.id] }?.reloadCredentialOnNextRestore()
     for device in haDevices where device.binding.endpoint == endpoint {
       if let connection = haConnections[device.id] { restore(device, using: connection) }
     }

@@ -52,7 +52,7 @@ public enum HAConnectionState: Equatable, Sendable {
               confirmationTimeout: Duration = .seconds(5), debounce: Duration = .milliseconds(600),
               reconnectDelay: Duration = .seconds(1)) {
     self.client = client ?? HomeAssistantClient()
-    self.credentials = credentials ?? HAKeychainCredentials()
+    self.credentials = credentials ?? HASessionCredentials.shared
     self.confirmationTimeout = confirmationTimeout
     self.debounce = debounce
     self.reconnectDelay = reconnectDelay
@@ -88,6 +88,7 @@ public enum HAConnectionState: Equatable, Sendable {
     catch {
       guard generation == current else { throw error }
       state = error as? HAError == .invalidToken ? .needsToken : .offline
+      if state == .needsToken { reloadCredentialOnNextRestore() }
       self.error = (error as? HAError ?? .disconnected).localizedDescription
       throw error
     }
@@ -127,6 +128,7 @@ public enum HAConnectionState: Equatable, Sendable {
     } catch {
       guard generation == current else { return }
       state = error as? HAError == .invalidToken ? .needsToken : .offline
+      if state == .needsToken { reloadCredentialOnNextRestore() }
       self.error = (error as? HAError ?? .disconnected).localizedDescription
       if state == .offline { scheduleReconnect() }
     }
@@ -141,6 +143,12 @@ public enum HAConnectionState: Equatable, Sendable {
     state = .disconnected
     buffering = false
     buffered.removeAll()
+  }
+
+  /// Call once per endpoint before explicitly retrying a group of devices.
+  /// Other restores reuse this authorized read instead of prompting per device.
+  public func reloadCredentialOnNextRestore() {
+    if let endpoint { credentials.invalidate(for: endpoint) }
   }
 
   public func forgetCredential() throws {
@@ -350,6 +358,7 @@ public enum HAConnectionState: Equatable, Sendable {
     cancelCommands()
     client.disconnect()
     state = failure == .invalidToken ? .needsToken : .offline
+    if state == .needsToken { reloadCredentialOnNextRestore() }
     error = failure.localizedDescription
     if failure != .invalidToken { scheduleReconnect() }
   }
@@ -366,6 +375,7 @@ public enum HAConnectionState: Equatable, Sendable {
       catch {
         guard self.generation == current else { return }
         self.state = error as? HAError == .invalidToken ? .needsToken : .offline
+        if self.state == .needsToken { self.reloadCredentialOnNextRestore() }
         self.error = (error as? HAError ?? .disconnected).localizedDescription
         if self.state == .offline { self.scheduleReconnect() }
       }

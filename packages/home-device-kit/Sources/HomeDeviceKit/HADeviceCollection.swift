@@ -40,6 +40,7 @@ import Observation
 
   public func reconnectSelected() {
     guard let device = selectedDevice, let connection else { return }
+    connection.reloadCredentialOnNextRestore()
     restore(device, connection)
   }
 
