@@ -52,8 +52,20 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 </dict></plist>
 PLIST
 
+# Keep the same Developer ID identity across upgrades to preserve Keychain trust.
+# Ad-hoc signing is still available for CI/development without a certificate.
+SIGN_IDENTITY="${CODE_SIGN_IDENTITY:--}"
+SIGN_ARGS=(--force --sign "$SIGN_IDENTITY")
+if [[ -n "${CODE_SIGN_KEYCHAIN:-}" ]]; then
+  SIGN_ARGS+=(--keychain "$CODE_SIGN_KEYCHAIN")
+fi
+if [[ "$SIGN_IDENTITY" != - ]]; then
+  SIGN_ARGS+=(--timestamp)
+else
+  printf 'Ad-hoc signing: upgrades may require Keychain authorization again.\n' >&2
+fi
 # Sign the helper first so the outer signature seals it.
-codesign --force --sign - "$APP/Contents/MacOS/YunHomePluginHost"
-codesign --force --deep --sign - "$APP"
+codesign "${SIGN_ARGS[@]}" "$APP/Contents/MacOS/YunHomePluginHost"
+codesign "${SIGN_ARGS[@]}" --deep "$APP"
 codesign --verify --deep --strict "$APP"
 printf 'Built %s\n' "$APP"

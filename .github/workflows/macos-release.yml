@@ -2,7 +2,7 @@ name: macOS Release
 
 # Push a macos-v<version> tag (matching apps/macos/VERSION) to publish the
 # native app. The app's update check reads these releases and links to
-# YunHome-<version>.zip. Builds are ad-hoc signed, not notarized.
+# YunHome-<version>.zip. Builds require Developer ID signing; notarization is separate.
 
 on:
   push:
@@ -20,6 +20,9 @@ jobs:
   release:
     runs-on: macos-15
     timeout-minutes: 30
+    env:
+      MACOS_SIGNING_IDENTITY: ${{ vars.MACOS_SIGNING_IDENTITY }}
+      MACOS_SIGNING_TEAM_ID: ${{ vars.MACOS_SIGNING_TEAM_ID }}
     steps:
       - uses: actions/checkout@v4
 
@@ -34,11 +37,24 @@ jobs:
       - name: Test
         run: swift test --package-path apps/macos
 
+      - name: Import Developer ID certificate
+        env:
+          MACOS_CERTIFICATE_P12_BASE64: ${{ secrets.MACOS_CERTIFICATE_P12_BASE64 }}
+          MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+        run: python3 apps/macos/scripts/ci-signing.py install
+
       - name: Bundle
         run: bash apps/macos/scripts/bundle.sh
 
+      - name: Verify Developer ID signature
+        run: python3 apps/macos/scripts/ci-signing.py verify apps/macos/build/YunHome.app fun.yunle.home
+
       - name: Verify relocated app launch
         run: python3 apps/macos/scripts/verify-bundle.py
+
+      - name: Remove temporary signing keychain
+        if: always() && env.MACOS_SIGNING_DIR != ''
+        run: python3 apps/macos/scripts/ci-signing.py cleanup
 
       - name: Zip
         run: ditto -c -k --keepParent apps/macos/build/YunHome.app "YunHome-${GITHUB_REF_NAME#macos-v}.zip"
