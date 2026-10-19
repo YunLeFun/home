@@ -41,7 +41,7 @@ open apps/macos/build/YunHome.app
 
 本版不包含原生账号登录、CloudBase 同步、完整房屋布局编辑或 WidgetKit。原生存档与浏览器存档独立。已用本机 HA 与三台真实小米空调验证绑定、分区和状态读取，并按授权完成次卧开关、调温及 CuteAC → Home 状态同步，测试后恢复原设置。详见[联调记录](../../docs/home-assistant-validation.md)。
 
-构建结果为本机临时签名应用，尚未进行 Developer ID 签名和公证。
+本地构建默认为 ad-hoc 签名；main CI 与 0.2.2 起的正式发布使用 Developer ID 签名，均未经 Apple 公证。
 
 应用的中文显示名与短名称统一为“云之彼端”；构建产物仍为 `YunHome.app`，可执行文件、bundle ID 和存档键保持原值，以保留现有偏好及钥匙串绑定。
 

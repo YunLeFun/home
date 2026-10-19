@@ -254,7 +254,7 @@ export class HomeScene3D {
     this.renderer.toneMapping = THREE.NeutralToneMapping
     this.renderer.toneMappingExposure = 1.02
     this.renderer.shadowMap.enabled = true
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap
+    this.renderer.shadowMap.type = THREE.PCFShadowMap
 
     this.sun.position.set(-6, 10, 9)
     this.sun.target.position.set(0, 0, 1.6)

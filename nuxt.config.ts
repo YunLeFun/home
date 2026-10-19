@@ -1,6 +1,8 @@
 import { fileURLToPath } from 'node:url'
 import { pwa } from './config/pwa'
-import { appDescription } from './constants/index'
+import { appDescription, appName } from './constants/index'
+
+const siteOrigin = (process.env.NUXT_PUBLIC_SITE_ORIGIN || 'https://home.yunle.fun').replace(/\/+$/, '')
 
 export default defineNuxtConfig({
   compatibilityDate: '2026-07-16',
@@ -44,7 +46,7 @@ export default defineNuxtConfig({
 
   runtimeConfig: {
     public: {
-      siteOrigin: 'https://home.yunle.fun',
+      siteOrigin,
       deviceSyncEnabled: true,
       homeSyncEnabled: true,
       ssoClientId: 'home-web',
@@ -102,6 +104,20 @@ export default defineNuxtConfig({
         { name: 'description', content: appDescription },
         { name: 'theme-color', content: '#eef5ff' },
         { name: 'apple-mobile-web-app-status-bar-style', content: 'black-translucent' },
+        // Link previews; crawlers need absolute image URLs.
+        { property: 'og:type', content: 'website' },
+        { property: 'og:site_name', content: appName },
+        { property: 'og:locale', content: 'zh_CN' },
+        { property: 'og:title', content: appName },
+        { property: 'og:description', content: appDescription },
+        { property: 'og:image', content: `${siteOrigin}/og-image.jpg` },
+        { property: 'og:image:width', content: '1200' },
+        { property: 'og:image:height', content: '630' },
+        { property: 'og:image:alt', content: '云之彼端家园的 3D 户型' },
+        { name: 'twitter:card', content: 'summary_large_image' },
+        { name: 'twitter:title', content: appName },
+        { name: 'twitter:description', content: appDescription },
+        { name: 'twitter:image', content: `${siteOrigin}/og-image.jpg` },
       ],
     },
   },

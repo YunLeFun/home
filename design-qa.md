@@ -1,5 +1,7 @@
 # Yun Home Design QA
 
+> **Historical record.** This QA pass covers the 2D SVG room scene from July 2026. That scene has since been replaced by the 3D diorama (`components/home/HomeScene3D.vue`, `utils/scene3d/`), so the vector layers, `data-*` hooks and screenshots below no longer describe the current app.
+
 ## Source of truth
 
 - Product constraint: remove the generated room and device images and replace them with source-editable SVG while preserving the established virtual-home composition and interaction model.
