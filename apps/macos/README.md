@@ -41,7 +41,7 @@ open apps/macos/build/YunHome.app
 
 本版不包含原生账号登录、CloudBase 同步、完整房屋布局编辑或 WidgetKit。原生存档与浏览器存档独立。已用本机 HA 与三台真实小米空调验证绑定、分区和状态读取，并按授权完成次卧开关、调温及 CuteAC → Home 状态同步，测试后恢复原设置。详见[联调记录](../../docs/home-assistant-validation.md)。
 
-本地构建默认为 ad-hoc 签名；main CI 与 0.2.2 起的正式发布使用 Developer ID 签名，均未经 Apple 公证。
+本地构建默认为 ad-hoc 签名；main CI 与 0.2.2 起的正式发布使用 Developer ID 签名，0.2.2 之后的正式发布还会经 Apple 公证并装订票据。
 
 应用的中文显示名与短名称统一为“云之彼端”；构建产物仍为 `YunHome.app`，可执行文件、bundle ID 和存档键保持原值，以保留现有偏好及钥匙串绑定。
 
@@ -50,7 +50,7 @@ open apps/macos/build/YunHome.app
 打包显式使用 Xcode 构建后端，让 SwiftPM 资源从 App 的 `Contents/Resources` 加载。运行 `python3 apps/macos/scripts/verify-bundle.py` 可验证安装包：脚本复制 App 到独立目录、临时隐藏 `.build`、以隔离演示模式启动，确认首页与市场截图生成并恢复构建缓存。请在其他构建和测试结束后运行；CI 和发布流程均包含此检查。
 
 - **版本号**：`apps/macos/VERSION`，`scripts/bundle.sh` 把它写进 `CFBundleShortVersionString`。
-- **发布**：改好 `VERSION` 后推送 `macos-v<版本>` 标签（例如 `macos-v0.2.0`），[macOS Release 工作流](../../.github/workflows/macos-release.yml)会测试、打包，把 `YunHome-<版本>.zip` 上传到同名 GitHub Release。从 0.2.2 起发布包使用 Developer ID 签名，尚未进行 Apple 公证；若系统提示无法验证，按 macOS 的“隐私与安全性”界面确认来源后打开。
+- **发布**：改好 `VERSION` 后推送 `macos-v<版本>` 标签（例如 `macos-v0.2.0`），[macOS Release 工作流](../../.github/workflows/macos-release.yml)会测试、打包，把 `YunHome-<版本>.zip` 上传到同名 GitHub Release。发布包使用 Developer ID 签名并开启 Hardened Runtime，工作流随后用 `scripts/notarize.sh` 提交 Apple 公证并装订票据，下载后可直接打开。0.2.2 及更早的包未经公证，系统提示无法验证时需在“隐私与安全性”中确认来源。本地公证见[发布签名配置](docs/release-signing.md#notarization)。
 - **检查更新**：每天最多查询一次 GitHub Releases 中 `macos-v*` 的最新稳定版（来自 air-conditioner 仓库的 `ReleaseCheck`，与 CuteAC 共用；API 被限流时改读 `releases/latest` 页面）。有新版本时，菜单栏右键菜单出现“下载新版本”，设置的“软件更新”里可以关闭自动检查或手动检查，应用菜单里也有“检查更新…”。只读取公开的发布信息；`--demo`、`--capture` 和 `swift run` 不检查。
 - **插件更新**：精选插件随 App 打包，所以 App 升级后启动时会把已安装的市场插件和内置 `catalog.json` 比较。判断依据是包内容，不是版本号：同版本重新构建的包也算更新，旧版本不会覆盖新版本，从文件安装的插件不会被市场包替换。没有新增权限的更新直接安装；新增权限的（例如空调插件新增 `sensor:thermal`）会在插件详情页显示“有新版本”和要新增的权限，用户点“允许并更新”后才安装，家电市场的卡片上也会标“有更新”。设备和状态保留，只替换插件文件。
 

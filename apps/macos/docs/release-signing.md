@@ -1,6 +1,6 @@
 # macOS release signing
 
-Home 0.2.2 and CuteAC 0.4.2 use the same Developer ID Application certificate, team `QT792GAY4C`. Each app keeps its existing bundle identifier and HA Keychain service/account. The first upgrade from an ad-hoc build can still request “Always Allow”; subsequent builds retain the same designated requirement while this signing identity remains consistent. Signing does not replace Apple notarization, which is not part of this workflow.
+Home 0.2.2 and CuteAC 0.4.2 use the same Developer ID Application certificate, team `QT792GAY4C`. Each app keeps its existing bundle identifier and HA Keychain service/account. The first upgrade from an ad-hoc build can still request “Always Allow”; subsequent builds retain the same designated requirement while this signing identity remains consistent. Developer ID builds are signed with the hardened runtime and a secure timestamp so Home releases can be notarized (see [Notarization](#notarization)).
 
 Configure these in **both** `YunLeFun/home` and `YunYouJun/air-conditioner`:
 
@@ -24,3 +24,25 @@ MACOS_SIGNING_TEAM_ID=QT792GAY4C python3 apps/macos/scripts/ci-signing.py verify
 ```
 
 See [GitHub's Apple certificate setup guide](https://docs.github.com/en/actions/how-tos/deploy/deploy-to-third-party-platforms/sign-xcode-applications) and [Apple's designated requirements documentation](https://developer.apple.com/documentation/technotes/tn3127-inside-code-signing-requirements).
+
+## Notarization
+
+`scripts/notarize.sh APP OUTPUT_ZIP` verifies the signature, submits the app with `xcrun notarytool --wait`, prints Apple's log on rejection, then staples the ticket, checks it with `spctl` and zips the stapled app. The Home release workflow runs it after the relocated-launch check, so the uploaded `YunHome-<version>.zip` opens without a Gatekeeper warning, even offline.
+
+The workflow authenticates with an App Store Connect API key (any key with the Developer role or higher). Configure these in `YunLeFun/home`; CuteAC can reuse them when its release adopts the script:
+
+| Kind | Name | Value |
+| --- | --- | --- |
+| Actions secret | `MACOS_NOTARY_KEY_P8_BASE64` | Base64 of the `AuthKey_<KEY_ID>.p8` file |
+| Actions secret | `MACOS_NOTARY_KEY_ID` | The key ID |
+| Actions secret | `MACOS_NOTARY_ISSUER_ID` | The App Store Connect issuer ID |
+
+Pipe the values into `gh secret set` on standard input, for example `base64 -i AuthKey_<KEY_ID>.p8 | gh secret set MACOS_NOTARY_KEY_P8_BASE64 -R YunLeFun/home`. The script decodes the key into a private temporary directory that is removed on exit.
+
+Locally, either store a profile once with `xcrun notarytool store-credentials` and pass `NOTARY_KEYCHAIN_PROFILE`, or point at a key file:
+
+```sh
+CODE_SIGN_IDENTITY='Developer ID Application: Lan Yang (QT792GAY4C)' bash apps/macos/scripts/bundle.sh
+NOTARY_KEY_PATH=~/.appstoreconnect/private_keys/AuthKey_<KEY_ID>.p8 NOTARY_KEY_ID=<KEY_ID> NOTARY_ISSUER=<ISSUER_ID> \
+  bash apps/macos/scripts/notarize.sh apps/macos/build/YunHome.app YunHome.zip
+```

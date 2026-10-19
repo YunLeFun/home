@@ -2,7 +2,7 @@ name: macOS Release
 
 # Push a macos-v<version> tag (matching apps/macos/VERSION) to publish the
 # native app. The app's update check reads these releases and links to
-# YunHome-<version>.zip. Builds require Developer ID signing; notarization is separate.
+# YunHome-<version>.zip. Builds are Developer ID signed, notarized and stapled.
 
 on:
   push:
@@ -56,8 +56,12 @@ jobs:
         if: always() && env.MACOS_SIGNING_DIR != ''
         run: python3 apps/macos/scripts/ci-signing.py cleanup
 
-      - name: Zip
-        run: ditto -c -k --keepParent apps/macos/build/YunHome.app "YunHome-${GITHUB_REF_NAME#macos-v}.zip"
+      - name: Notarize, staple and zip
+        env:
+          NOTARY_KEY_BASE64: ${{ secrets.MACOS_NOTARY_KEY_P8_BASE64 }}
+          NOTARY_KEY_ID: ${{ secrets.MACOS_NOTARY_KEY_ID }}
+          NOTARY_ISSUER: ${{ secrets.MACOS_NOTARY_ISSUER_ID }}
+        run: bash apps/macos/scripts/notarize.sh apps/macos/build/YunHome.app "YunHome-${GITHUB_REF_NAME#macos-v}.zip"
 
       - name: Publish GitHub Release
         env:
