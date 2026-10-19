@@ -24,6 +24,9 @@ export function defineDevicePlugin<K extends DeviceKind>(plugin: DevicePlugin<K>
 
 const plugins = new Map<DeviceKind, AnyDevicePlugin>()
 const asyncComponents = new Map<string, Component>()
+// Modules already loaded render directly: the Worker's SSR does not wait for
+// async wrappers, so only these match between server HTML and hydration.
+const loadedComponents = new Map<string, Component>()
 
 /**
  * Register a device plugin. Registering the same plugin object twice is a
@@ -46,9 +49,11 @@ export function registerDevicePlugin(plugin: AnyDevicePlugin): void {
  */
 export function unregisterDevicePlugin(kind: DeviceKind): void {
   plugins.delete(kind)
-  for (const key of asyncComponents.keys()) {
-    if (key.startsWith(`${kind}:`))
-      asyncComponents.delete(key)
+  for (const cache of [asyncComponents, loadedComponents]) {
+    for (const key of cache.keys()) {
+      if (key.startsWith(`${kind}:`))
+        cache.delete(key)
+    }
   }
 }
 
@@ -79,6 +84,9 @@ export function resolveDevicePluginComponent(kind: DeviceKind, slot: DevicePlugi
   if (!loader)
     return null
   const key = `${kind}:${slot}`
+  const loaded = loadedComponents.get(key)
+  if (loaded)
+    return loaded
   let component = asyncComponents.get(key)
   if (!component) {
     component = markRaw(defineAsyncComponent({ loader, delay: 120 }))
@@ -88,11 +96,26 @@ export function resolveDevicePluginComponent(kind: DeviceKind, slot: DevicePlugi
 }
 
 /**
- * Warm the module cache for a UI slot of every plugin, so the first render
- * resolves within a microtask instead of waiting on the network.
+ * Load one plugin UI slot so later renders use the component directly. Await
+ * it before rendering a slot that must match between SSR and hydration.
+ *
+ * @param kind - The device kind
+ * @param slot - The UI slot to load
+ */
+export async function preloadDevicePluginComponent(kind: DeviceKind, slot: DevicePluginSlot): Promise<void> {
+  const loader = plugins.get(kind)?.components[slot]
+  if (!loader)
+    return
+  const module = await loader()
+  loadedComponents.set(`${kind}:${slot}`, markRaw((module as { default?: Component }).default ?? module))
+}
+
+/**
+ * Load a UI slot of every plugin, so the first render uses the components
+ * directly instead of waiting on the network.
  *
  * @param slot - The UI slot to preload
  */
 export async function preloadDevicePluginComponents(slot: DevicePluginSlot): Promise<void> {
-  await Promise.all(listDevicePlugins().map(plugin => plugin.components[slot]?.()))
+  await Promise.all(listDevicePlugins().map(plugin => preloadDevicePluginComponent(plugin.manifest.kind, slot)))
 }

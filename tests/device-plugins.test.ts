@@ -10,6 +10,7 @@ import {
   getDevicePlugin,
   installBuiltinDevicePlugins,
   listDevicePlugins,
+  preloadDevicePluginComponent,
   registerDevicePlugin,
   resolveDevicePluginComponent,
   unregisterDevicePlugin,
@@ -80,6 +81,18 @@ describe('device plugin registry', () => {
     expect(resolveDevicePluginComponent('air-conditioner', 'panel')).toBe(resolveDevicePluginComponent('air-conditioner', 'panel'))
     expect(resolveDevicePluginComponent('television', 'panel')).not.toBeNull()
     expect(resolveDevicePluginComponent('fan', 'panel')).toBeNull()
+  })
+
+  it('renders a preloaded slot directly instead of through an async wrapper', async () => {
+    const Glyph = { name: 'TestGlyph', render: () => null }
+    unregisterDevicePlugin('fan')
+    registerDevicePlugin({ ...fanPlugin, components: { ...fanPlugin.components, glyph: async () => ({ default: Glyph }) } })
+    expect(resolveDevicePluginComponent('fan', 'glyph')).not.toBe(Glyph)
+    await preloadDevicePluginComponent('fan', 'glyph')
+    expect(resolveDevicePluginComponent('fan', 'glyph')).toBe(Glyph)
+    await expect(preloadDevicePluginComponent('fan', 'panel')).resolves.toBeUndefined()
+    unregisterDevicePlugin('fan')
+    expect(resolveDevicePluginComponent('fan', 'glyph')).toBeNull()
   })
 
   it('provides a glyph and quick control for every device', () => {

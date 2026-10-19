@@ -1,8 +1,10 @@
 import { fileURLToPath } from 'node:url'
 import { pwa } from './config/pwa'
-import { appDescription, appName } from './constants/index'
+import { appDescription, appName, appTagline } from './constants/index'
 
 const siteOrigin = (process.env.NUXT_PUBLIC_SITE_ORIGIN || 'https://home.yunle.fun').replace(/\/+$/, '')
+// Pages override the title and description with useShareMeta; the card is shared.
+const shareDescription = `${appTagline}。${appDescription}，空调、风扇、电视、扫地机器人与暖手宝都在云上。`
 
 export default defineNuxtConfig({
   compatibilityDate: '2026-07-16',
@@ -109,14 +111,14 @@ export default defineNuxtConfig({
         { property: 'og:site_name', content: appName },
         { property: 'og:locale', content: 'zh_CN' },
         { property: 'og:title', content: appName },
-        { property: 'og:description', content: appDescription },
+        { property: 'og:description', content: shareDescription },
         { property: 'og:image', content: `${siteOrigin}/og-image.jpg` },
         { property: 'og:image:width', content: '1200' },
         { property: 'og:image:height', content: '630' },
-        { property: 'og:image:alt', content: '云之彼端家园的 3D 户型' },
+        { property: 'og:image:alt', content: `${appName}：${appTagline}` },
         { name: 'twitter:card', content: 'summary_large_image' },
         { name: 'twitter:title', content: appName },
-        { name: 'twitter:description', content: appDescription },
+        { name: 'twitter:description', content: shareDescription },
         { name: 'twitter:image', content: `${siteOrigin}/og-image.jpg` },
       ],
     },
