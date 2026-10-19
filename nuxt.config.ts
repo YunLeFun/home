@@ -9,8 +9,10 @@ const shareDescription = `${appTagline}。${appDescription}，空调、风扇、
 export default defineNuxtConfig({
   compatibilityDate: '2026-07-16',
   srcDir: '.',
-  // Session worktrees under .claude/ contain full checkouts with node_modules.
-  ignore: ['.claude/**'],
+  // srcDir is the repository root, so keep the watcher out of non-web trees:
+  // session worktrees and Swift build output hold tens of thousands of files,
+  // and past macOS's 10240-descriptor limit every child spawn fails with EBADF.
+  ignore: ['.claude/**', '.build/**', '.edgeone/**', 'apps/**', 'packages/**', 'infra/**', 'docs/**', 'dist/**'],
 
   modules: [
     '@vueuse/nuxt',
@@ -34,7 +36,7 @@ export default defineNuxtConfig({
   vite: {
     server: {
       watch: {
-        ignored: ['**/.claude/**'],
+        ignored: ['**/.claude/**', '**/.build/**', '**/apps/**', '**/packages/**'],
       },
     },
     resolve: {
