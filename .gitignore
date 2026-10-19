@@ -10,3 +10,5 @@ dist
 .idea/
 .build/
 .swiftpm/
+.edgeone
+.edgeone-nitro-config.mjs

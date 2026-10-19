@@ -115,11 +115,19 @@ Run `pnpm check` before shipping. Automated tests exercise the official client's
 
 Local validation evidence and the two remaining upstream dependency-audit blockers are recorded in [Home Assistant v1 validation](docs/home-assistant-validation.md).
 
+## EdgeOne Pages Deployment
+
+`home.yunle.fun` is moving to EdgeOne Pages so mainland visitors reach it reliably. The project is connected to this GitHub repository: every push to `main` builds a production deployment and other branches get preview URLs. `edgeone.json` pins Node 24.5.0 (the newest Node 24 on EdgeOne; `pnpm-workspace.yaml` sets `nodeVersion` so the engine check still passes) and pnpm 11, and runs `pnpm build`.
+
+EdgeOne detects Nuxt and runs its `@edgeone/nuxt-pages` adapter around the build: a temporary module replaces the `cloudflare-module` preset with `node-server` and writes static assets to `.edgeone/assets` and the SSR function to `.edgeone/cloud-functions/ssr-node`. The adapter restores `nuxt.config.ts` afterwards, so no EdgeOne-specific configuration lives in the repository and the Cloudflare build below keeps working.
+
+Set the same `NUXT_PUBLIC_*` variables as in the Cloudflare section under the EdgeOne project's environment variables; they are read at runtime by the SSR function and shipped to the browser, so they must not include secrets.
+
 ## Cloudflare Workers Deployment
 
-The production target is Cloudflare Workers with Workers Assets. Nuxt uses the ESM `cloudflare-module` Nitro preset; `wrangler.jsonc` points to the generated module entry and static asset directory.
+The Cloudflare target remains available as a fallback. It runs on Cloudflare Workers with Workers Assets. Nuxt uses the ESM `cloudflare-module` Nitro preset; `wrangler.jsonc` points to the generated module entry and static asset directory.
 
-Configure the `NUXT_PUBLIC_*` values in the Cloudflare dashboard. Cloud synchronization does not require a Worker secret.
+Configure the `NUXT_PUBLIC_*` values in the Cloudflare dashboard (and the EdgeOne project). Cloud synchronization does not require a Worker secret.
 
 Create a preview deployment and complete the authentication/cloud-sync smoke tests before running the production command:
 
