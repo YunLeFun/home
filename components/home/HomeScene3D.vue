@@ -643,10 +643,10 @@ watch(phase, value => scene?.setPhase(value))
       <span class="i-carbon-move" />
       拖动设备或家具 · 空白处拖动平移 · 右键旋转
     </p>
-    <p v-else-if="!editMode" class="home-scene3d__hint" aria-hidden="true">
-      <span class="i-carbon-touch-interaction" />
-      <span class="is-desktop">拖动平移 · 右键旋转 · 滚轮缩放 · 点击设备控制</span>
-      <span class="is-phone">拖动旋转 · 双指缩放 · 点击设备控制</span>
+    <p v-else-if="!editMode" class="home-scene3d__hint">
+      <span class="i-carbon-touch-interaction" aria-hidden="true" />
+      <span class="is-desktop">拖动平移 · 右键旋转 · 滚轮缩放 · 点击场景里的设备控制</span>
+      <span class="is-phone">拖动旋转 · 双指缩放 · 点击场景里的设备控制</span>
     </p>
   </section>
 </template>
@@ -896,7 +896,6 @@ watch(phase, value => scene?.setPhase(value))
   font-weight: 600;
   pointer-events: none;
   backdrop-filter: blur(10px);
-  animation: hint-fade 6s var(--ease-out) 1.2s forwards;
 }
 
 @keyframes hotspot-pulse {
@@ -909,11 +908,6 @@ watch(phase, value => scene?.setPhase(value))
   color: var(--brand-ink);
   font-size: 11px;
   animation: none;
-}
-
-@keyframes hint-fade {
-  0%, 70% { opacity: 1; }
-  100% { opacity: 0; }
 }
 
 @media (max-width: 720px) {
@@ -931,7 +925,6 @@ watch(phase, value => scene?.setPhase(value))
 @media (prefers-reduced-motion: reduce) {
   .home-scene3d__hotspot[data-selected="true"]::after,
   .home-scene3d { transition: none; }
-  .home-scene3d__hint { animation: none; }
   .toolbar-enter-active, .toolbar-leave-active { transition: none; }
 }
 </style>

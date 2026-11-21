@@ -293,3 +293,9 @@
   > span:last-child { transition: transform var(--dur-2) var(--ease-spring); }
   &:hover > span:last-child { transform: translateX(3px); }
 }
+
+// The shared dial overlaps its gauge and step row. Keep the buttons above the SVG.
+.acw-dial__steps {
+  position: relative;
+  z-index: 1;
+}

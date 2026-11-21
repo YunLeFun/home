@@ -46,12 +46,15 @@ struct DeviceDetail: View {
 
 struct ACControls: View {
   @Bindable var store: HomeStore
+  @State private var connectingDevice = false
   private var state: ACState { store.acState }
   private var mode: String { store.haBinding == nil ? (state.mode == .cold ? "cool" : "heat") : store.homeAssistant.displayMode }
   private var temperatureEnabled: Bool { store.haBinding == nil || store.homeAssistant.snapshot?.supportsTemperature == true }
   private var stageStatus: String {
-    if store.haBinding != nil && store.homeAssistant.state != .online { return store.homeAssistant.state.name }
-    if let snapshot = store.homeAssistant.snapshot, store.haBinding != nil, !snapshot.available { return haModeName(snapshot.mode) }
+    if let id = store.selectedHAID {
+      guard store.acCanControl else { return store.haStatus(id) }
+      if store.homeAssistant.pending { return "等待确认" }
+    }
     guard state.status else { return "待机" }
     switch mode {
     case "cool": return "制冷中"
@@ -63,6 +66,10 @@ struct ACControls: View {
   var body: some View {
     VStack(spacing: 18) {
       HADeviceSelector(store: store)
+      if store.haBinding == nil {
+        Button("绑定真实设备", systemImage: "link") { connectingDevice = true }
+          .frame(maxWidth: .infinity, alignment: .trailing)
+      }
       modelStage
       ViewThatFits(in: .horizontal) {
         HStack(alignment: .top, spacing: 16) {
@@ -71,8 +78,9 @@ struct ACControls: View {
         }
         VStack(spacing: 16) { controlCard; companionCard }
       }
-      HomeCard { HAConnectionSummary(store: store) }
+      if store.haBinding != nil { HomeCard { HAConnectionSummary(store: store) } }
     }
+    .sheet(isPresented: $connectingDevice) { HABindingEditor(store: store) }
   }
 
   private var modelStage: some View {
@@ -113,7 +121,7 @@ struct ACControls: View {
         HStack(alignment: .center) {
           VStack(alignment: .leading, spacing: 4) {
             Text("设定温度").font(.caption).foregroundStyle(.secondary)
-            Text("\(state.temperatureLabel)°C")
+            Text(store.acTargetTemperature.map { "\($0.formatted())°C" } ?? "—")
               .font(.system(size: 44, weight: .medium, design: .rounded)).monospacedDigit()
               .contentTransition(.numericText())
           }
@@ -146,8 +154,14 @@ struct ACControls: View {
             ForEach(ACFanSpeed.allCases, id: \.self) { Text($0.label).tag($0) }
           }.pickerStyle(.segmented)
         }
-        if store.haBinding != nil && store.homeAssistant.pending {
-          HStack { ProgressView().controlSize(.small); Text("等待设备确认…").font(.caption).foregroundStyle(.secondary) }
+        if store.haBinding != nil {
+          if store.homeAssistant.pending {
+            HStack { ProgressView().controlSize(.small); Text("等待设备确认…").font(.caption).foregroundStyle(.secondary) }
+          } else if let problem = store.homeAssistant.error ?? store.homeAssistant.snapshot?.unsupportedReason {
+            Label(problem, systemImage: "exclamationmark.triangle").font(.caption).foregroundStyle(.orange)
+          } else if store.acCanControl && !state.status {
+            Text("待机时调整的温度和模式会在下次开机时应用。").font(.caption).foregroundStyle(.secondary)
+          }
         }
       }
     }

@@ -61,7 +61,7 @@ final class ACRemoteContainerView: ACSceneContainerView {
   }
 
   private func updateAccessibility() {
-    setAccessibilityValue("\(store.acDisplayName)，\(store.status(for: .airConditioner))，\(store.acState.temperatureLabel)摄氏度")
+    setAccessibilityValue("\(store.acDisplayName)，\(store.status(for: .airConditioner))")
     for element in accessibilityButtons {
       element.setAccessibilityEnabled(element.action.isEnabled(in: store))
       let rect = convert(remote.buttonFrame(element.action, in: bounds.size), to: nil)

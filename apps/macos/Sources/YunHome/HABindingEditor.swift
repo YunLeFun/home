@@ -80,7 +80,7 @@ struct HABindingEditor: View {
           }.disabled(busy)
         }
         if busy { ProgressView().controlSize(.small); Text("正在读取设备…").font(.caption) }
-        if tested { Label("连接成功", systemImage: "checkmark.circle").foregroundStyle(HomeTone.running.text) }
+        if tested && candidate.state == .online { Label("连接成功", systemImage: "checkmark.circle").foregroundStyle(HomeTone.running.text) }
       }
       if tested {
         if candidate.roomLookupFailed { Text("未能读取 HA 分区，可手动选择房间。").font(.caption).foregroundStyle(.secondary) }
@@ -113,7 +113,7 @@ struct HABindingEditor: View {
           Text("已选择 \(selected.count) 台；保存会添加或更新所选设备，保留其余绑定。").font(.caption).foregroundStyle(.secondary)
         }
       }
-      if let errorMessage {
+      if let errorMessage = errorMessage ?? (tested ? candidate.error : nil) {
         Label(errorMessage, systemImage: "exclamationmark.triangle").font(.callout).foregroundStyle(.orange)
       }
       HStack(spacing: 20) {

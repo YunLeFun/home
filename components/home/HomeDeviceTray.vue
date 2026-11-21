@@ -59,7 +59,7 @@ const groups = computed(() => {
 const headingSubtitle = computed(() => {
   if (props.editMode)
     return unplacedDevices.value.length > 0 ? `${unplacedDevices.value.length} 台待安置` : '拖动设备调整位置'
-  return `${currentDevices.value.length} 台设备已连接`
+  return `${currentDevices.value.length} 台设备`
 })
 
 function deviceSubtitle(device: typeof devices.value[number]) {
@@ -67,13 +67,13 @@ function deviceSubtitle(device: typeof devices.value[number]) {
     return '待安置 · 点击后再点房间'
   if (props.editMode)
     return `${device.roomName} · 可拖动调整`
-  return device.active ? '运行中 · 点击控制' : `${device.roomName} · 在线`
+  return device.active ? `${device.roomName} · 运行中` : `${device.roomName} · 点击控制`
 }
 
 function onPointerDown(deviceId: DeviceKind, placed: boolean, event: PointerEvent) {
-  emit('select', deviceId)
-  if (placed)
+  if (placed || event.button !== 0)
     return
+  emit('select', deviceId)
   dragging.value = deviceId
   if (event.currentTarget instanceof HTMLElement)
     event.currentTarget.setPointerCapture(event.pointerId)
@@ -100,7 +100,7 @@ function onRoomChange(deviceId: DeviceKind, event: Event) {
 </script>
 
 <template>
-  <aside class="device-tray" aria-label="智能设备库">
+  <aside class="device-tray" :class="{ 'is-editing': editMode }" aria-label="智能设备库">
     <div class="device-tray__heading">
       <span>{{ activeRoomName }}</span><small>{{ headingSubtitle }}</small>
     </div>
@@ -194,10 +194,10 @@ function onRoomChange(deviceId: DeviceKind, event: Event) {
   color: var(--brand-ink);
   text-align: left;
   cursor: pointer;
-  touch-action: none;
   transition: border-color var(--dur-2) ease, background var(--dur-2) ease, transform var(--dur-3) var(--ease-spring), box-shadow var(--dur-2) ease;
 }
 
+.device-tray__item[data-placed="false"] { touch-action: none; }
 .device-tray__item[data-tone="cool"] { --item-tone: var(--tone-cool); }
 .device-tray__item[data-tone="heat"] { --item-tone: var(--tone-heat); }
 .device-tray__item[data-tone="warm"] { --item-tone: var(--tone-warm); }
@@ -259,6 +259,9 @@ function onRoomChange(deviceId: DeviceKind, event: Event) {
   .device-tray__group + .device-tray__group { padding-left: 10px; }
   .device-tray__group-title { display: flex; justify-content: flex-start; }
   .device-tray__card { flex-basis: 160px; }
+  .device-tray:not(.is-editing) .device-tray__groups,
+  .device-tray:not(.is-editing) .device-tray__list { display: grid; }
+  .device-tray:not(.is-editing) .device-tray__list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .device-tray__item { grid-template-columns: 44px 1fr; height: 60px; padding: 6px 8px; }
   .device-tray__image { width: 42px; height: 42px; }
   .device-tray__image .plugin-icon { --pi-size: 42px !important; }

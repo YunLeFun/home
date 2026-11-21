@@ -93,6 +93,11 @@ public final class HomeStore {
     return state
   }
   public var acCanControl: Bool { haBinding == nil || homeAssistant.canControl }
+  public var acTargetTemperature: Double? {
+    if haBinding == nil { return snapshot.airConditioner.temperature }
+    guard homeAssistant.canControl else { return nil }
+    return homeAssistant.displayTargetTemperature
+  }
   public var acMinimum: Double { haBinding == nil ? 16 : homeAssistant.snapshot?.minimum ?? 16 }
   public var acMaximum: Double { haBinding == nil ? 31 : homeAssistant.snapshot?.maximum ?? 31 }
   public var acStep: Double { haBinding == nil ? 1 : homeAssistant.snapshot?.step ?? 1 }
@@ -106,10 +111,8 @@ public final class HomeStore {
       + snapshot.plugins.filter { isActive(plugin: $0) }.count
   }
   public func status(for device: DeviceKind) -> String {
-    guard device == .airConditioner, haBinding != nil else { return snapshot.status(for: device) }
-    guard homeAssistant.state == .online else { return homeAssistant.state.name }
-    guard let state = homeAssistant.snapshot else { return "未找到空调实体" }
-    return "\(haModeName(state.mode)) · \(acState.temperatureLabel)°C\(homeAssistant.pending ? " · 等待确认" : "")"
+    guard device == .airConditioner, let selectedHAID else { return snapshot.status(for: device) }
+    return haStatus(selectedHAID)
   }
 
   public func send(_ action: HomeAction, at now: Date = Date()) {
@@ -171,8 +174,15 @@ public final class HomeStore {
     guard let connection = haConnections[id] else { return "未连接" }
     guard connection.state == .online else { return connection.state.name }
     guard let state = connection.snapshot else { return "未找到空调实体" }
+    guard state.available else { return haModeName(state.mode) }
+    guard state.unsupportedReason == nil else { return "设备暂不可控" }
     let temperature = state.targetTemperature.map { " · \($0.formatted())\(state.temperatureUnit ?? "")" } ?? ""
-    return haModeName(state.mode) + temperature + (connection.pending ? " · 等待确认" : "")
+    let feedback = connection.pending ? " · 等待确认" : (connection.error != nil ? " · 操作未确认" : "")
+    return haModeName(state.mode) + temperature + feedback
+  }
+  public func haDisplayPower(_ id: String) -> Bool {
+    guard let connection = haConnections[id] else { return false }
+    return connection.state == .online && connection.displayPower
   }
   public func selectHADevice(_ id: String) {
     guard haDevices.contains(where: { $0.id == id }) else { return }
@@ -180,8 +190,12 @@ public final class HomeStore {
     persistHABindings()
   }
   public func toggleHADevice(_ id: String) {
+    setHADevicePower(!haDisplayPower(id), for: id)
+  }
+  public func setHADevicePower(_ power: Bool, for id: String) {
     guard let connection = haConnections[id], connection.canControl else { return }
-    connection.request(.power(!connection.displayPower))
+    guard connection.displayPower != power else { return }
+    connection.request(.power(power))
   }
   public func moveHADevice(_ id: String, to room: HomeRoom) {
     guard let index = haDevices.firstIndex(where: { $0.id == id }) else { return }

@@ -90,8 +90,12 @@ import Testing
   controller.request(.temperature(29))
   server.report(climateEntity(mode: "unavailable", updated: 3))
   #expect(await waitUntil { !controller.canControl })
+  #expect(controller.error == HAError.unavailable.localizedDescription)
   try await Task.sleep(for: .milliseconds(30))
   #expect(server.commands.isEmpty && !controller.pending)
+  server.report(climateEntity(mode: "cool", updated: 4))
+  #expect(await waitUntil { controller.canControl })
+  #expect(controller.error == nil && server.commands.isEmpty)
 }
 
 @MainActor @Test func authenticationListsWithoutIssuingCommands() async throws {

@@ -13,9 +13,9 @@ struct HADeviceTile: View {
             .buttonStyle(.plain).accessibilityLabel("查看\(device.label)")
           Spacer()
           Button { store.toggleHADevice(device.id) } label: {
-            Image(systemName: "power").foregroundStyle(store.isHAActive(device.id) ? HomeTheme.brand : .secondary)
+            Image(systemName: "power").foregroundStyle(store.haDisplayPower(device.id) ? HomeTheme.brand : .secondary)
           }.disabled(store.haConnections[device.id]?.canControl != true)
-            .accessibilityLabel("\(device.label)电源")
+            .accessibilityLabel("\(store.haDisplayPower(device.id) ? "关闭" : "开启")\(device.label)")
         }
         Button(action: select) {
           VStack(alignment: .leading, spacing: 7) {

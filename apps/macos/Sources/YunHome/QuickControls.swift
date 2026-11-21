@@ -65,7 +65,10 @@ struct QuickControls: View {
               }
             }.buttonStyle(.plain)
             Spacer()
-            Toggle(device.label, isOn: Binding(get: { store.isHAActive(device.id) }, set: { _ in store.toggleHADevice(device.id) }))
+            Toggle(device.label, isOn: Binding(
+              get: { store.haDisplayPower(device.id) },
+              set: { store.setHADevicePower($0, for: device.id) }
+            ))
               .labelsHidden().toggleStyle(.switch).controlSize(.small)
               .disabled(store.haConnections[device.id]?.canControl != true)
           }

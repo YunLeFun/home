@@ -69,7 +69,11 @@ public enum HAConnectionState: Equatable, Sendable {
     queued?.mode ?? active?.mode ?? draftMode ?? preferredMode
   }
   public var displayTemperature: Double {
-    queued?.temperature ?? active?.temperature ?? draftTemperature ?? snapshot?.targetTemperature ?? 26
+    displayTargetTemperature ?? 26
+  }
+  public var displayTargetTemperature: Double? {
+    if let intent = queued ?? active, intent.fields.contains("temperature") { return intent.temperature }
+    return draftTemperature ?? snapshot?.targetTemperature
   }
   private var preferredMode: String {
     if let mode = snapshot?.mode, mode != "off" { return mode }
@@ -266,14 +270,18 @@ public enum HAConnectionState: Equatable, Sendable {
       entities.removeAll { $0.id == id }
       entities.append(snapshot)
     } else { entities.removeAll { $0.id == id } }
+    guard id == binding?.entityID else { return }
+    let wasAvailable = snapshot?.available == true
     updateSelected()
     if snapshot?.isOn == true && active == nil && queued == nil {
       draftMode = nil; draftTemperature = nil
     }
     if let snapshot, let active, active.matches(snapshot) { resolveConfirmation(true) }
-    if binding != nil && snapshot?.available != true {
+    if snapshot?.available != true {
       cancelCommands()
       error = (snapshot == nil ? HAError.entityMissing : .unavailable).localizedDescription
+    } else if !wasAvailable {
+      error = nil
     }
   }
   private func updateSelected() {

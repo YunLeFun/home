@@ -30,10 +30,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSPo
       captureDirectory = URL(fileURLWithPath: arguments[index + 1])
     } else { captureDirectory = nil }
     if captureDirectory != nil || arguments.contains("--demo") {
-      let defaults = UserDefaults(suiteName: "fun.yunle.home.demo.\(ProcessInfo.processInfo.processIdentifier)")!
+      // Reopen an earlier demo's preferences to check an upgrade with an isolated binding.
+      let savedProfile = arguments.firstIndex(of: "--demo-profile")
+        .flatMap { arguments.dropFirst($0 + 1).first }
+        .flatMap(Int32.init)
+      let profile = savedProfile ?? ProcessInfo.processInfo.processIdentifier
+      let defaults = UserDefaults(suiteName: "fun.yunle.home.demo.\(profile)")!
+      let hasSavedHome = defaults.object(forKey: "yun-home:native:v1") != nil
       store = HomeStore(defaults: defaults)
-      store.send(.ac(.toggle))
-      store.send(.fan(.speed(1)))
+      if !hasSavedHome {
+        store.send(.ac(.toggle))
+        store.send(.fan(.speed(1)))
+      }
     } else { store = HomeStore(sharedBindings: HAFileBindingCatalog()) }
     super.init()
   }

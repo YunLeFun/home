@@ -96,6 +96,49 @@ import HomeDeviceKit
   #expect(fixture.commands.isEmpty)
 }
 
+@MainActor @Test func powerFeedbackAndTemperatureConvergeWithACompanionClient() async throws {
+  let suite = "fun.yunle.home.companion-test.\(UUID().uuidString)"
+  let defaults = try #require(UserDefaults(suiteName: suite))
+  let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+  let catalog = HAFileBindingCatalog(url: directory.appendingPathComponent("bindings.json"))
+  let fixture = FleetFixture()
+  let store = HomeStore(defaults: defaults, connectionFactory: fixture.controller, sharedBindings: catalog)
+  let companion = HADeviceCollection(factory: fixture.controller)
+  defer {
+    companion.disconnectAll()
+    for device in store.haDevices { store.removeHADevice(device.id) }
+    defaults.removePersistentDomain(forName: suite)
+    try? FileManager.default.removeItem(at: directory)
+  }
+
+  let candidate = fixture.controller()
+  try await candidate.connect(to: HAEndpoint("http://localhost:8123"), token: "fixture")
+  try store.bindHomeAssistant(candidate, entityID: "climate.living")
+  let id = try #require(store.selectedHAID)
+  companion.update(try catalog.load())
+  companion.select(id)
+  #expect(await eventually { companion.connection?.canControl == true })
+  #expect(fixture.commands.isEmpty)
+
+  store.setHADevicePower(false, for: id)
+  store.setHADevicePower(false, for: id)
+  #expect(!store.haDisplayPower(id) && store.isHAActive(id))
+  #expect(store.haStatus(id).contains("等待确认"))
+  #expect(await eventually { !candidate.pending && companion.connection?.snapshot?.mode == "off" })
+  #expect(fixture.commands.count == 1 && !store.isHAActive(id))
+  #expect(store.status(for: .airConditioner) == store.haStatus(id))
+  #expect(!store.haStatus(id).contains("等待确认"))
+
+  let peer = try #require(companion.connection)
+  peer.request(.power(true))
+  #expect(await eventually { !peer.pending && store.isHAActive(id) })
+  store.send(.ac(.temperature(25.5)))
+  #expect(store.acTargetTemperature == 25.5 && candidate.snapshot?.targetTemperature == 24)
+  #expect(await eventually { !candidate.pending && peer.snapshot?.targetTemperature == 25.5 })
+  peer.request(.temperature(26))
+  #expect(await eventually { !peer.pending && store.acTargetTemperature == 26 })
+}
+
 @MainActor private final class FleetCredentials: HACredentialStore {
   var token: String?
   func load(for endpoint: HAEndpoint) throws -> String? { token }
