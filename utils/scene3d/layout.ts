@@ -407,7 +407,7 @@ export function resolveHomeLayout(templateId: HomeTemplateId, edits: readonly Fu
       name: `${info.name}桌面`,
       kind: 'tabletop',
       polygon: rectangle(0, 0, 1, 1),
-      accepts: ['hand-warmer'],
+      accepts: ['hand-warmer', 'night-light'],
     }
     const top = tabletopAt(base, surface, { height: spec.h ?? info.size.h ?? 0.5 }, { x0, x1, z0, z1 })
     surfaces.push(top.surface)

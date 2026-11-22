@@ -1,4 +1,4 @@
-export type DeviceKind = 'air-conditioner' | 'fan' | 'robot-vacuum' | 'hand-warmer' | 'television'
+export type DeviceKind = 'air-conditioner' | 'fan' | 'robot-vacuum' | 'hand-warmer' | 'television' | 'night-light'
 
 export type DeviceStateSyncStatus = 'local' | 'syncing' | 'synced' | 'unauthorized' | 'error'
 
@@ -130,6 +130,7 @@ export interface DeviceStateMap {
   'fan': FanState
   'robot-vacuum': RobotVacuumState
   'hand-warmer': HandWarmerState
+  'night-light': { power: boolean, stateChangedAt: string }
   'television': TelevisionState
 }
 
@@ -138,6 +139,7 @@ export interface DeviceActionMap {
   'fan': FanAction
   'robot-vacuum': RobotVacuumAction
   'hand-warmer': HandWarmerAction
+  'night-light': { type: 'set-power', power: boolean }
   'television': TelevisionAction
 }
 

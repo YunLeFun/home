@@ -108,6 +108,8 @@ export function worldPointToSurface(surface: HomeSurface, point: HomePoint) {
  * @returns A key shared by the surfaces on the same sheet
  */
 export function surfaceSheet(template: HomeTemplate, surface: HomeSurface) {
+  if (surface.wallSide)
+    return surface.id
   if (template.layout !== 'plan')
     return 'elevation'
   // Floors share the floor plan; tabletops sit above it and walls stand on their own.
@@ -139,14 +141,15 @@ function isBlocked(template: HomeTemplate, roomId: string, point: HomePoint) {
  * @param deviceId - Device being placed
  * @param point - Point on a sheet
  * @param snapDistance - How far off a surface the point may be and still snap to it
- * @param surfaceId - Surface whose sheet the point is on; every sheet when unset
+ * @param surfaceId - Wall or sheet the point is on; every sheet when unset
  * @returns The surface, the point's surface coordinates and the snapped point, or null
  */
 export function findSurfaceAtPoint(template: HomeTemplate, deviceId: DeviceKind, point: HomePoint, snapDistance = 72, surfaceId?: string) {
   const onSurface = surfaceId ? template.surfaces.find(surface => surface.id === surfaceId) : undefined
   const sheet = onSurface && surfaceSheet(template, onSurface)
+  const wall = onSurface?.kind === 'wall' ? onSurface : undefined
   const candidates = template.surfaces
-    .filter(surface => surface.accepts.includes(deviceId) && (!sheet || surfaceSheet(template, surface) === sheet))
+    .filter(surface => surface.accepts.includes(deviceId) && (wall ? surface === wall : !sheet || surfaceSheet(template, surface) === sheet))
     .map(surface => ({
       surface,
       distance: pointInPolygon(point, surface.polygon) ? 0 : distanceToBounds(point, surface),
@@ -391,7 +394,7 @@ export function normalizeFurnitureEdits(value: unknown, template: Pick<HomeTempl
 function placementSurfaces(template: HomeTemplate, furniture: FurnitureEdit[]): Array<Pick<HomeSurface, 'id' | 'roomId' | 'accepts'>> {
   const added = furniture
     .filter(edit => edit.kind && edit.roomId && FURNITURE_KINDS[edit.kind].top)
-    .map(edit => ({ id: `${edit.id}-top`, roomId: edit.roomId!, accepts: ['hand-warmer'] as DeviceKind[] }))
+    .map(edit => ({ id: `${edit.id}-top`, roomId: edit.roomId!, accepts: ['hand-warmer', 'night-light'] as DeviceKind[] }))
   return [...template.surfaces, ...added]
 }
 

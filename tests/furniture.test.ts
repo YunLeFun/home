@@ -216,13 +216,13 @@ describe('furnished layout', () => {
     const from = projectPlacement(before.template, warmer('cloud-apartment'), before.tabletops)!.position
     const to = projectPlacement(after.template, warmer('cloud-apartment'), after.tabletops)!.position
     expect(to.x).toBeCloseTo(from.x + 0.4)
-    expect(to.z).toBeCloseTo(from.z + 0.5)
+    expect(to.z).toBeCloseTo(from.z + 2.5 - table.z!)
     // Turned a quarter, the tabletop's width and depth swap.
     const turned = resolveHomeLayout('cloud-apartment', moveFurnitureEdit('cloud-apartment', [], table.id, { ...poseOf(table), rotation: 90 }))
     const spec = turned.tabletops['living-table']!
     const surface = turned.template.surfaces.find(item => item.id === 'living-table')!
     expect((surface.polygon[1].x - surface.polygon[0].x) * 0.01).toBeCloseTo(0.76)
-    expect(spec.z1! - spec.z0!).toBeCloseTo(2.35)
+    expect(spec.z1! - spec.z0!).toBeCloseTo(1.9)
   })
 
   it('moves lamps with the piece they stand on and drops them with it', () => {

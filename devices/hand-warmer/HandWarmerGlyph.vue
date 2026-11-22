@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { DeviceGlyphProps } from '../types'
+import { cloudPath, sleevePath } from './outline'
 
 withDefaults(defineProps<DeviceGlyphProps>(), {
   active: false,
@@ -13,19 +14,27 @@ withDefaults(defineProps<DeviceGlyphProps>(), {
     class="device-glyph warmer-glyph"
     :class="{ 'is-active': active }"
     :data-tone="tone"
-    viewBox="0 0 120 120"
+    viewBox="0 0 64 64"
     role="img"
     focusable="false"
     :aria-hidden="title ? undefined : 'true'"
     data-vector-device="hand-warmer"
   >
     <title v-if="title">{{ title }}</title>
-    <ellipse class="warmer-glyph__shadow" cx="60" cy="104" rx="29" ry="8" />
-    <path class="warmer-glyph__handle" d="M42 37c0-18 36-18 36 0" />
-    <rect class="warmer-glyph__body" x="27" y="31" width="66" height="72" rx="28" />
-    <path class="warmer-glyph__panel" d="M36 68c8-12 40-12 48 0v16c-12 9-36 9-48 0Z" />
-    <path class="warmer-glyph__warm-line" d="M46 58c-5-6 5-9 0-15M60 58c-5-6 5-9 0-15M74 58c-5-6 5-9 0-15" />
-    <circle class="warmer-glyph__led" cx="60" cy="83" r="3" />
+    <ellipse cx="32" cy="54" rx="16" ry="2" fill="#6a2a10" opacity=".12" />
+    <path v-if="active" class="warmer-glyph__heat" d="M23 16q-2-2.5 0-5m9-1q-2-2.5 0-5m9 11q-2-2.5 0-5" />
+    <path class="warmer-glyph__body" :d="cloudPath" />
+    <path :d="sleevePath" fill="#ffc658" />
+    <path d="M20 45Q32 48 44 45" stroke="#ffe096" stroke-width="1.3" stroke-linecap="round" fill="none" />
+    <g fill="#3b4658">
+      <ellipse cx="26" cy="32" rx="1.5" ry="2" />
+      <ellipse cx="38" cy="32" rx="1.5" ry="2" />
+      <path d="M30 36Q32 38 34 36" stroke="#3b4658" stroke-width="1.4" stroke-linecap="round" fill="none" />
+    </g>
+    <g fill="#ffb3a7">
+      <ellipse cx="21" cy="36" rx="2.6" ry="1.6" />
+      <ellipse cx="43" cy="36" rx="2.6" ry="1.6" />
+    </g>
   </svg>
 </template>
 
@@ -38,21 +47,15 @@ withDefaults(defineProps<DeviceGlyphProps>(), {
   pointer-events: none;
 }
 
-.warmer-glyph__shadow { fill: rgba(59, 70, 88, 0.14); }
-.warmer-glyph__handle { fill: none; stroke: #b9a07e; stroke-linecap: round; stroke-width: 8; }
-.warmer-glyph__body { fill: #f2d6c0; stroke: #c39d84; stroke-width: 2; }
-.warmer-glyph__panel { fill: #e6b391; stroke: #b98a6c; stroke-width: 1.5; }
-.warmer-glyph__warm-line { fill: none; stroke: #fff5ef; stroke-linecap: round; stroke-width: 2.5; }
-.warmer-glyph__led { fill: #fff2b0; transition: fill var(--dur-3) ease; }
-
-.warmer-glyph.is-active .warmer-glyph__warm-line { animation: warmer-glyph-rise 1.8s ease-in-out infinite; }
-.warmer-glyph.is-active .warmer-glyph__led { fill: #ffe7a8; filter: drop-shadow(0 0 5px rgba(242, 169, 59, 0.9)); }
+.warmer-glyph__body { fill: #fff8ee; stroke: #e6d7c8; stroke-width: 0.6; }
+.warmer-glyph.is-active .warmer-glyph__body { fill: #ffead2; }
+.warmer-glyph__heat { fill: none; stroke: #f2a34f; stroke-linecap: round; stroke-width: 1.8; animation: warmer-glyph-rise 1.8s ease-in-out infinite; }
 
 @keyframes warmer-glyph-rise {
-  50% { opacity: 0.45; transform: translateY(-2px); }
+  50% { opacity: 0.55; transform: translateY(-1.5px); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .warmer-glyph.is-active .warmer-glyph__warm-line { animation: none; }
+  .warmer-glyph__heat { animation: none; }
 }
 </style>

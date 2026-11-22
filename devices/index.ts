@@ -2,6 +2,7 @@ import type { AnyDevicePlugin } from './types'
 import { airConditionerPlugin } from './air-conditioner'
 import { fanPlugin } from './fan'
 import { handWarmerPlugin } from './hand-warmer'
+import { nightLightPlugin } from './night-light'
 import { getDevicePlugin, registerDevicePlugin, unregisterDevicePlugin } from './registry'
 import { robotVacuumPlugin } from './robot-vacuum'
 import { televisionPlugin } from './television'
@@ -16,6 +17,7 @@ export const BUILTIN_DEVICE_PLUGINS: AnyDevicePlugin[] = [
   robotVacuumPlugin,
   handWarmerPlugin,
   televisionPlugin,
+  nightLightPlugin,
 ]
 
 /**

@@ -1,13 +1,16 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, shallowRef, watch } from 'vue'
-import type { DeviceKind, DevicePlacement, FurnitureKind, SurfaceTarget } from '~/types'
+import type { DeviceKind, DevicePlacement, FurnitureKind, SurfaceTarget, TelevisionState } from '~/types'
+import type { ApartmentWallSide, WallMode, WallVisibility } from '~/utils/scene3d/apartment-walls'
 import type { DeviceVisual } from '~/utils/scene3d/devices'
 import type { HomeResetScope } from '~/composables/home-editor'
 import type { FurniturePose, ResolvedHome } from '~/utils/scene3d/layout'
 import type { HomeScene3D, ScreenAnchor } from '~/utils/scene3d/scene'
 import { FURNITURE_CATALOGUE, FURNITURE_KINDS } from '~/constants/furniture'
 import { HOME_DEVICES } from '~/constants/home'
+import { apartmentWallKeys, surfaceIsVisible, wallIsVisible } from '~/utils/scene3d/apartment-walls'
 import { FURNITURE_SNAP } from '~/utils/scene3d/layout'
+import HomeSceneWalls from './HomeSceneWalls.vue'
 
 const props = defineProps<{
   /** The home as the user furnished it. */
@@ -19,6 +22,7 @@ const props = defineProps<{
   overviewMode: boolean
   activeDevices: DeviceKind[]
   visuals: Partial<Record<DeviceKind, DeviceVisual>>
+  television: TelevisionState
   robotProgress: number
   robotCleaning: boolean
   /** Placing devices: surfaces light up and devices can be dragged. */
@@ -41,6 +45,7 @@ const emit = defineEmits<{
   removeFurniture: [id: string]
   addFurniture: [kind: FurnitureKind]
   reset: [scope: HomeResetScope]
+  televisionPause: []
   ready: []
   failed: []
 }>()
@@ -68,11 +73,40 @@ let scene: HomeScene3D | null = null
 let resizeObserver: ResizeObserver | undefined
 let motionQuery: MediaQueryList | undefined
 let visibilityObserver: IntersectionObserver | undefined
-let onScreen = true
+const onScreen = shallowRef(true)
+const documentVisibility = useDocumentVisibility()
+const wallMode = shallowRef<WallMode>('auto')
+const manualWalls = shallowRef<WallVisibility>({})
+const wallVisibility = shallowRef<WallVisibility>({})
 
 const placed = computed(() => props.placements.filter(placement => placement.surfaceId).map(placement => placement.deviceId))
 const selectedPlacement = computed(() => props.placements.find(placement => placement.deviceId === props.selectedDeviceId && placement.surfaceId))
 const template = computed(() => props.home.template)
+const wallKeys = computed(() => apartmentWallKeys(template.value, props.activeRoomId))
+const wallRoomName = computed(() => template.value.rooms.find(room => room.id === props.activeRoomId)?.name ?? '')
+const visibleWalls = computed(() => {
+  const keys = wallKeys.value
+  if (!keys)
+    return null
+  const visibility = wallMode.value === 'auto' ? wallVisibility.value : manualWalls.value
+  return {
+    back: wallIsVisible(keys.back, visibility),
+    left: wallIsVisible(keys.left, visibility),
+    right: wallIsVisible(keys.right, visibility),
+    front: wallIsVisible(keys.front, visibility),
+  }
+})
+const televisionVisible = computed(() => {
+  const placement = props.placements.find(item => item.deviceId === 'television')
+  const surface = template.value.surfaces.find(item => item.id === placement?.surfaceId)
+  return Boolean(surface && (props.overviewMode || surface.roomId === props.activeRoomId)
+    && surfaceIsVisible(template.value, surface, wallVisibility.value))
+})
+const { frameSource, status: televisionStatus, play: retryTelevision, loadedFrame, mediaError } = useSceneTelevision(
+  () => props.television,
+  () => ready.value && onScreen.value && documentVisibility.value === 'visible' && televisionVisible.value,
+  () => emit('televisionPause'),
+)
 const selectedFurniture = computed(() => props.home.furniture.find(item => item.id === props.selectedFurnitureId) ?? null)
 const showToolbar = computed(() => Boolean(props.editMode && selectedPlacement.value && !draggingId.value))
 const showFurnitureToolbar = computed(() => Boolean(props.editMode && !showToolbar.value && selectedFurniture.value && !draggingFurniture.value))
@@ -98,7 +132,18 @@ function applyAnchors(anchors: ScreenAnchor[]) {
 }
 
 function syncPaused() {
-  scene?.setPaused(!onScreen)
+  scene?.setPaused(!onScreen.value || documentVisibility.value === 'hidden')
+}
+
+function toggleWall(side: ApartmentWallSide) {
+  const key = wallKeys.value?.[side]
+  if (key)
+    manualWalls.value = { ...manualWalls.value, [key]: !wallIsVisible(key, manualWalls.value) }
+}
+
+function onTelevisionPlaying() {
+  loadedFrame()
+  scene?.invalidate()
 }
 
 // Pointer: a short press picks. A drag slides the view over the home; a
@@ -110,6 +155,7 @@ let press: { id: number, x: number, y: number, lastX: number, lastY: number, dra
 const touches = new Map<number, { x: number, y: number }>()
 let pinch: { distance: number, x: number, y: number } | null = null
 const viewMoved = shallowRef(false)
+const gestureLearned = useLocalStorage('yun-home:scene-gesture-learned', false, { writeDefaults: false })
 let dropTarget: SurfaceTarget | null = null
 let furnitureDrop: FurniturePose | null = null
 
@@ -164,6 +210,8 @@ function handlePointerMove(event: PointerEvent) {
       if (next.distance > 0)
         scene.zoomBy(pinch.distance / next.distance)
       pinch = next
+      if (!props.editMode)
+        gestureLearned.value = true
       viewMoved.value = true
       return
     }
@@ -173,6 +221,8 @@ function handlePointerMove(event: PointerEvent) {
     const dy = event.clientY - press.lastY
     if (!press.dragging && Math.hypot(event.clientX - press.x, event.clientY - press.y) > 6) {
       press.dragging = true
+      if (!props.editMode && scene)
+        gestureLearned.value = true
       if (!press.deviceId)
         canvas.value?.setPointerCapture(event.pointerId)
     }
@@ -438,6 +488,7 @@ onMounted(async () => {
       mobile,
       reducedMotion: motionQuery.matches,
       onProject: applyAnchors,
+      onWallVisibilityChange: (visibility) => { wallVisibility.value = visibility },
     })
     element.addEventListener('webglcontextlost', (event) => {
       event.preventDefault()
@@ -448,6 +499,7 @@ onMounted(async () => {
     scene.setPhase(phase.value, true)
     scene.setPlacements(props.placements)
     scene.setHome(props.home)
+    scene.setWallVisibility(wallMode.value, manualWalls.value)
     scene.setFurnitureSelection(props.selectedFurnitureId ?? null)
     scene.setVisuals(props.visuals)
     scene.setRobot(props.robotCleaning, props.robotProgress)
@@ -466,8 +518,7 @@ onMounted(async () => {
     })
     resizeObserver.observe(shell.value!)
     visibilityObserver = new IntersectionObserver(([entry]) => {
-      onScreen = entry?.isIntersecting ?? true
-      syncPaused()
+      onScreen.value = entry?.isIntersecting ?? true
     })
     visibilityObserver.observe(shell.value!)
     syncPaused()
@@ -495,6 +546,9 @@ onUnmounted(() => {
 })
 
 watch(() => props.home, home => scene?.setHome(home))
+watch([wallMode, manualWalls], ([mode, visibility]) => scene?.setWallVisibility(mode, visibility))
+watch(frameSource, video => scene?.setTelevisionVideo(video))
+watch([onScreen, documentVisibility], syncPaused)
 watch(() => props.selectedFurnitureId, id => scene?.setFurnitureSelection(id ?? null))
 watch(() => props.placements, placements => scene?.setPlacements(placements), { deep: true })
 watch(() => props.visuals, visuals => scene?.setVisuals(visuals), { deep: true })
@@ -540,11 +594,30 @@ watch(phase, value => scene?.setPhase(value))
       @wheel.prevent="handleWheel"
       @contextmenu.prevent
     />
+    <video
+      ref="sceneVideo"
+      class="home-scene3d__video"
+      crossorigin="anonymous"
+      playsinline
+      preload="none"
+      aria-hidden="true"
+      @loadeddata="loadedFrame"
+      @playing="onTelevisionPlaying"
+      @ended="emit('televisionPause')"
+      @error="mediaError"
+    />
+    <HomeSceneWalls v-if="visibleWalls" v-model:mode="wallMode" :room-name="wallRoomName" :visible="visibleWalls" @toggle="toggleWall" />
     <Transition name="toolbar">
       <button v-if="viewMoved" type="button" class="home-scene3d__reset-view" title="回到默认视角" @click="resetView">
         <span class="i-carbon-center-to-fit" />重置视角
       </button>
     </Transition>
+    <div v-if="televisionVisible && televisionStatus !== 'idle'" class="home-scene3d__tv-status">
+      <button v-if="televisionStatus === 'blocked'" class="ui-chip" type="button" @click="retryTelevision">
+        确认播放电视
+      </button>
+      <span v-else class="ui-chip" role="status">这个片源无法在场景中播放，可在完整控制中打开</span>
+    </div>
     <div class="home-scene3d__hotspots">
       <button
         v-for="id in placed"
@@ -643,11 +716,13 @@ watch(phase, value => scene?.setPhase(value))
       <span class="i-carbon-move" />
       拖动设备或家具 · 空白处拖动平移 · 右键旋转
     </p>
-    <p v-else-if="!editMode" class="home-scene3d__hint">
-      <span class="i-carbon-touch-interaction" aria-hidden="true" />
-      <span class="is-desktop">拖动平移 · 右键旋转 · 滚轮缩放 · 点击场景里的设备控制</span>
-      <span class="is-phone">拖动旋转 · 双指缩放 · 点击场景里的设备控制</span>
-    </p>
+    <Transition name="gesture-hint">
+      <p v-if="!editMode && !gestureLearned" class="home-scene3d__hint">
+        <span class="i-carbon-touch-interaction" aria-hidden="true" />
+        <span class="is-desktop">拖动平移 · 右键旋转 · 滚轮缩放 · 点击场景里的设备控制</span>
+        <span class="is-phone">拖动旋转 · 双指缩放 · 点击场景里的设备控制</span>
+      </p>
+    </Transition>
   </section>
 </template>
 
@@ -676,6 +751,9 @@ watch(phase, value => scene?.setPhase(value))
 }
 
 .home-scene3d__canvas:active { cursor: grabbing; }
+.home-scene3d__video { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.home-scene3d__tv-status { position: absolute; z-index: 4; bottom: 45px; left: 12px; right: 12px; display: flex; justify-content: flex-start; }
+.home-scene3d__tv-status button { cursor: pointer; }
 
 .home-scene3d__hotspots {
   position: absolute;
@@ -901,6 +979,9 @@ watch(phase, value => scene?.setPhase(value))
 @keyframes hotspot-pulse {
   50% { box-shadow: 0 0 0 11px rgba(var(--brand-focus-rgb), 0.06); }
 }
+
+.gesture-hint-leave-active { transition: opacity 220ms ease-out; }
+.gesture-hint-leave-to { opacity: 0; }
 
 .home-scene3d__hint.is-edit {
   background: var(--brand-glass-strong);

@@ -184,7 +184,7 @@ interface DeviceInstance {
 
 界面上称为“家电市场”，入口在顶栏，路由 `/market`。
 
-**已实现（一方插件）**：云家电套装（空调、风扇、电视、扫地机器人、暖手宝）默认已安装；可单独卸载与重新安装，卸载只让设备离开家园，状态与摆放保留，重新安装回到原位。安装记录目前保存在本机浏览器，接入 `home_installed_plugins` 后随账号同步。详情页可切换待机与运行（制冷、制热）预览图标动效。空调来自 YunYouJun/air-conditioner，风扇来自 ElpsyCN/electric-fan，清单 `id` 与原生目录一致（`fun.yunle.air-conditioner`、`cn.elpsy.electric-fan`）。
+**已实现（一方插件）**：云家电套装（空调、风扇、电视、扫地机器人、暖手宝、床头小夜灯）默认已安装；可单独卸载与重新安装，卸载只让设备离开家园，状态与摆放保留，重新安装回到原位。安装记录目前保存在本机浏览器，接入 `home_installed_plugins` 后随账号同步。详情页可切换待机与运行（制冷、制热）预览图标动效。空调来自 YunYouJun/air-conditioner，风扇来自 ElpsyCN/electric-fan，清单 `id` 与原生目录一致（`fun.yunle.air-conditioner`、`cn.elpsy.electric-fan`）。
 
 - **列表**：分类筛选与搜索；卡片展示插件图形（一方插件加载其 glyph，第三方插件渲染清洗后的 SVG）、名称、作者、信任标识与“已安装”状态。
 - **详情抽屉**：截图、说明、版本与更新记录、集成能力、申请的权限（用通俗中文逐条说明）、开发者信息和举报入口。

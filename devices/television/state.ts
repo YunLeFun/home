@@ -2,7 +2,8 @@ import type { DevicePluginState, DeviceTone } from '../types'
 import type { TelevisionAction, TelevisionState } from '~/types'
 import { isRecord, normalizeDate, numberInRange } from '../state-utils'
 
-export const DEFAULT_TELEVISION_SOURCE_URL = 'https://media.w3.org/2010/05/sintel/trailer.mp4'
+export const DEFAULT_TELEVISION_SOURCE_URL = 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4'
+const LEGACY_TELEVISION_SOURCE_URL = 'https://media.w3.org/2010/05/sintel/trailer.mp4'
 
 /**
  * Whether a value is a playable source the television may load: an HTTPS URL
@@ -24,7 +25,7 @@ export function isTelevisionSourceUrl(value: unknown): value is string {
 }
 
 /**
- * Create a television that is off with the default trailer loaded.
+ * Create a television that is off with the default demo source.
  *
  * @param changedAt - ISO timestamp of the state change
  * @returns The default television state
@@ -51,12 +52,13 @@ export function normalizeTelevisionState(value: unknown): TelevisionState {
   if (!isRecord(value))
     return createTelevisionState(new Date().toISOString())
   const power = typeof value.power === 'boolean' ? value.power : false
+  const sourceUrl = value.sourceUrl
   return {
     power,
     playing: power && value.playing === true,
     volume: Math.round(numberInRange(value.volume, 45, 0, 100)),
     muted: typeof value.muted === 'boolean' ? value.muted : false,
-    sourceUrl: isTelevisionSourceUrl(value.sourceUrl) ? value.sourceUrl : DEFAULT_TELEVISION_SOURCE_URL,
+    sourceUrl: isTelevisionSourceUrl(sourceUrl) && sourceUrl !== LEGACY_TELEVISION_SOURCE_URL ? sourceUrl : DEFAULT_TELEVISION_SOURCE_URL,
     stateChangedAt: normalizeDate(value.stateChangedAt),
   }
 }
@@ -109,5 +111,6 @@ export const televisionState: DevicePluginState<'television'> = {
   reduce: reduceTelevisionState,
   isAction: isTelevisionAction,
   isActive: state => state.power,
+  statusText: state => state.power ? (state.playing ? '播放中' : '已开启') : '待机',
   tone: televisionTone,
 }

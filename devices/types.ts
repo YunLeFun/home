@@ -83,6 +83,8 @@ export interface DevicePluginState<K extends DeviceKind> {
   isAction: (value: unknown) => value is DeviceActionByKind<K>
   /** Whether the device is doing work and should animate in the scene */
   isActive: (state: DeviceStateByKind<K>) => boolean
+  /** Compact operating status shown on a device card */
+  statusText?: (state: DeviceStateByKind<K>) => string
   /** Visual tone derived from state */
   tone: (state: DeviceStateByKind<K>) => DeviceTone
   /**

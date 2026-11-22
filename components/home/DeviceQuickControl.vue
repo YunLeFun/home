@@ -16,6 +16,7 @@ const devices = {
   'fan': useDeviceState('fan'),
   'robot-vacuum': useDeviceState('robot-vacuum'),
   'hand-warmer': useDeviceState('hand-warmer'),
+  'night-light': useDeviceState('night-light'),
   'television': useDeviceState('television'),
 }
 const current = computed(() => devices[props.deviceId])

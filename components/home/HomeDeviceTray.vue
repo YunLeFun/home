@@ -11,6 +11,7 @@ const props = defineProps<{
   activeRoomId: string | null
   activeRoomName: string
   editMode: boolean
+  deviceStatuses: Record<DeviceKind, string>
   activeDevices: DeviceKind[]
   deviceTones?: Partial<Record<DeviceKind, DeviceTone>>
   /** App icon motion speed of each device */
@@ -67,7 +68,8 @@ function deviceSubtitle(device: typeof devices.value[number]) {
     return '待安置 · 点击后再点房间'
   if (props.editMode)
     return `${device.roomName} · 可拖动调整`
-  return device.active ? `${device.roomName} · 运行中` : `${device.roomName} · 点击控制`
+  const status = props.deviceStatuses[device.id]
+  return props.activeRoomId === null ? `${device.roomName} · ${status}` : status
 }
 
 function onPointerDown(deviceId: DeviceKind, placed: boolean, event: PointerEvent) {

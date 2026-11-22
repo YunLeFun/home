@@ -9,7 +9,7 @@ import type { DevicePlugin, DeviceTone } from '~/devices/types'
 import { getDevicePlugin } from '~/devices/registry'
 import { isRecord } from '~/devices/state-utils'
 
-const deviceKinds: DeviceKind[] = ['air-conditioner', 'fan', 'robot-vacuum', 'hand-warmer', 'television']
+const deviceKinds: DeviceKind[] = ['air-conditioner', 'fan', 'robot-vacuum', 'hand-warmer', 'television', 'night-light']
 
 export function isDeviceKind(value: unknown): value is DeviceKind {
   return deviceKinds.includes(value as DeviceKind)

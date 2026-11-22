@@ -64,9 +64,8 @@ describe('cloud home projection', () => {
   })
 
   it('rejects floor placement inside furniture obstacles', () => {
-    // The sofa stands about a metre out from the living room wall: 0.5 to 1.4 m deep.
     const furnished = resolveHomeLayout('cloud-apartment').template
-    const placement = createPlacementAtPoint(furnished, 'fan', { x: 250, y: 620 }, createDefaultHomeState().placements)
+    const placement = createPlacementAtPoint(furnished, 'fan', { x: 431, y: 738 }, createDefaultHomeState().placements)
     expect(placement).toBeNull()
     expect(createPlacementAtPoint(furnished, 'fan', { x: 250, y: 760 }, createDefaultHomeState().placements)?.surfaceId).toBe('living-floor')
   })
@@ -96,7 +95,8 @@ describe('cloud home persistence', () => {
     const state = normalizeHomeState({ templateId: 'studio', placements: [{ deviceId: 'fan', u: 7, v: -2 }] })
 
     expect(state.templateId).toBe('studio')
-    expect(state.placements).toHaveLength(5)
+    expect(state.placements).toHaveLength(6)
+    expect(state.placements.find(item => item.deviceId === 'night-light')?.surfaceId).toBe('studio-table')
     expect(state.placements.find(item => item.deviceId === 'fan')).toMatchObject({ u: 1, v: 0 })
     expect(state.placements.find(item => item.deviceId === 'television')?.surfaceId).toBe('studio-wall')
   })

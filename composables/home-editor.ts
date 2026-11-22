@@ -9,6 +9,23 @@ import { addFurnitureInRoom, furnitureProblem, moveFurnitureEdit, nearestFurnitu
 const STORAGE_KEY = 'yun-home:layout:v1'
 const ACTIVE_ROOM_STORAGE_KEY = 'yun-home:active-room:v1'
 
+// Older homes acquire the new lamp on load. Respect a moved or removed nightstand
+// and give devices the user already placed first choice of the available space.
+function restoreHome(value: unknown): VirtualHomeState {
+  const state = normalizeHomeState(value)
+  for (const layout of [state, ...state.layouts]) {
+    const lamp = layout.placements.find(placement => placement.deviceId === 'night-light')
+    if (!lamp?.roomId || !lamp.surfaceId)
+      continue
+    const { template } = resolveHomeLayout(layout.templateId, layout.furniture)
+    if (template.surfaces.some(surface => surface.id === lamp.surfaceId) && !hasPlacementCollision(template, lamp, layout.placements))
+      continue
+    const free = createPlacementInRoom(template, 'night-light', lamp.roomId, layout.placements, lamp.rotation)
+    Object.assign(lamp, free ?? { roomId: null, surfaceId: null, u: 0.5, v: 0.5 })
+  }
+  return state
+}
+
 function cloneState(state: VirtualHomeState): VirtualHomeState {
   return {
     ...state,
@@ -337,7 +354,7 @@ export function useHomeEditor() {
 
       if (direction === 'pull' && remote) {
         state.value = {
-          ...normalizeHomeState(remote.state),
+          ...restoreHome(remote.state),
           changedAt: remote.changedAt,
         }
       }
@@ -345,7 +362,7 @@ export function useHomeEditor() {
         const winningRemote = await cloudSync.writeRecord(getRecordOptions(), state.value, state.value.changedAt, remote)
         if (winningRemote && selectCloudSyncDirection(state.value.changedAt, winningRemote.changedAt) === 'pull') {
           state.value = {
-            ...normalizeHomeState(winningRemote.state),
+            ...restoreHome(winningRemote.state),
             changedAt: winningRemote.changedAt,
           }
         }
@@ -369,7 +386,7 @@ export function useHomeEditor() {
       const stored = localStorage.getItem(STORAGE_KEY)
       if (stored) {
         try {
-          state.value = normalizeHomeState(JSON.parse(stored))
+          state.value = restoreHome(JSON.parse(stored))
         }
         catch {
           localStorage.removeItem(STORAGE_KEY)

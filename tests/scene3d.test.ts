@@ -5,6 +5,7 @@ import { SCENE3D_TEMPLATES } from '~/constants/scene3d'
 import type { HomeTemplateId } from '~/types'
 import type { Ray3, Vec3 } from '~/utils/scene3d/projection'
 import { createPlacementAtPoint, hasPlacementCollision, placementToWorld, worldPointToSurface } from '~/utils/home'
+import { apartmentWallKeys, surfaceIsVisible, wallBlocksView, wallIsVisible } from '~/utils/scene3d/apartment-walls'
 import { findSurfaceAlongRay, floorDepth, isPlan, PLAN3D, planX, planZ, projectFloorPoint, projectPlacement, projectSurfacePoint, roomAt, roomBounds, SCENE3D, surfaceFrame, unprojectSurfacePoint, wallHeight, worldX } from '~/utils/scene3d/projection'
 
 const templateIds = Object.keys(HOME_TEMPLATES) as HomeTemplateId[]
@@ -34,7 +35,7 @@ describe('3D scene projection', () => {
       expect(position.z).toBeLessThanOrEqual(bounds.z1)
       expect(roomAt(template, position)).toBe(placement.roomId)
       if (surfaceKind === 'wall') {
-        if (!isPlan(template))
+        if (!isPlan(template) && projected!.normal.z === 1)
           expect(position.z).toBe(SCENE3D.wallOffset)
         expect(position.y).toBeGreaterThan(0.5)
       }
@@ -43,6 +44,24 @@ describe('3D scene projection', () => {
       if (surfaceKind === 'tabletop')
         expect(position.y).toBe(tabletops[placement.surfaceId!]!.height)
     }
+  })
+
+  it('aligns the apartment seating with the TV and mounts the AC high on the left wall', () => {
+    const template = HOME_TEMPLATES['cloud-apartment']
+    const { furniture } = SCENE3D_TEMPLATES['cloud-apartment']
+    const placements = createDefaultHomeState().placements
+    const tv = projectPlacement(template, placements.find(item => item.deviceId === 'television')!)!
+    const ac = projectPlacement(template, placements.find(item => item.deviceId === 'air-conditioner')!)!
+    const sofa = furniture.find(item => item.id === 'living-sofa')!
+    const table = furniture.find(item => item.id === 'living-table')!
+    expect(sofa.rotation).toBe(180)
+    expect(sofa.x).toBeCloseTo(tv.position.x)
+    expect(table.x).toBeCloseTo(tv.position.x)
+    expect(table.z).toBeGreaterThan(tv.position.z)
+    expect(table.z).toBeLessThan(sofa.z!)
+    expect(ac.normal).toEqual({ x: 1, y: 0, z: 0 })
+    expect(ac.position.y).toBeGreaterThan(2.5)
+    expect(ac.position.z).toBeLessThan(table.z!)
   })
 
   it.each(templateIds)('describes the 3D layout of every room and tabletop in %s', (templateId) => {
@@ -74,6 +93,35 @@ function rayTo(target: Vec3): Ray3 {
 }
 
 describe('3D placement', () => {
+  it('restores a wall when the camera orbits past it or sees over it', () => {
+    const room = { x: 3, y: 0.95, z: 2.2 }
+    const front = { axis: 'z', position: 4.4, start: 0, end: 6, height: 3.24 } as const
+    const right = { axis: 'x', position: 6, start: 0, end: 4.4, height: 3.24 } as const
+    const fromFront = { x: 3, y: 4, z: 12 }
+    const fromRight = { x: 13, y: 4, z: 2.2 }
+    const fromBack = { x: 3, y: 4, z: -8 }
+    expect(wallBlocksView(front, fromFront, room, false)).toBe(true)
+    expect(wallBlocksView(right, fromFront, room, false)).toBe(false)
+    expect(wallBlocksView(front, fromRight, room, true)).toBe(false)
+    expect(wallBlocksView(right, fromRight, room, false)).toBe(true)
+    expect(wallBlocksView(right, fromBack, room, true)).toBe(false)
+    expect(wallBlocksView(front, { x: 3, y: 20, z: 7 }, room, true)).toBe(false)
+  })
+
+  it('shares the partition and skips a hidden wall when picking placement surfaces', () => {
+    const template = HOME_TEMPLATES['cloud-apartment']
+    const living = apartmentWallKeys(template, 'living-room')!
+    const bedroom = apartmentWallKeys(template, 'bedroom')!
+    const side = template.surfaces.find(item => item.id === 'living-left-wall')!
+    const overrides = { [living.left]: false }
+    expect(living.right).toBe(bedroom.left)
+    expect(wallIsVisible(living.front, {})).toBe(false)
+    expect(surfaceIsVisible(template, side, overrides)).toBe(false)
+    const ray = rayTo(projectSurfacePoint(template, side, 0.8, 0.12))
+    expect(findSurfaceAlongRay(template, 'air-conditioner', ray)?.surface.id).toBe(side.id)
+    expect(findSurfaceAlongRay(template, 'air-conditioner', ray, {}, surface => surfaceIsVisible(template, surface, overrides))?.surface.id).not.toBe(side.id)
+  })
+
   it.each(templateIds)('maps every surface of %s back to the plan point it came from', (templateId) => {
     const template = HOME_TEMPLATES[templateId]
     const { tabletops } = SCENE3D_TEMPLATES[templateId]

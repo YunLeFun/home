@@ -8,6 +8,7 @@ import type { HomeResetScope } from '~/composables/home-editor'
 import type { DeviceVisual } from '~/utils/scene3d/devices'
 import type { FurniturePose, FurnitureProblem } from '~/utils/scene3d/layout'
 import { FURNITURE_KINDS } from '~/constants/furniture'
+import { getDevicePlugin } from '~/devices/registry'
 import { HOME_DEVICES, HOME_DEVICE_ORDER } from '~/constants/home'
 import { getDeviceMotionSpeed, getDeviceTone, isDeviceRunning } from '~/utils/device'
 
@@ -24,6 +25,7 @@ const deviceStates = {
   'fan': useDeviceState('fan'),
   'robot-vacuum': robot,
   'hand-warmer': useDeviceState('hand-warmer'),
+  'night-light': useDeviceState('night-light'),
   'television': useDeviceState('television'),
 }
 const scene3dRef = shallowRef<Scene3dApi | null>(null)
@@ -52,6 +54,22 @@ const activeDevices = computed<DeviceKind[]>(() => library.installed.value.filte
 const deviceTones = computed(() => Object.fromEntries(
   HOME_DEVICE_ORDER.map(kind => [kind, getDeviceTone(kind, deviceStates[kind].state.value)]),
 ) as Record<DeviceKind, DeviceTone>)
+const acStatus = computed(() => {
+  const ac = deviceStates['air-conditioner']
+  if (ac.binding.value && !ac.linkReady.value)
+    return ac.linkLabel.value || '正在连接'
+  if (!ac.state.value.status)
+    return '已关闭'
+  const temperature = ac.targetTemperature.value
+  return temperature === null ? ac.acModeLabel.value : `${ac.acModeLabel.value} · ${temperature}°C`
+})
+const deviceStatuses = computed(() => Object.fromEntries(HOME_DEVICE_ORDER.map((kind) => {
+  if (kind === 'air-conditioner')
+    return [kind, acStatus.value]
+  const state = deviceStates[kind].state.value
+  const label = getDevicePlugin(kind)?.state.statusText?.(state) ?? (isDeviceRunning(kind, state) ? '运行中' : '已关闭')
+  return [kind, label]
+})) as Record<DeviceKind, string>)
 const deviceStateMap = computed(() => Object.fromEntries(
   HOME_DEVICE_ORDER.map(kind => [kind, deviceStates[kind].state.value]),
 ) as Record<DeviceKind, unknown>)
@@ -91,6 +109,12 @@ function selectDevice(deviceId: DeviceKind) {
     editor.editMode.value = true
     showNotice(`为${HOME_DEVICES[deviceId].name}选择房间，或拖到高亮区域`)
   }
+}
+
+function pauseTelevision() {
+  const television = deviceStates.television
+  if (television.state.value.playing)
+    television.dispatch({ type: 'pause' })
 }
 
 function placeDevice(deviceId: DeviceKind, target: SurfaceTarget) {
@@ -348,6 +372,7 @@ onUnmounted(() => {
           :overview-mode="overviewMode"
           :active-devices="activeDevices"
           :visuals="deviceVisuals"
+          :television="deviceStates.television.state.value"
           :robot-progress="robot.visualProgress.value"
           :robot-cleaning="robotState.status === 'cleaning'"
           :edit-mode="editor.editMode.value"
@@ -366,6 +391,7 @@ onUnmounted(() => {
           @add-furniture="addFurniture"
           @reset="resetHome"
           @ready="scene3dReady = true"
+          @television-pause="pauseTelevision"
           @failed="handle3dFailed"
         />
       </ClientOnly>
@@ -393,6 +419,7 @@ onUnmounted(() => {
       :edit-mode="editor.editMode.value"
       :active-devices="activeDevices"
       :device-tones="deviceTones"
+      :device-statuses="deviceStatuses"
       :device-ids="library.installed.value"
       :device-motion-speeds="deviceMotionSpeeds"
       @select="selectDevice"

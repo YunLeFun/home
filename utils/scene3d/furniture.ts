@@ -50,24 +50,31 @@ function sofa(kit: Kit, spec: FurnitureSpec): BuiltFurniture {
   const fabric = kit.material(PALETTE.fabric, { roughness: 0.95 })
   const deep = kit.material(PALETTE.fabricDeep, { roughness: 0.95 })
   const object = group(legs(kit, w - 0.1, d - 0.1, 0.1, 0.035, 0.12))
-  object.add(kit.mesh(kit.roundedBox(w, 0.26, d, 0.09), deep, 0, 0.23, 0))
+  object.add(kit.mesh(kit.roundedBox(w - 0.08, 0.26, d - 0.06, 0.09), deep, 0, 0.23, 0))
+  // A continuous upholstered shell supports the loose cushions from behind.
+  object.add(kit.mesh(kit.roundedBox(w - 0.08, 0.56, 0.2, 0.095), deep, 0, 0.49, -d / 2 + 0.1))
   const cushions = w > 3.4 ? 3 : 2
   const inner = w - 0.56
   const cushionWidth = inner / cushions - 0.04
   for (let index = 0; index < cushions; index++) {
     const x = -inner / 2 + (index + 0.5) * (inner / cushions)
-    object.add(kit.mesh(kit.roundedBox(cushionWidth, 0.17, d - 0.3, 0.075), fabric, x, 0.43, 0.1))
-    object.add(kit.mesh(kit.roundedBox(cushionWidth, 0.46, 0.24, 0.1), fabric, x, 0.66, -d / 2 + 0.2))
+    object.add(kit.mesh(kit.roundedBox(cushionWidth, 0.18, d - 0.26, 0.085), fabric, x, 0.43, 0.13))
+    const back = kit.mesh(kit.roundedBox(cushionWidth, 0.45, 0.23, 0.11), fabric, x, 0.66, -d / 2 + 0.245)
+    back.rotation.x = -0.14
+    object.add(back)
   }
-  for (const side of [-1, 1])
-    object.add(kit.mesh(kit.roundedBox(0.28, 0.5, d, 0.12), deep, side * (w / 2 - 0.14), 0.4, 0))
+  for (const side of [-1, 1]) {
+    const arm = kit.mesh(kit.roundedBox(0.28, 0.47, d - 0.05, 0.13), deep, side * (w / 2 - 0.14), 0.435, 0)
+    arm.rotation.x = 0.09
+    object.add(arm)
+  }
   const pillows = [
     { color: PALETTE.accent, x: -inner / 2 + 0.28, rotation: 0.22 },
     { color: PALETTE.sun, x: inner / 2 - 0.28, rotation: -0.18 },
   ]
   for (const pillow of pillows) {
-    const mesh = kit.mesh(kit.roundedBox(0.4, 0.36, 0.13, 0.065), kit.material(pillow.color, { roughness: 0.95 }), pillow.x, 0.66, -d / 2 + 0.38)
-    mesh.rotation.set(-0.18, 0, pillow.rotation)
+    const mesh = kit.mesh(kit.roundedBox(0.4, 0.36, 0.15, 0.075), kit.material(pillow.color, { roughness: 0.95 }), pillow.x, 0.66, -d / 2 + 0.41)
+    mesh.rotation.set(-0.26, 0, pillow.rotation)
     object.add(mesh)
   }
   return { object }

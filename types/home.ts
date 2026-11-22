@@ -33,6 +33,8 @@ export interface HomeSurface {
    */
   polygon: [HomePoint, HomePoint, HomePoint, HomePoint]
   accepts: DeviceKind[]
+  /** A left wall in an elevation template, with x running from the open front toward the back. */
+  wallSide?: 'left'
   /** Plan templates only: where a wall runs on the floor plan, start to end. */
   run?: [HomePoint, HomePoint]
 }

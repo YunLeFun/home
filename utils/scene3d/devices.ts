@@ -1,7 +1,9 @@
 import * as THREE from 'three'
+import type { WarmerProfile } from '~/devices/hand-warmer/outline'
+import { cloud, sleeve } from '~/devices/hand-warmer/outline'
 import type { DeviceTone } from '~/devices/types'
 import type { DeviceKind } from '~/types'
-import type { Kit} from './kit';
+import type { Kit } from './kit'
 import { PALETTE, TONE_COLORS } from './kit'
 
 /** What a device model shows; derived from the device's state. */
@@ -22,6 +24,7 @@ export interface DeviceModel {
   anchor: THREE.Vector3
   light?: THREE.PointLight
   setVisual: (visual: DeviceVisual) => void
+  setVideoTexture?: (texture: THREE.VideoTexture | null) => void
   /**
    * Advance the model's own motion.
    *
@@ -42,30 +45,141 @@ function glowMaterial(kit: Kit, color: string) {
   return kit.ownMaterial(color, { roughness: 0.4, emissive: color, emissiveIntensity: 0 })
 }
 
-/** A soft round sprite for airflow particles. */
-function dotTexture(kit: Kit) {
-  return kit.canvasTexture(64, 64, (context) => {
-    const gradient = context.createRadialGradient(32, 32, 0, 32, 32, 32)
-    gradient.addColorStop(0, 'rgba(255,255,255,1)')
-    gradient.addColorStop(0.5, 'rgba(255,255,255,0.45)')
-    gradient.addColorStop(1, 'rgba(255,255,255,0)')
-    context.fillStyle = gradient
-    context.fillRect(0, 0, 64, 64)
-  })
+/** Three tapered streams share a mesh and leave nearby wall devices pickable. */
+function outletAir(kit: Kit, flap: THREE.Group, flapLength: number) {
+  const segments = 16
+  const verticesPerStream = (segments + 1) * 3
+  const positions = new THREE.Float32BufferAttribute(new Float32Array(3 * verticesPerStream * 3), 3)
+  positions.setUsage(THREE.DynamicDrawUsage)
+  const colors = []
+  const indices = []
+  for (let stream = 0; stream < 3; stream++) {
+    for (let step = 0; step <= segments; step++) {
+      const t = step / segments
+      const alpha = Math.min(1, t * 7) * (1 - t * t)
+      // A bright centre and transparent edges keep the air soft against walls and screens.
+      colors.push(1, 1, 1, 0, 1, 1, 1, alpha, 1, 1, 1, 0)
+      if (step < segments) {
+        for (let side = 0; side < 2; side++) {
+          const left = stream * verticesPerStream + step * 3 + side
+          indices.push(left, left + 3, left + 1, left + 1, left + 3, left + 4)
+        }
+      }
+    }
+  }
+  const geometry = kit.track(new THREE.BufferGeometry())
+  geometry.setIndex(indices)
+  geometry.setAttribute('position', positions)
+  geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 4))
+  const material = kit.track(new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false, side: THREE.DoubleSide }))
+  const mesh = new THREE.Mesh(geometry, material)
+  mesh.frustumCulled = false
+  mesh.visible = false
+  mesh.raycast = () => {}
+
+  function shape(heating: boolean, time: number) {
+    // The air passes over the blade from inside the outlet. Local +Z faces the room.
+    const up = Math.cos(flap.rotation.x)
+    const forward = Math.sin(flap.rotation.x)
+    const lipY = flap.position.y + flapLength * 0.6 * up + 0.018
+    const lipZ = flap.position.z + flapLength * 0.6 * forward
+    let vertex = 0
+    for (let lane = -1; lane <= 1; lane++) {
+      for (let step = 0; step <= segments; step++) {
+        const t = step / segments
+        const wave = heating ? Math.sin(t * 7 - time * 1.8 + lane * 0.5) * 0.075 : Math.sin(t * 3 - time * 1.3) * 0.025
+        const x = lane * (0.28 + 0.12 * t) + wave * t
+        const travel = t * (lane === 0 ? 0.74 : 0.59)
+        const y = lipY + travel * up - 0.12 * t * t
+        const z = lipZ + travel * forward
+        const halfWidth = 0.075 * (1 - t * t)
+        positions.setXYZ(vertex++, x - halfWidth, y, z)
+        positions.setXYZ(vertex++, x, y, z)
+        positions.setXYZ(vertex++, x + halfWidth, y, z)
+      }
+    }
+    positions.needsUpdate = true
+  }
+  return { mesh, material, shape }
 }
 
 function airConditioner(kit: Kit): DeviceModel {
   const white = kit.material('#fbfcfd', { roughness: 0.35 })
   const object = new THREE.Group()
-  object.add(kit.mesh(kit.roundedBox(1.18, 0.36, 0.26, 0.11), white, 0, 0, 0.13))
-  object.add(kit.mesh(kit.roundedBox(1.08, 0.04, 0.02, 0.01), kit.material('#e6ebf1', { roughness: 0.5 }), 0, -0.06, 0.262, false))
-  // The louver opens downward when the AC runs.
+
+  // Draw side sections in (depth, height) and extrude them along the width.
+  function section(profile: THREE.Shape, width: number, bevel: number) {
+    const geometry = kit.track(new THREE.ExtrudeGeometry(profile, {
+      depth: width, bevelSize: bevel, bevelThickness: bevel, bevelSegments: 4, curveSegments: 10,
+    }))
+    geometry.translate(0, 0, -width / 2)
+    geometry.rotateY(-Math.PI / 2)
+    return geometry
+  }
+  const housing = new THREE.Shape()
+  housing.moveTo(0.024, 0.15)
+  housing.lineTo(0.185, 0.15)
+  housing.quadraticCurveTo(0.245, 0.15, 0.245, 0.092)
+  housing.lineTo(0.245, -0.035)
+  housing.quadraticCurveTo(0.245, -0.053, 0.235, -0.062)
+  housing.lineTo(0.159, -0.061)
+  housing.lineTo(0.109, -0.142)
+  housing.lineTo(0.108, -0.153)
+  housing.lineTo(0.024, -0.153)
+  housing.closePath()
+  object.add(kit.mesh(section(housing, 1.14, 0.019), white))
+
+  const duct = new THREE.Shape()
+  duct.moveTo(0.144, -0.15)
+  duct.lineTo(0.192, -0.082)
+  duct.lineTo(0.235, -0.076)
+  duct.lineTo(0.189, -0.094)
+  duct.lineTo(0.153, -0.15)
+  duct.closePath()
+  object.add(kit.mesh(section(duct, 1.025, 0.002), kit.material('#596970'), 0, 0.002, -0.012, false))
+  const guide = new THREE.Shape()
+  guide.moveTo(0.178, -0.087)
+  guide.lineTo(0.217, -0.083)
+  guide.quadraticCurveTo(0.203, -0.111, 0.162, -0.134)
+  guide.closePath()
+  const fin = section(guide, 0.007, 0.001)
+  for (const x of [-0.36, -0.12, 0.12, 0.36])
+    object.add(kit.mesh(fin, kit.material('#7b898c'), x, 0, -0.012, false))
+
+  const socket = new THREE.Shape()
+  socket.moveTo(0.12, -0.058)
+  socket.lineTo(0.248, -0.058)
+  socket.quadraticCurveTo(0.22, -0.149, 0.16, -0.167)
+  socket.quadraticCurveTo(0.13, -0.177, 0.12, -0.15)
+  socket.closePath()
+  const endCap = section(socket, 0.054, 0.011)
+  for (const x of [-0.551, 0.551])
+    object.add(kit.mesh(endCap, white, x))
+
+  const pivotZ = 0.151
+  const pivotY = -0.16
+  const axle = kit.mesh(kit.cylinder(0.012, 0.012, 1.054, 12), kit.material('#acb8bc'), 0, pivotY, pivotZ, false)
+  axle.rotation.z = Math.PI / 2
+  object.add(axle)
+
   const louver = new THREE.Group()
-  louver.position.set(0, -0.13, 0.25)
-  louver.add(kit.mesh(kit.roundedBox(1.02, 0.07, 0.025, 0.012), kit.material('#eef2f6', { roughness: 0.4 }), 0, -0.035, 0, false))
+  const flapLength = 0.128
+  const closedAngle = THREE.MathUtils.degToRad(51)
+  const blade = new THREE.Shape()
+  blade.moveTo(-0.006, 0)
+  blade.quadraticCurveTo(-0.014, 0.058, -0.002, flapLength)
+  blade.quadraticCurveTo(0.002, flapLength + 0.002, 0.004, flapLength - 0.003)
+  blade.quadraticCurveTo(0.008, 0.055, 0.008, 0)
+  blade.closePath()
+  louver.position.set(0, pivotY, pivotZ)
+  louver.rotation.x = closedAngle
+  const vane = kit.mesh(section(blade, 1.018, 0.002), kit.material('#e8eef0', { roughness: 0.46 }))
+  // The close-fitting lip sits within a shadow-map texel of the cover.
+  vane.receiveShadow = false
+  louver.add(vane)
   object.add(louver)
   const led = glowMaterial(kit, TONE_COLORS.idle)
-  object.add(kit.mesh(kit.roundedBox(0.06, 0.022, 0.01, 0.009), led, 0.45, 0.08, 0.262, false))
+  object.add(kit.mesh(kit.roundedBox(0.078, 0.021, 0.008, 0.003), led, 0.45, 0.06, 0.266, false))
 
   // Temperature readout drawn on a small canvas.
   const canvas = document.createElement('canvas')
@@ -75,28 +189,18 @@ function airConditioner(kit: Kit): DeviceModel {
   texture.colorSpace = THREE.SRGBColorSpace
   const screen = kit.ownMaterial('#ffffff', { map: texture, roughness: 0.4, emissive: '#ffffff', emissiveIntensity: 0, transparent: true })
   screen.emissiveMap = texture
-  object.add(kit.mesh(kit.plane(0.18, 0.09), screen, 0.36, 0.06, 0.262, false))
+  object.add(kit.mesh(kit.plane(0.24, 0.12), screen, 0.24, 0.06, 0.268, false))
 
-  const count = 42
-  const positions = new Float32Array(count * 3)
-  const seeds = Array.from({ length: count }, (_, index) => ({ x: ((index * 0.618) % 1) - 0.5, offset: (index * 0.137) % 1, drift: ((index * 0.381) % 1) - 0.5 }))
-  const geometry = kit.track(new THREE.BufferGeometry())
-  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3))
-  // White with a per-particle alpha, so each puff fades in and out; the tone comes from the material.
-  const fades = new Float32Array(count * 4).fill(1)
-  geometry.setAttribute('color', new THREE.BufferAttribute(fades, 4))
-  const airMaterial = kit.track(new THREE.PointsMaterial({ size: 0.2, map: dotTexture(kit), transparent: true, depthWrite: false, opacity: 0, color: TONE_COLORS.cool, vertexColors: true }))
-  const air = new THREE.Points(geometry, airMaterial)
-  air.frustumCulled = false
-  object.add(air)
+  const air = outletAir(kit, louver, flapLength)
+  object.add(air.mesh)
 
   const light = new THREE.PointLight(TONE_COLORS.cool, 0, 2.6, 2)
   light.position.set(0, -0.6, 0.6)
   object.add(light)
 
   let visual: DeviceVisual = { active: false, tone: 'idle' }
-  let open = 0
   let flow = 0
+  let heating = false
   let shown = ''
   function drawDisplay(text: string) {
     const context = canvas.getContext('2d')
@@ -117,15 +221,19 @@ function airConditioner(kit: Kit): DeviceModel {
     anchor: new THREE.Vector3(0, 0, 0.3),
     light,
     setVisual(next) {
+      const toneChanged = visual.tone !== next.tone
       visual = next
       const color = toneColor(next.tone)
       led.color.set(color)
       led.emissive.set(color)
       led.emissiveIntensity = next.active ? 1.4 : 0
-      airMaterial.color.set(color)
-      light.color.set(color)
+      if (next.tone === 'cool' || next.tone === 'heat') {
+        heating = next.tone === 'heat'
+        air.material.color.set(color)
+        light.color.set(color)
+      }
       const text = next.active ? (next.display ?? '') : ''
-      if (text !== shown) {
+      if (text !== shown || toneChanged) {
         shown = text
         drawDisplay(text)
       }
@@ -134,25 +242,17 @@ function airConditioner(kit: Kit): DeviceModel {
     },
     update(dt, time, reducedMotion) {
       const on = visual.active && (visual.tone === 'cool' || visual.tone === 'heat')
-      open = approach(open, visual.active ? 1 : 0, dt, 5)
+      const targetAngle = visual.active ? THREE.MathUtils.degToRad(visual.tone === 'heat' ? 127 : 94) : closedAngle
+      const turn = approach(louver.rotation.x, targetAngle, dt, 6) - louver.rotation.x
+      const angle = louver.rotation.x + THREE.MathUtils.clamp(turn, -dt * 1.6, dt * 1.6)
+      louver.rotation.x = angle
       flow = approach(flow, on ? 1 : 0, dt, 3)
-      louver.rotation.x = open * 0.75
       light.intensity = flow * 0.9
-      airMaterial.opacity = reducedMotion ? flow * 0.25 : flow * 0.5
-      air.visible = flow > 0.01
-      if (air.visible) {
-        for (let index = 0; index < count; index++) {
-          const seed = seeds[index]!
-          const t = reducedMotion ? seed.offset : (time * 0.32 + seed.offset) % 1
-          positions[index * 3] = seed.x * (1.0 + t * 0.6) + seed.drift * t * 0.3
-          positions[index * 3 + 1] = -0.16 - t * 1.05 - t * t * 0.2
-          positions[index * 3 + 2] = 0.3 + t * 1.15
-          fades[index * 4 + 3] = Math.sin(t * Math.PI) ** 1.5
-        }
-        geometry.attributes.position!.needsUpdate = true
-        geometry.attributes.color!.needsUpdate = true
-      }
-      return Math.abs(open - (visual.active ? 1 : 0)) > 0.002 || Math.abs(flow - (on ? 1 : 0)) > 0.002 || (on && !reducedMotion)
+      air.material.opacity = flow * 0.8 * THREE.MathUtils.smoothstep(angle, closedAngle + 0.14, closedAngle + 0.55)
+      air.mesh.visible = air.material.opacity > 0.01
+      if (air.mesh.visible)
+        air.shape(heating, reducedMotion ? 0 : time)
+      return Math.abs(angle - targetAngle) > 0.002 || Math.abs(flow - (on ? 1 : 0)) > 0.002 || (on && !reducedMotion)
     },
   }
 }
@@ -199,6 +299,10 @@ function television(kit: Kit): DeviceModel {
   const screen = kit.ownMaterial('#121722', { roughness: 0.22, metalness: 0.1, emissive: '#ffffff', emissiveIntensity: 0, map: null })
   screen.emissiveMap = picture
   object.add(kit.mesh(kit.plane(1.42, 0.8), screen, 0, 0.01, 0.0715, false))
+  const videoMaterial = kit.track(new THREE.MeshBasicMaterial({ toneMapped: false }))
+  const videoScreen = kit.mesh(kit.plane(1.42, 0.8), videoMaterial, 0, 0.01, 0.0725, false)
+  videoScreen.visible = false
+  object.add(videoScreen)
   const led = glowMaterial(kit, TONE_COLORS.idle)
   object.add(kit.mesh(kit.sphere(0.012, 10, 8), led, 0.66, -0.425, 0.07, false))
   const light = new THREE.PointLight('#cfe4ff', 0, 3.2, 2)
@@ -211,6 +315,16 @@ function television(kit: Kit): DeviceModel {
     object,
     anchor: new THREE.Vector3(0, 0, 0.1),
     light,
+    setVideoTexture(texture) {
+      videoMaterial.map = texture
+      videoMaterial.needsUpdate = true
+      videoScreen.visible = Boolean(texture)
+      if (texture) {
+        const { videoWidth, videoHeight } = texture.image as HTMLVideoElement
+        const ratio = (videoWidth / videoHeight) / (1.42 / 0.8)
+        videoScreen.scale.set(Math.min(1, ratio), Math.min(1, 1 / ratio), 1)
+      }
+    },
     setVisual(next) {
       visual = next
       led.emissive.set(next.active ? TONE_COLORS.active : '#ff6b6b')
@@ -219,8 +333,8 @@ function television(kit: Kit): DeviceModel {
     update(dt, time, reducedMotion) {
       power = approach(power, visual.active ? 1 : 0, dt, 6)
       const flicker = reducedMotion ? 1 : 0.92 + Math.sin(time * 7.3) * 0.04 + Math.sin(time * 2.1) * 0.04
-      screen.emissiveIntensity = power * flicker
-      screen.color.set(power > 0.5 ? '#000000' : '#121722')
+      screen.emissiveIntensity = videoScreen.visible ? 0 : power * flicker
+      screen.color.set(videoScreen.visible || power > 0.5 ? '#000000' : '#121722')
       light.intensity = power * 0.9 * flicker
       return Math.abs(power - (visual.active ? 1 : 0)) > 0.002 || (visual.active && !reducedMotion)
     },
@@ -368,31 +482,44 @@ function robotVacuum(kit: Kit): DeviceModel {
 
 function handWarmer(kit: Kit): DeviceModel {
   const object = new THREE.Group()
-  const body = kit.ownMaterial('#fff1e2', { roughness: 0.55, emissive: '#ff9a52', emissiveIntensity: 0 })
-  const pebble = kit.mesh(kit.sphere(0.1, 28, 20), body, 0, 0.12, 0)
-  pebble.scale.set(1, 1.2, 0.7)
-  object.add(pebble)
-  // A knitted sleeve around the base.
-  object.add(kit.mesh(kit.cylinder(0.103, 0.09, 0.07, 28), kit.material(PALETTE.sun, { roughness: 1 }), 0, 0.05, 0))
-  const blush = kit.material('#ffb3a7', { roughness: 0.8 })
+  const body = kit.ownMaterial('#fff7e9', { roughness: 0.62, emissive: '#ffac64', emissiveIntensity: 0 })
+  const knit = kit.ownMaterial('#ffba36', { roughness: 1, emissive: '#ff8b2c', emissiveIntensity: 0 })
+  // Model in icon units so the lobes, sleeve and face keep the same proportions.
+  const shell = new THREE.Group()
+  shell.scale.setScalar(0.01)
+  object.add(shell)
+  function profileMesh(profile: WarmerProfile, depth: number, bevel: number, material: THREE.Material) {
+    const shape = new THREE.Shape()
+    shape.moveTo(profile.start[0], -profile.start[1])
+    for (const [x1, y1, x2, y2, x, y] of profile.curves)
+      shape.bezierCurveTo(x1, -y1, x2, -y2, x, -y)
+    shape.closePath()
+    const geometry = kit.track(new THREE.ExtrudeGeometry(shape, {
+      depth, bevelSize: bevel, bevelThickness: bevel, bevelSegments: 4, curveSegments: 10,
+    }))
+    return kit.mesh(geometry, material, -32, 53, -depth / 2)
+  }
+  shell.add(profileMesh(cloud, 9, 2.5, body), profileMesh(sleeve, 13, 1, knit))
+  const blush = kit.material('#f99583', { roughness: 0.8 })
   const eye = kit.material(PALETTE.ink, { roughness: 0.3 })
   for (const side of [-1, 1]) {
-    const mesh = kit.mesh(kit.sphere(0.011, 10, 8), eye, side * 0.032, 0.15, 0.066, false)
-    mesh.scale.set(1, 1.4, 0.6)
-    object.add(mesh)
-    const cheek = kit.mesh(kit.sphere(0.014, 10, 8), blush, side * 0.055, 0.125, 0.06, false)
-    cheek.scale.set(1, 0.6, 0.4)
-    object.add(cheek)
+    const pupil = kit.mesh(kit.sphere(1.5, 12, 8), eye, side * 6, 21, 7, false)
+    pupil.scale.set(1, 1.3, 0.55)
+    const cheek = kit.mesh(kit.sphere(2.6, 12, 8), blush, side * 11, 17, 7, false)
+    cheek.scale.set(1, 0.62, 0.3)
+    shell.add(pupil, cheek)
   }
-  const light = new THREE.PointLight('#ffb06b', 0, 1.6, 2)
-  light.position.set(0, 0.2, 0.2)
+  const smile = new THREE.QuadraticBezierCurve3(new THREE.Vector3(-2, 17, 7.1), new THREE.Vector3(0, 15, 7.1), new THREE.Vector3(2, 17, 7.1))
+  shell.add(kit.mesh(kit.track(new THREE.TubeGeometry(smile, 6, 0.65, 6, false)), eye, 0, 0, 0, false))
+  const light = new THREE.PointLight('#ffa549', 0, 0.60, 2)
+  light.position.set(0, 0.19, 0.04)
   object.add(light)
   let visual: DeviceVisual = { active: false, tone: 'idle' }
   let heat = 0
   return {
     kind: 'hand-warmer',
     object,
-    anchor: new THREE.Vector3(0, 0.16, 0.05),
+    anchor: new THREE.Vector3(0, 0.20, 0.08),
     light,
     setVisual(next) {
       visual = next
@@ -400,9 +527,50 @@ function handWarmer(kit: Kit): DeviceModel {
     update(dt, time, reducedMotion) {
       heat = approach(heat, visual.active ? 1 : 0, dt, 3)
       const pulse = visual.active && !reducedMotion ? 0.82 + Math.sin(time * 2.4) * 0.18 : 1
-      body.emissiveIntensity = heat * 0.55 * pulse
-      light.intensity = heat * 0.7 * pulse
+      body.emissiveIntensity = heat * 0.48 * pulse
+      knit.emissiveIntensity = heat * 1.1 * pulse
+      light.intensity = heat * 0.75 * pulse
       return Math.abs(heat - (visual.active ? 1 : 0)) > 0.002 || (visual.active && !reducedMotion)
+    },
+  }
+}
+
+function nightLight(kit: Kit): DeviceModel {
+  const object = new THREE.Group()
+  const base = kit.mesh(kit.cylinder(0.147, 0.155, 0.05), kit.material(PALETTE.woodLight), 0, 0.025, 0)
+  base.scale.z = 0.78
+  const stem = kit.mesh(kit.cylinder(0.036, 0.045, 0.071), kit.material('#b89565', { metalness: 0.25 }), 0, 0.079, 0)
+  const profile = new THREE.Shape()
+  profile.moveTo(0.086, 0.47)
+  profile.bezierCurveTo(-0.046, 0.49, -0.189, 0.413, -0.20, 0.27)
+  profile.bezierCurveTo(-0.222, 0.127, -0.112, 0.05, 0.009, 0.061)
+  profile.bezierCurveTo(0.097, 0.061, 0.174, 0.116, 0.207, 0.204)
+  profile.bezierCurveTo(0.13, 0.149, 0.02, 0.171, -0.024, 0.248)
+  profile.bezierCurveTo(-0.068, 0.336, -0.024, 0.424, 0.086, 0.47)
+  const geometry = kit.track(new THREE.ExtrudeGeometry(profile, {
+    depth: 0.075, bevelSize: 0.009, bevelThickness: 0.017, bevelSegments: 4, curveSegments: 14,
+  }))
+  const glass = kit.ownMaterial('#f7edda', { roughness: 0.55, emissive: '#ffcb79', emissiveIntensity: 0 })
+  const shade = kit.mesh(geometry, glass, 0, 0.016, -0.0375)
+  const light = new THREE.PointLight('#ffcb8c', 0, 2.8, 2)
+  light.position.set(0, 0.32, 0.09)
+  object.add(base, stem, shade, light)
+  let lit = false
+  let intensity = 0
+  return {
+    kind: 'night-light',
+    object,
+    anchor: new THREE.Vector3(-0.05, 0.25, 0.06),
+    light,
+    setVisual(next) { lit = next.active },
+    update(dt, _time, reducedMotion) {
+      const target = Number(lit)
+      intensity = reducedMotion ? target : approach(intensity, target, dt, 9)
+      if (Math.abs(intensity - target) < 0.002)
+        intensity = target
+      glass.emissiveIntensity = intensity * 1.65
+      light.intensity = intensity * 2.35
+      return intensity !== target
     },
   }
 }
@@ -430,5 +598,6 @@ export function buildDevice(kit: Kit, kind: DeviceKind): DeviceModel {
     case 'fan': return fan(kit)
     case 'robot-vacuum': return robotVacuum(kit)
     case 'hand-warmer': return handWarmer(kit)
+    case 'night-light': return nightLight(kit)
   }
 }

@@ -23,6 +23,7 @@ const PREVIEW_TONES: Record<DeviceKind, DeviceTone[]> = {
   'television': ['active'],
   'robot-vacuum': ['active'],
   'hand-warmer': ['warm'],
+  'night-light': ['warm'],
 }
 
 const plugins = computed(() => HOME_DEVICE_ORDER.map((kind) => {
@@ -158,7 +159,7 @@ const ICON_SAMPLE = `export const icon = definePluginIcon({
         <div class="market-suite__copy">
           <span class="market__badge"><span class="i-carbon-checkmark-filled" />默认已安装</span>
           <h2 id="suite-title">云家电</h2>
-          <p>云乐坊官方家电套装：空调、风扇、电视、扫地机器人与暖手宝。开箱即用，也可以单独卸载。</p>
+          <p>云乐坊官方家电套装：空调、风扇、电视、扫地机器人、暖手宝与床头小夜灯。开箱即用，也可以单独卸载。</p>
           <div class="market-suite__meta">
             <span>{{ installedCount }} / {{ plugins.length }} 已安装</span>
             <button v-if="installedCount < plugins.length" type="button" class="market__button is-primary" @click="restoreSuite">

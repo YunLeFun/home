@@ -86,5 +86,6 @@ export const handWarmerState: DevicePluginState<'hand-warmer'> = {
   reduce: reduceHandWarmerState,
   isAction: isHandWarmerAction,
   isActive: state => state.power,
+  statusText: state => state.power ? `加热中 · ${state.temperature}°C` : '已关闭',
   tone: handWarmerTone,
 }

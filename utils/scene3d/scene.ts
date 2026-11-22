@@ -2,12 +2,14 @@ import * as THREE from 'three'
 import type { ScenePhase } from '~/composables/scene-time'
 import type { FurnitureSpec, PlanShell, PlanWall } from '~/constants/scene3d'
 import type { DeviceKind, DevicePlacement, HomePoint, HomeSurface, HomeSurfaceKind, HomeTemplate, SurfaceTarget } from '~/types'
+import type { WallMode, WallPanel, WallVisibility } from './apartment-walls'
 import type { DeviceModel, DeviceVisual } from './devices'
 import type { PhaseTargets, SceneLamp } from './furniture'
 import type { FurniturePose, FurnitureProblem, ResolvedHome } from './layout'
 import type { FloorBounds, Ray3, TabletopSpec, Vec3 } from './projection'
 import { SCENE3D_TEMPLATES } from '~/constants/scene3d'
 import { createPlacementAtPoint, getPointAlongRoute, getRobotRoute } from '~/utils/home'
+import { apartmentWallKeys, surfaceIsVisible, wallBlocksView, wallIsVisible } from './apartment-walls'
 import { buildDevice, buildRobotDock } from './devices'
 import { buildFurniture } from './furniture'
 import { EDIT_COLORS, Kit, PALETTE, TONE_COLORS } from './kit'
@@ -27,6 +29,7 @@ export interface HomeScene3DOptions {
   reducedMotion: boolean
   mobile: boolean
   onProject?: (anchors: ScreenAnchor[]) => void
+  onWallVisibilityChange?: (visibility: WallVisibility) => void
 }
 
 interface PhaseLighting {
@@ -192,12 +195,19 @@ export class HomeScene3D {
   private furnitureRoot = new THREE.Group()
   private furnitureKit = new Kit()
   private furnitureObjects = new Map<string, THREE.Object3D>()
+  private wallObjects = new Map<string, { object: THREE.Group, panel: WallPanel }>()
+  private wallMode: WallMode = 'auto'
+  private manualWalls: WallVisibility = {}
+  private wallVisibility: WallVisibility = {}
+  private wallSightlines: Vec3[] = []
   private overlayKit = new Kit()
   private deviceKit = new Kit()
   private phaseTargets: PhaseTargets
   private lamps: SceneLamp[] = []
   private ticks: Array<(time: number) => void> = []
   private devices = new Map<DeviceKind, DeviceEntry>()
+  private televisionTexture: THREE.VideoTexture | null = null
+  private televisionFrame: number | undefined
   private dock: THREE.Object3D
   private route: THREE.Line | null = null
   private raycaster = new THREE.Raycaster()
@@ -405,6 +415,8 @@ export class HomeScene3D {
     if (previous?.template.id !== template.id) {
       this.drag = null
       this.templateRoot.clear()
+      this.wallObjects.clear()
+      this.wallVisibility = {}
       this.templateKit.dispose()
       this.templateKit = new Kit()
       const spec = SCENE3D_TEMPLATES[template.id]
@@ -412,10 +424,12 @@ export class HomeScene3D {
         this.buildPlanShell(template, spec.plan)
       else
         this.buildShell(template)
+      this.updateWallSightlines()
       this.sun.target.position.set(0, 0, isPlan(template) ? 0 : 1.6)
     }
     if (previous?.furniture !== home.furniture)
       this.buildFurniture(template, home.furniture)
+    this.updateWallVisibility(true)
     this.furnitureDrag = null
     if (this.selectedFurniture && !home.furniture.some(item => item.id === this.selectedFurniture))
       this.selectedFurniture = null
@@ -458,12 +472,72 @@ export class HomeScene3D {
     this.applyLighting(this.current)
   }
 
+  setWallVisibility(mode: WallMode, manual: WallVisibility) {
+    this.wallMode = mode
+    this.manualWalls = manual
+    this.invalidate()
+  }
+
+  private updateWallSightlines() {
+    if (!this.template || !this.wallObjects.size) {
+      this.wallSightlines = []
+      return
+    }
+    this.wallSightlines = this.template.rooms
+      .filter(room => this.overview || !this.focusRoomId || room.id === this.focusRoomId)
+      .map((room) => {
+        const { x0, x1, z0, z1 } = roomBounds(this.template!, room.id)
+        return { x: (x0 + x1) / 2, y: 0.95, z: (z0 + z1) / 2 }
+      })
+  }
+
+  private updateWallVisibility(force = false) {
+    if (!this.home || !this.wallObjects.size)
+      return false
+    let updated: Record<string, boolean | undefined> | undefined
+    for (const [key, { panel }] of this.wallObjects) {
+      const visible = this.wallMode === 'auto'
+        ? !this.wallSightlines.some(target => wallBlocksView(panel, this.camera.position, target, this.wallVisibility[key] === false))
+        : wallIsVisible(key, this.manualWalls)
+      if (visible !== this.wallVisibility[key])
+        (updated ??= { ...this.wallVisibility })[key] = visible
+    }
+    if (!updated && !force)
+      return false
+    if (updated)
+      this.wallVisibility = updated
+    for (const [key, { object }] of this.wallObjects)
+      object.visible = wallIsVisible(key, this.wallVisibility)
+    for (const { id, kind, roomId } of this.home.furniture) {
+      if (kind === 'window' || kind === 'clock' || kind === 'shelf') {
+        const key = apartmentWallKeys(this.home.template, roomId)?.back
+        const object = this.furnitureObjects.get(id)
+        if (key && object)
+          object.visible = wallIsVisible(key, this.wallVisibility)
+      }
+    }
+    if (updated) {
+      if (!force)
+        this.layoutDevices()
+      this.options.onWallVisibilityChange?.(this.wallVisibility)
+    }
+    return true
+  }
+
+  private wallGroup(key: string | undefined, panel: WallPanel) {
+    const group = new THREE.Group()
+    this.templateRoot.add(group)
+    if (key)
+      this.wallObjects.set(key, { object: group, panel })
+    return group
+  }
+
   private buildShell(template: HomeTemplate) {
     const kit = this.templateKit
     const accents = SCENE3D_TEMPLATES[template.id].rooms
-    const { depth, height } = SCENE3D
-    const left = worldX(18, template.width)
-    const right = worldX(template.width - 18, template.width)
+    const { depth, height, outerWallInset } = SCENE3D
+    const left = worldX(outerWallInset, template.width)
+    const right = worldX(template.width - outerWallInset, template.width)
     const wall = 0.16
     const trim = kit.material(PALETTE.trim, { roughness: 0.6 })
     const accentColor = { warm: PALETTE.wallWarm, sky: PALETTE.wallSky, clay: PALETTE.wallClay }
@@ -492,23 +566,35 @@ export class HomeScene3D {
       const x1 = Math.min(right, worldX(room.x + room.width, template.width))
       const width = x1 - x0
       const color = accentColor[accents[room.id] ?? 'warm']
-      const back = kit.mesh(kit.custom(`wall:${width}`, () => new THREE.BoxGeometry(width, height, wall)), kit.material(color, { roughness: 0.92 }), (x0 + x1) / 2, height / 2, -wall / 2)
+      const keys = apartmentWallKeys(template, room.id)
+      const backGroup = this.wallGroup(keys?.back, { axis: 'z', position: 0, start: x0, end: x1, height })
+      const panel = kit.custom(`wall:${width}`, () => new THREE.BoxGeometry(width, height, wall))
+      const paint = kit.material(color, { roughness: 0.92 })
+      const back = kit.mesh(panel, paint, (x0 + x1) / 2, height / 2, -wall / 2)
       back.castShadow = false
       back.userData.roomId = room.id
-      this.templateRoot.add(back)
-      this.templateRoot.add(kit.mesh(kit.roundedBox(width, 0.1, 0.03, 0.012), trim, (x0 + x1) / 2, 0.05, 0.015, false))
-      this.templateRoot.add(kit.mesh(kit.roundedBox(width + 0.02, 0.06, wall + 0.04, 0.02), trim, (x0 + x1) / 2, height + 0.03, -wall / 2, false))
+      backGroup.add(back)
+      backGroup.add(kit.mesh(kit.roundedBox(width, 0.1, 0.03, 0.012), trim, (x0 + x1) / 2, 0.05, 0.015, false))
+      backGroup.add(kit.mesh(kit.roundedBox(width + 0.02, 0.06, wall + 0.04, 0.02), trim, (x0 + x1) / 2, height + 0.03, -wall / 2, false))
+      if (keys) {
+        const frontGroup = this.wallGroup(keys.front, { axis: 'z', position: depth, start: x0, end: x1, height })
+        const z = depth + wall / 2
+        const front = kit.mesh(panel, paint, (x0 + x1) / 2, height / 2, z)
+        frontGroup.add(front, kit.mesh(kit.roundedBox(width + 0.02, 0.06, wall + 0.04, 0.02), trim, (x0 + x1) / 2, height + 0.03, z, false))
+      }
       if (index > 0) {
-        // Partition walls between rooms, open towards the viewer.
+        const partition = this.wallGroup(keys?.left, { axis: 'x', position: x0, start: 0, end: depth, height })
         const divider = kit.mesh(kit.custom(`divider:${depth}`, () => new THREE.BoxGeometry(0.12, height, depth)), kit.material(PALETTE.wallWarm, { roughness: 0.92 }), x0, height / 2, depth / 2)
-        this.templateRoot.add(divider)
-        this.templateRoot.add(kit.mesh(kit.roundedBox(0.16, 0.06, depth + 0.02, 0.02), trim, x0, height + 0.03, depth / 2, false))
+        partition.add(divider, kit.mesh(kit.roundedBox(0.16, 0.06, depth + 0.02, 0.02), trim, x0, height + 0.03, depth / 2, false))
       }
     })
-    for (const x of [left - wall / 2, right + wall / 2]) {
+    const leftKey = apartmentWallKeys(template, template.rooms[0]?.id ?? null)?.left
+    const rightKey = apartmentWallKeys(template, template.rooms.at(-1)?.id ?? null)?.right
+    for (const [edge, offset, key] of [[left, -wall / 2, leftKey], [right, wall / 2, rightKey]] as const) {
+      const x = edge + offset
+      const group = this.wallGroup(key, { axis: 'x', position: edge, start: 0, end: depth, height })
       const side = kit.mesh(kit.custom(`side:${depth}`, () => new THREE.BoxGeometry(wall, height, depth + wall)), kit.material(PALETTE.wallWarm, { roughness: 0.92 }), x, height / 2, depth / 2 - wall / 2)
-      this.templateRoot.add(side)
-      this.templateRoot.add(kit.mesh(kit.roundedBox(wall + 0.04, 0.06, depth + wall + 0.02, 0.02), trim, x, height + 0.03, depth / 2 - wall / 2, false))
+      group.add(side, kit.mesh(kit.roundedBox(wall + 0.04, 0.06, depth + wall + 0.02, 0.02), trim, x, height + 0.03, depth / 2 - wall / 2, false))
     }
   }
 
@@ -645,6 +731,7 @@ export class HomeScene3D {
     let entry = this.devices.get(kind)
     if (!entry) {
       const model = buildDevice(this.deviceKit, kind)
+      model.setVideoTexture?.(this.televisionTexture)
       const holder = new THREE.Group()
       holder.userData.deviceId = kind
       // Hidden until a placement puts it in a room.
@@ -664,6 +751,29 @@ export class HomeScene3D {
       return
     this.layoutDevices()
     this.updateRoute()
+    this.invalidate()
+  }
+
+  setTelevisionVideo(video: HTMLVideoElement | null) {
+    const previous = this.televisionTexture?.image as HTMLVideoElement | undefined
+    if (this.televisionFrame !== undefined)
+      previous?.cancelVideoFrameCallback(this.televisionFrame)
+    this.televisionFrame = undefined
+    this.televisionTexture?.dispose()
+    const texture = video ? new THREE.VideoTexture(video) : null
+    if (texture) {
+      texture.colorSpace = THREE.SRGBColorSpace
+      texture.needsUpdate = true
+    }
+    this.televisionTexture = texture
+    this.devices.get('television')?.model.setVideoTexture?.(texture)
+    if (video?.requestVideoFrameCallback) {
+      const renderFrame = () => {
+        this.invalidate()
+        this.televisionFrame = video.requestVideoFrameCallback(renderFrame)
+      }
+      this.televisionFrame = video.requestVideoFrameCallback(renderFrame)
+    }
     this.invalidate()
   }
 
@@ -688,6 +798,9 @@ export class HomeScene3D {
     }
     for (const placement of this.placements) {
       if (placement.deviceId === drag?.deviceId && (drag.placement || drag.position))
+        continue
+      const surface = template.surfaces.find(item => item.id === placement.surfaceId)
+      if (!surface || !surfaceIsVisible(template, surface, this.wallVisibility))
         continue
       const projected = projectPlacement(template, placement, tabletops)
       if (!projected)
@@ -774,7 +887,8 @@ export class HomeScene3D {
     const focus = this.drag?.deviceId ?? this.selected
     const pulse = focus && !this.options.reducedMotion ? (Math.sin(time * 3.6) + 1) / 2 : 0
     for (const overlay of this.surfaceOverlays) {
-      overlay.object.visible = !focus || overlay.surface.accepts.includes(focus)
+      overlay.object.visible = (!focus || overlay.surface.accepts.includes(focus))
+        && (!this.template || surfaceIsVisible(this.template, overlay.surface, this.wallVisibility))
       overlay.fill.opacity = focus ? 0.16 + pulse * 0.14 : 0.1
       overlay.edge.opacity = focus ? 0.9 : 0.5
     }
@@ -828,7 +942,7 @@ export class HomeScene3D {
     const template = this.template
     if (!template)
       return null
-    const hit = findSurfaceAlongRay(template, deviceId, this.rayAt(x, y), this.tabletops)
+    const hit = findSurfaceAlongRay(template, deviceId, this.rayAt(x, y), this.tabletops, surface => surfaceIsVisible(template, surface, this.wallVisibility))
     return hit && { surfaceId: hit.surface.id, point: hit.point }
   }
 
@@ -847,7 +961,7 @@ export class HomeScene3D {
     if (!template)
       return { target: null, valid: false }
     const tabletops = this.tabletops
-    const hit = findSurfaceAlongRay(template, deviceId, this.rayAt(x, y), tabletops)
+    const hit = findSurfaceAlongRay(template, deviceId, this.rayAt(x, y), tabletops, surface => surfaceIsVisible(template, surface, this.wallVisibility))
     const rotation = this.placements.find(item => item.deviceId === deviceId)?.rotation ?? 0
     const placement = hit ? createPlacementAtPoint(template, deviceId, hit.point, this.placements, rotation, hit.surface.id) : null
     this.drag = {
@@ -1112,6 +1226,7 @@ export class HomeScene3D {
       return
     this.focusRoomId = roomId
     this.overview = overview
+    this.updateWallSightlines()
     this.resetView()
   }
 
@@ -1150,7 +1265,16 @@ export class HomeScene3D {
 
   /** Turn the diorama, from a pointer drag in CSS pixels. */
   rotateBy(dx: number, dy: number) {
-    this.orbit.targetYaw = THREE.MathUtils.clamp(this.orbit.targetYaw - dx * 0.0045, -0.85, 0.85)
+    const yaw = this.orbit.targetYaw - dx * 0.0045
+    if (this.template?.id === 'cloud-apartment') {
+      const turn = 2 * Math.PI
+      const offset = Math.trunc(yaw / turn) * turn
+      this.orbit.targetYaw = yaw - offset
+      this.orbit.yaw -= offset
+    }
+    else {
+      this.orbit.targetYaw = THREE.MathUtils.clamp(yaw, -0.85, 0.85)
+    }
     this.orbit.targetPitch = THREE.MathUtils.clamp(this.orbit.targetPitch + dy * 0.003, -0.24, 0.42)
     this.invalidate()
   }
@@ -1188,6 +1312,9 @@ export class HomeScene3D {
 
   /** Back to the framed view of the room or home. */
   resetView() {
+    const turn = 2 * Math.PI
+    const offset = Math.round(this.orbit.yaw / turn) * turn
+    this.orbit.yaw -= offset
     this.orbit.targetYaw = 0
     this.orbit.targetPitch = 0
     Object.assign(this.view, { targetX: 0, targetZ: 0, targetZoom: 1 })
@@ -1347,12 +1474,15 @@ export class HomeScene3D {
     this.last = now
     const time = now / 1000
     let busy = this.stepCamera(now, dt)
+    const wallsChanged = this.updateWallVisibility()
     busy = this.stepPhase(now) || busy
     busy = this.stepDevices(dt, time) || busy
+    const video = this.televisionTexture?.image as HTMLVideoElement | undefined
+    busy = busy || Boolean(video && !video.requestVideoFrameCallback && !video.paused)
     const pulsing = this.editing && Boolean(this.drag ?? this.selected)
     const ambient = !this.options.reducedMotion && (this.ticks.length > 0 || pulsing)
     // Ambient motion alone runs at a calmer 30 fps.
-    if (busy || !ambient || now - this.lastRender > 32) {
+    if (busy || wallsChanged || !ambient || now - this.lastRender > 32) {
       if (ambient) {
         for (const tick of this.ticks)
           tick(time)
@@ -1376,8 +1506,10 @@ export class HomeScene3D {
     const anchors: ScreenAnchor[] = []
     const vector = new THREE.Vector3()
     for (const [id, entry] of this.devices) {
-      if (!entry.holder.visible)
+      if (!entry.holder.visible) {
+        anchors.push({ id, x: 0, y: 0, visible: false })
         continue
+      }
       vector.copy(entry.model.anchor)
       entry.model.object.localToWorld(vector)
       vector.project(this.camera)
@@ -1433,6 +1565,7 @@ export class HomeScene3D {
   dispose() {
     this.disposed = true
     cancelAnimationFrame(this.frame)
+    this.setTelevisionVideo(null)
     this.updateRouteDispose()
     this.templateKit.dispose()
     this.furnitureKit.dispose()

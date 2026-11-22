@@ -99,5 +99,6 @@ export const robotVacuumState: DevicePluginState<'robot-vacuum'> = {
   reduce: reduceRobotVacuumState,
   isAction: isRobotVacuumAction,
   isActive: isRobotVacuumActive,
+  statusText: state => ({ docked: '在基站待机', charging: '充电中', cleaning: '清扫中', paused: '已暂停', returning: '返回基站中' })[state.status],
   tone: robotVacuumTone,
 }

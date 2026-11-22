@@ -102,7 +102,7 @@ describe('device plugin registry', () => {
     }
   })
 
-  it.each(['fan', 'robot-vacuum', 'hand-warmer', 'television'] as const)('fails loudly when the %s plugin is not installed', (kind) => {
+  it.each(['fan', 'robot-vacuum', 'hand-warmer', 'television', 'night-light'] as const)('fails loudly when the %s plugin is not installed', (kind) => {
     unregisterDevicePlugin(kind)
     expect(() => createDefaultDeviceState(kind)).toThrow(/not installed/)
   })
@@ -113,6 +113,17 @@ describe('device running state and tone', () => {
     expect(getDeviceTone('air-conditioner', { status: false, mode: 'cold', temperature: 26 })).toBe('idle')
     expect(getDeviceTone('air-conditioner', { status: true, mode: 'cold', temperature: 22 })).toBe('cool')
     expect(getDeviceTone('air-conditioner', { status: true, mode: 'hot', temperature: 28 })).toBe('heat')
+  })
+
+  it('restores night-light power and safely repeats power commands', () => {
+    const kind = 'night-light'
+    const off = createDefaultDeviceState(kind)
+    const on = reduceDeviceState(kind, off, { type: 'set-power', power: true })
+    expect(getDeviceTone(kind, off)).toBe('idle')
+    expect(getDeviceTone(kind, normalizeDeviceState(kind, on))).toBe('warm')
+    expect(reduceDeviceState(kind, on, { type: 'set-power', power: true }).power).toBe(true)
+    expect(isDeviceAction(kind, { type: 'set-power', power: 'on' })).toBe(false)
+    expect(normalizeDeviceState(kind, { power: 'on' }).power).toBe(false)
   })
 
   it('derives running state and tone from each plugin', () => {
@@ -163,6 +174,13 @@ describe('plugin state machines', () => {
     expect(televisionPlugin.state.reduce(playing, { type: 'set-source', sourceUrl: source }, changedAt)).toMatchObject({ power: true, playing: false, sourceUrl: source })
     expect(televisionPlugin.state.normalize({ power: false, playing: true, volume: 12.6, sourceUrl: 'http://insecure.example.com/a.mp4' }))
       .toMatchObject({ playing: false, volume: 13, sourceUrl: DEFAULT_TELEVISION_SOURCE_URL })
+  })
+
+  it('upgrades the legacy television demo source and retains custom HTTPS sources', () => {
+    const oldDefault = 'https://media.w3.org/2010/05/sintel/trailer.mp4'
+    const custom = 'https://media.example.com/clip.webm'
+    expect(televisionPlugin.state.normalize({ sourceUrl: oldDefault }).sourceUrl).toBe(DEFAULT_TELEVISION_SOURCE_URL)
+    expect(televisionPlugin.state.normalize({ sourceUrl: custom }).sourceUrl).toBe(custom)
   })
 
   it('validates actions per device', () => {

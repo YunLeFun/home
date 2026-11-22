@@ -9,7 +9,7 @@ const cloudbaseVersion: string = JSON.parse(readFileSync(cloudbasePackage, 'utf8
 
 const siteOrigin = (process.env.NUXT_PUBLIC_SITE_ORIGIN || 'https://home.yunle.fun').replace(/\/+$/, '')
 // Pages override the title and description with useShareMeta; the card is shared.
-const shareDescription = `${appTagline}。${appDescription}，空调、风扇、电视、扫地机器人与暖手宝都在云上。`
+const shareDescription = `${appTagline}。${appDescription}，空调、风扇、电视、扫地机器人、暖手宝与床头小夜灯都在云上。`
 
 export default defineNuxtConfig({
   compatibilityDate: '2026-07-16',

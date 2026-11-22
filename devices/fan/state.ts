@@ -87,6 +87,7 @@ export const fanState: DevicePluginState<'fan'> = {
   reduce: reduceFanState,
   isAction: isFanAction,
   isActive: state => state.power,
+  statusText: state => state.power ? `风速 ${state.speed} 档${state.oscillating ? ' · 摇头' : ''}` : '已关闭',
   tone: fanTone,
   motionSpeed: state => FAN_MOTION_SPEEDS[state.speed],
 }

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { DevicePlacement, HomeRoom } from '~/types'
-import { computed, nextTick, onMounted, shallowRef, watch } from 'vue'
+import { computed, onMounted, shallowRef, watch } from 'vue'
 
 const props = defineProps<{
   rooms: HomeRoom[]
@@ -27,15 +27,21 @@ const indicator = shallowRef<{ left: number, width: number } | null>(null)
 
 // Measure the pressed tab so the pill can spring to it.
 function measure() {
-  const target = navRef.value?.querySelector<HTMLElement>('button[aria-pressed="true"]')
-  if (!target || target.offsetWidth === 0) {
+  const nav = navRef.value
+  const target = nav?.querySelector<HTMLElement>('button[aria-pressed="true"]')
+  if (!nav || !target || target.offsetWidth === 0) {
     indicator.value = null
     return
   }
   indicator.value = { left: target.offsetLeft, width: target.offsetWidth }
+  // Reveal a room selected in the scene or restored from storage without scrolling the page.
+  if (target.offsetLeft < nav.scrollLeft)
+    nav.scrollLeft = target.offsetLeft
+  else if (target.offsetLeft + target.offsetWidth > nav.scrollLeft + nav.clientWidth)
+    nav.scrollLeft = target.offsetLeft + target.offsetWidth - nav.clientWidth
 }
 
-watch([activeKey, () => props.rooms], () => nextTick(measure))
+watch([activeKey, () => props.rooms, deviceCountByRoom], measure, { flush: 'post' })
 onMounted(measure)
 useResizeObserver(navRef, measure)
 </script>
@@ -55,6 +61,8 @@ useResizeObserver(navRef, measure)
       v-for="room in rooms"
       :key="room.id"
       :aria-pressed="!overview && activeRoomId === room.id"
+      :aria-label="`${room.name}，${deviceCountByRoom[room.id] ?? 0} 台设备`"
+      :class="{ 'is-empty': !deviceCountByRoom[room.id] }"
       type="button"
       @click="emit('selectRoom', room.id)"
     >
@@ -95,6 +103,7 @@ useResizeObserver(navRef, measure)
 
 .room-tabs button {
   display: inline-flex;
+  flex: none;
   align-items: center;
   justify-content: center;
   gap: 6px;
@@ -108,6 +117,7 @@ useResizeObserver(navRef, measure)
   font-size: 11px;
   font-weight: 650;
   cursor: pointer;
+  white-space: nowrap;
   transition: color var(--dur-2) ease;
 }
 
@@ -139,11 +149,17 @@ useResizeObserver(navRef, measure)
     left: auto;
     z-index: 3;
     width: fit-content;
+    max-width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
     margin: 4px auto 10px;
     transform: none;
   }
 
   .room-tabs__overview { display: none !important; }
-  .room-tabs button { min-width: 68px; min-height: 34px; }
+  .room-tabs button { min-width: 64px; min-height: 36px; gap: 5px; padding: 0 10px; font-size: 12px; }
+  .room-tabs button.is-empty { min-width: 44px; }
+  .room-tabs button.is-empty small { display: none; }
 }
 </style>

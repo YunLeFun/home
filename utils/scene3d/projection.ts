@@ -28,6 +28,8 @@ export const SCENE3D = {
   floorFront: 790,
   /** Depth of the floor from the back wall to the open front. */
   depth: 4.4,
+  /** Inset of the two outer walls from the ends of the elevation sheet. */
+  outerWallInset: 18,
   /** Height of the walls (plan y = 30). */
   height: 3.24,
   /** Wall-mounted devices stand this far off the wall. */
@@ -160,6 +162,12 @@ const dot = (a: Vec3, b: Vec3) => a.x * b.x + a.y * b.y + a.z * b.z
 function elevationFrame(template: HomeTemplate, surface: HomeSurface, tabletop?: TabletopSpec): SurfaceFrame {
   const left = worldX(0, template.width)
   const axisX = vec(SCENE3D.scaleX, 0, 0)
+  if (surface.wallSide === 'left') {
+    const { depth, floorLine, outerWallInset, scaleX, scaleY, wallOffset } = SCENE3D
+    const room = template.rooms.find(item => item.id === surface.roomId)
+    const x = worldX(Math.max(outerWallInset, room?.x ?? 0), template.width)
+    return { origin: vec(x + wallOffset, floorLine * scaleY, depth), axisX: vec(0, 0, -scaleX), axisY: vec(0, -scaleY, 0), normal: vec(1, 0, 0) }
+  }
   if (surface.kind === 'wall')
     return { origin: vec(left, SCENE3D.floorLine * SCENE3D.scaleY, SCENE3D.wallOffset), axisX, axisY: vec(0, -SCENE3D.scaleY, 0), normal: vec(0, 0, 1) }
   if (surface.kind === 'floor') {
@@ -391,22 +399,23 @@ export interface SurfaceRayHit {
  * Only surfaces that accept the device count. The ray is met with each
  * surface's plane rather than the furniture in front of it, so a sofa does
  * not hide the floor. A surface the ray lands inside wins; otherwise the
- * closest one, which the placement rules may still snap to. On a plan, a
- * wall the ray meets from behind does not count.
+ * closest one, which the placement rules may still snap to. Rays that meet
+ * a plan wall or an elevation side wall from behind are ignored.
  *
  * @param template - Home template
  * @param deviceId - Device being placed
  * @param ray - Ray from the camera through the pointer
  * @param tabletops - 3D specs of the template's tabletop surfaces by id
+ * @param isVisible - Whether the current view offers the surface for placement
  * @returns The best surface, or null when the ray meets none of their planes
  */
-export function findSurfaceAlongRay(template: HomeTemplate, deviceId: DeviceKind, ray: Ray3, tabletops: Record<string, TabletopSpec> = {}): SurfaceRayHit | null {
+export function findSurfaceAlongRay(template: HomeTemplate, deviceId: DeviceKind, ray: Ray3, tabletops: Record<string, TabletopSpec> = {}, isVisible?: (surface: HomeSurface) => boolean): SurfaceRayHit | null {
   let best: (SurfaceRayHit & { gap: number, distance: number }) | null = null
   for (const surface of template.surfaces) {
-    if (!surface.accepts.includes(deviceId))
+    if (!surface.accepts.includes(deviceId) || (isVisible && !isVisible(surface)))
       continue
     const tabletop = tabletops[surface.id]
-    if (isPlan(template) && dot(ray.direction, surfaceFrame(template, surface, tabletop).normal) > 0)
+    if ((isPlan(template) || surface.wallSide) && dot(ray.direction, surfaceFrame(template, surface, tabletop).normal) > 0)
       continue
     const hit = intersectSurfacePlane(template, surface, ray, tabletop)
     if (!hit)
