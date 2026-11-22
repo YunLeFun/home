@@ -35,7 +35,7 @@ The application owns device instances, runtime state, room placement, authentica
 
 The production build has no sibling-repository `link:` dependencies and no runtime font/image proxy. The air-conditioner detail uses the public `@yunlefun-home/air-conditioner` renderer while Home continues to own the device instance and state. Its canvas thumbnail stays consistent with the other home devices, and the detail page links to the standalone experience at `https://ac.yunyoujun.cn/`.
 
-The browser uses `@cloudbase/js-sdk` v3 for authentication and document persistence. Device and layout records are written directly to user-private CloudBase collections; the Worker never receives a CloudBase administrator key or proxies business-data writes.
+Development loads `@cloudbase/js-sdk` from npm. Production loads the same pinned version from the CloudBase CDN. Local guest controls need no SDK. SSO callbacks and previously signed-in browsers load the core and auth scripts, and cloud document access loads the database module. Device and layout records are written directly to user-private CloudBase collections; the Worker never receives a CloudBase administrator key or proxies business-data writes.
 
 ## Device Plugins
 

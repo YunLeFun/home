@@ -1,6 +1,11 @@
+import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { pwa } from './config/pwa'
 import { appDescription, appName, appTagline } from './constants/index'
+
+// The CDN and the local SDK follow the exact same installed (lockfile) version.
+const cloudbasePackage = new URL('../package.json', import.meta.resolve('@cloudbase/js-sdk'))
+const cloudbaseVersion: string = JSON.parse(readFileSync(cloudbasePackage, 'utf8')).version
 
 const siteOrigin = (process.env.NUXT_PUBLIC_SITE_ORIGIN || 'https://home.yunle.fun').replace(/\/+$/, '')
 // Pages override the title and description with useShareMeta; the card is shared.
@@ -34,6 +39,7 @@ export default defineNuxtConfig({
   ],
 
   vite: {
+    define: { 'import.meta.env.CLOUDBASE_SDK_VERSION': JSON.stringify(cloudbaseVersion) },
     server: {
       watch: {
         ignored: ['**/.claude/**', '**/.build/**', '**/apps/**', '**/packages/**'],

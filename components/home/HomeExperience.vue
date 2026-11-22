@@ -29,6 +29,7 @@ const deviceStates = {
 const scene3dRef = shallowRef<Scene3dApi | null>(null)
 const trayDrag = shallowRef<{ deviceId: DeviceKind; x: number; y: number } | null>(null)
 const notice = shallowRef<string | null>(null)
+const ssoNotice = useState<string | null>('sso-notice', () => null)
 const overviewMode = shallowRef(false)
 let noticeTimer: ReturnType<typeof setTimeout> | undefined
 
@@ -276,6 +277,10 @@ function handleViewportResize() {
 }
 
 onMounted(() => {
+  if (ssoNotice.value) {
+    showNotice(ssoNotice.value)
+    ssoNotice.value = null
+  }
   overviewMode.value = window.innerWidth > 720
   editor.selectedDeviceId.value = null
   window.addEventListener('resize', handleViewportResize)

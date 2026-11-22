@@ -70,12 +70,7 @@ export function useCloudSync() {
   const cloudbase = useCloudBaseClient()
 
   async function getContext(expectedOwnerId?: string) {
-    let sessionResult = await cloudbase.getSharedSession()
-    if (!sessionResult.session) {
-      await useYunleSession().refresh()
-      sessionResult = await cloudbase.getSharedSession()
-    }
-
+    const sessionResult = await cloudbase.getSharedSession()
     const ownerId = getSessionOwnerId(sessionResult.session)
     if (expectedOwnerId && ownerId !== expectedOwnerId)
       throw new CloudSyncUnauthorizedError('登录账号已变化，请重试')

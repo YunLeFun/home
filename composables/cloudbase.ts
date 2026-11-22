@@ -13,6 +13,7 @@ interface CloudBaseSessionResult {
   error: string | null
 }
 
+let pendingApp: Promise<CloudBaseApp> | null = null
 let cachedAuth: CloudBaseAuth | null = null
 let cachedDatabase: CloudBaseDatabase | null = null
 let cachedConfigKey = ''
@@ -39,46 +40,60 @@ export function useCloudBaseClient() {
 
   const isConfigured = computed(() => cloudbaseConfig.value.configured)
 
-  async function getAuth() {
-    if (typeof window === 'undefined' || !isConfigured.value)
-      return null
+  // v3 persists OAuth credentials under this environment-specific key. Presence
+  // only hints that a session exists. The SDK still validates and renews it.
+  const credentialsKey = computed(() => `credentials_${cloudbaseConfig.value.envId}`)
 
-    const activeConfig = cloudbaseConfig.value
-    const configKey = `${activeConfig.envId}:${activeConfig.region}:${activeConfig.accessKey}`
-    if (cachedAuth && cachedConfigKey === configKey)
+  function hasStoredSession() {
+    try {
+      return Boolean(window.localStorage.getItem(credentialsKey.value))
+    }
+    catch {
+      return false
+    }
+  }
+
+  async function getAuth(reason: 'restore' | 'sso' = 'restore') {
+    if (!import.meta.client || !isConfigured.value)
+      return null
+    const { envId, region, accessKey } = cloudbaseConfig.value
+    const configKey = `${envId}:${region}:${accessKey}`
+    if (configKey !== cachedConfigKey) {
+      pendingApp = null
+      cachedAuth = null
+      cachedDatabase = null
+      cachedConfigKey = configKey
+    }
+    if (cachedAuth)
       return cachedAuth
-
-    const sdk = nuxtApp.$cloudbaseSdk as CloudBaseSdk | undefined
-    if (!sdk)
+    if (!pendingApp && reason === 'restore' && !hasStoredSession())
       return null
-
-    const app = sdk.init({
-      env: activeConfig.envId,
-      region: activeConfig.region,
-      accessKey: activeConfig.accessKey,
-      auth: {
-        detectSessionInUrl: false,
-      },
-    })
-    cachedAuth = app.auth({ persistence: 'local' })
-    cachedDatabase = app.database()
-    cachedConfigKey = configKey
-
+    pendingApp ??= nuxtApp.$loadCloudbaseAuth()
+      .then(sdk => sdk.init({ env: envId, region, accessKey, auth: { detectSessionInUrl: false } }))
+      .catch((error) => {
+        pendingApp = null
+        throw error
+      })
+    const app = await pendingApp
+    cachedAuth ??= app.auth({ persistence: 'local' })
     return cachedAuth
   }
 
   async function getDatabase() {
-    const auth = await getAuth()
-    if (!auth || !cachedDatabase)
+    if (!await getAuth() || !pendingApp)
       return null
-
+    if (!cachedDatabase) {
+      const app = await pendingApp
+      await nuxtApp.$loadCloudbaseDatabase()
+      cachedDatabase ??= app.database()
+    }
     return cachedDatabase
   }
 
   async function getSharedSession(): Promise<CloudBaseSessionResult> {
     const auth = await getAuth()
     if (!auth)
-      return { session: null, error: isConfigured.value ? 'cloudbase_client_unavailable' : 'cloudbase_not_configured' }
+      return { session: null, error: isConfigured.value ? null : 'cloudbase_not_configured' }
 
     const result = await auth.getSession()
     if (result.error)
@@ -93,6 +108,7 @@ export function useCloudBaseClient() {
 
   return {
     config: cloudbaseConfig,
+    credentialsKey,
     isConfigured,
     getAuth,
     getDatabase,
