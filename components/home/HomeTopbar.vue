@@ -53,7 +53,7 @@ onMounted(refresh)
 </script>
 
 <template>
-  <header class="home-topbar">
+  <header class="home-topbar" :class="{ 'is-editing': editMode }">
     <NuxtLink class="home-brand" to="/" :aria-label="`${appName}首页`">
       <img class="home-brand__mark" src="/brand-mark.svg" alt="">
       <span><strong>{{ appName }}</strong><small>可编辑智能家园</small></span>
@@ -148,12 +148,29 @@ onMounted(refresh)
 .home-avatar.is-pending { opacity: 0.65; }
 @keyframes sync-pulse { 50% { opacity: 0.35; transform: scale(0.78); } }
 @media (max-width: 840px) {
-  .home-topbar { grid-template-columns: 1fr auto; min-height: 68px; padding: 10px 14px; }
-  .home-template-select { grid-row: 2; grid-column: 1 / -1; width: 100%; }
+  .home-topbar { grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; min-height: 60px; padding: 8px 12px; }
+  .home-template-select { justify-self: start; min-width: 0; width: max-content; max-width: 100%; gap: 4px; padding: 7px 8px; border-radius: 10px; }
+  .home-template-select select { width: auto; min-width: 0; min-height: 22px; }
+  .home-template-select > span:first-child { display: none; }
+  .home-topbar__actions { gap: 5px; }
   .home-brand small, .home-sync, .home-avatar { display: none; }
   .home-edit-button { padding: 0 11px; }
   .home-market-link__text { display: none; }
   .home-market-link { width: 38px; padding: 0; justify-content: center; }
 }
-@media (max-width: 420px) { .home-edit-button { width: 38px; padding: 0; justify-content: center; font-size: 0; } .home-edit-button span { font-size: 16px; } .home-brand__mark { width: 38px; height: 38px; } }
+@media (max-width: 480px) {
+  .home-topbar { gap: 6px; padding-inline: 8px; }
+  .home-brand { gap: 5px; }
+  .home-brand strong { font-size: 14px; white-space: nowrap; }
+  .home-topbar.is-editing .home-brand > span { display: none; }
+  .home-history button { width: 27px; }
+  .home-edit-button { width: 38px; padding: 0; justify-content: center; font-size: 0; }
+  .home-edit-button span { font-size: 16px; }
+  .home-brand__mark { width: 32px; height: 32px; }
+}
+@media (max-width: 350px) {
+  .home-brand > span { display: none; }
+  .home-topbar.is-editing { gap: 4px; }
+  .home-topbar.is-editing .home-topbar__actions { gap: 2px; }
+}
 </style>
