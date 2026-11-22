@@ -1,7 +1,7 @@
 {
   "private": true,
   "type": "module",
-  "packageManager": "pnpm@11.13.1",
+  "packageManager": "pnpm@12.21.0",
   "engines": {
     "node": ">=24.11.0 <25"
   },
@@ -30,38 +30,38 @@
     "scene:posters": "node scripts/export-scene-posters.mjs"
   },
   "dependencies": {
-    "@cloudbase/js-sdk": "^3.10.2",
-    "@nuxtjs/color-mode": "^4.0.1",
+    "@cloudbase/js-sdk": "^3.11.1",
+    "@nuxtjs/color-mode": "^4.1.0",
     "@pinia/nuxt": "^1.0.3",
-    "@unocss/nuxt": "^66.11.0",
-    "@vite-pwa/nuxt": "^1.1.1",
+    "@unocss/nuxt": "^66.13.0",
+    "@vite-pwa/nuxt": "^2.0.3",
     "@vueuse/nuxt": "^15.0.0",
-    "@yunlefun-home/air-conditioner": "^0.3.0",
-    "@yunlefun-home/air-conditioner-core": "^0.3.0",
-    "@yunlefun/sso": "^0.6.2",
+    "@yunlefun-home/air-conditioner": "^0.4.3",
+    "@yunlefun-home/air-conditioner-core": "^0.4.3",
+    "@yunlefun/sso": "^0.7.0",
     "@yunlefun/ui": "^0.0.7",
-    "home-assistant-js-websocket": "^9.7.1",
-    "nuxt": "^4.6.1",
+    "home-assistant-js-websocket": "^9.9.0",
+    "nuxt": "^4.6.4",
     "pinia": "^4.1.0",
-    "three": "^0.186.1",
-    "vue": "3.5.44",
-    "vue-router": "5.4.0"
+    "three": "^0.187.0",
+    "vue": "3.5.46",
+    "vue-router": "5.5.1"
   },
   "devDependencies": {
-    "@iconify-json/carbon": "^1.2.28",
+    "@iconify-json/carbon": "^1.2.30",
     "@iconify-json/ri": "^1.2.10",
     "@iconify-json/twemoji": "^1.2.5",
     "@nuxt/eslint": "^1.17.0",
     "@types/node": "^24.19.2",
-    "@types/three": "^0.186.0",
-    "eslint": "^10.13.0",
-    "oxc-parser": "^0.154.0",
-    "playwright-core": "^1.64.1",
-    "sass": "^1.105.2",
+    "@types/three": "^0.187.0",
+    "eslint": "^10.15.0",
+    "oxc-parser": "^0.159.0",
+    "playwright-core": "^1.65.1",
+    "sass": "^1.108.2",
     "typescript": "^6.0.3",
-    "unocss": "^66.11.0",
-    "vitest": "^5.0.5",
-    "vue-tsc": "^3.3.13",
-    "wrangler": "^4.151.1"
+    "unocss": "^66.13.0",
+    "vitest": "^5.1.1",
+    "vue-tsc": "^3.3.14",
+    "wrangler": "^4.166.0"
   }
 }

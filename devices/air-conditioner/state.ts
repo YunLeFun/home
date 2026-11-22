@@ -20,9 +20,9 @@ export function capabilitiesToLimits(capabilities: AcCapabilities): AcLimits {
   }
 }
 
-// Home has no sound mode; core requires one, so add it on the way in and drop it on the way out.
+// Core supplies default values for options Home does not persist.
 function toCoreState(state: AirConditionerState): AcState {
-  return { ...state, sound: defaultAcState.sound }
+  return { ...defaultAcState, ...state }
 }
 
 function fromCoreState(state: AcState): AirConditionerState {

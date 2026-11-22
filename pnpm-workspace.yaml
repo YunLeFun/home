@@ -1,23 +1,23 @@
 packages:
   - .
 
-nodeVersion: 24.18.0
+nodeVersion: 24.22.3
 engineStrict: true
+strictPeerDependencies: true
+shellEmulator: true
 
 overrides:
   brace-expansion@>=4.0.0 <5.0.12: ^5.0.12
-  fast-uri: 3.1.8
+  fast-uri@<3.1.9: ^3.1.9
+  readdir-glob@3.0.0>minimatch: ^11.0.9
   tar@<=7.5.20: ^7.5.21
-  vue: 3.5.44
-  vue-router: 5.4.0
+  vue: 3.5.46
+  vue-router: 5.5.1
 
-# Advisories with no patched release that only reach build tooling: nuxt ->
-# nitropack -> listhen (self-signed dev certificates) and -> globby (build-time
-# file matching). Neither ships in .output or handles user input. Remove each
-# entry once a fixed version is released and nitropack picks it up.
+# The remaining advisory reaches Nuxt's build-time file matching through Nitro.
+# Remove the exception once Nitro picks up a patched release.
 auditConfig:
   ignoreGhsas:
-    - GHSA-86w9-cpqp-85rv # node-forge <=1.4.0, RSA PKCS#1 v1.5 signature verification
     - GHSA-vfj7-8cjw-p6xm # braces <=3.0.3, deeply nested pattern DoS
 
 allowBuilds:
@@ -29,7 +29,5 @@ allowBuilds:
   workerd: true
 
 minimumReleaseAgeExclude:
-  - '@yunlefun-home/air-conditioner-core@0.3.0'
-  - '@yunlefun-home/air-conditioner@0.3.0'
   - tar@7.5.21
   - '@yunlefun/ui@0.0.7'

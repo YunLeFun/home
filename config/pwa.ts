@@ -3,7 +3,7 @@ import { appDescription, appName } from '../constants/index'
 
 const scope = '/'
 
-export const pwa: ModuleOptions = {
+export const pwa = {
   registerType: 'autoUpdate',
   scope,
   base: scope,
@@ -35,7 +35,7 @@ export const pwa: ModuleOptions = {
       },
     ],
   },
-  workbox: {
+  generateSW: {
     globPatterns: ['**/*.{js,css,html,txt,png,ico,svg}'],
     navigateFallback: null,
     cleanupOutdatedCaches: true,
@@ -45,4 +45,4 @@ export const pwa: ModuleOptions = {
   devOptions: {
     enabled: process.env.VITE_PLUGIN_PWA === 'true',
   },
-}
+} satisfies Partial<ModuleOptions>

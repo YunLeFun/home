@@ -1,7 +1,7 @@
 {
   "name": "yun-home",
-  "nodeVersion": "24.5.0",
-  "installCommand": "npm i -g pnpm@11.13.1 --force && pnpm install --frozen-lockfile",
+  "nodeVersion": "24.18.0",
+  "installCommand": "npm i -g pnpm@12.21.0 --force && pnpm install --frozen-lockfile",
   "buildCommand": "pnpm build",
   "cloudFunctions": {
     "mainlandRegions": ["ap-shanghai"]
